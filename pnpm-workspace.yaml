@@ -1,3 +1,8 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "tooling/*"
+  - "evals"
+
+# Supply chain (spec §2, §17): never resolve a version published less than 14 days ago.
+minimumReleaseAge: 20160

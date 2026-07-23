@@ -1,0 +1,25 @@
+{
+  "name": "@illus/eslint-config",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared ESLint flat config for @illus/* packages: TypeScript rules, package boundaries (spec §4), DOM-free guards.",
+  "exports": {
+    ".": "./index.js"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  },
+  "dependencies": {
+    "eslint-plugin-boundaries": "7.2.0",
+    "typescript-eslint": "8.70.1"
+  },
+  "devDependencies": {
+    "eslint": "10.11.0",
+    "typescript": "5.9.3"
+  },
+  "peerDependencies": {
+    "eslint": "10.11.0",
+    "typescript": "5.9.3"
+  }
+}

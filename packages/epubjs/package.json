@@ -10,7 +10,7 @@
     "test": "test"
   },
   "scripts": {
-    "test": "karma start --single-run --browsers ChromeHeadlessNoSandbox",
+    "test:karma": "karma start --single-run --browsers ChromeHeadlessNoSandbox",
     "docs": "documentation build src/epub.js -f html -o documentation/html/",
     "docs:html": "documentation build src/epub.js -f html -o documentation/html/",
     "docs:md": "documentation build src/epub.js -f md -o documentation/md/API.md",
