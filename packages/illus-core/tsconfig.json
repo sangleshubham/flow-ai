@@ -1,4 +1,4 @@
 {
   "extends": "../../tsconfig.illus.json",
-  "include": ["src", "test", "scripts", "*.ts"]
+  "include": ["src", "test"]
 }
