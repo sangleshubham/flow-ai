@@ -1,0 +1,26 @@
+{
+  "name": "@illus/llm",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Typed LLM client for `/api/llm`: prompt registry, role configs, retries, abort, record/replay.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@illus/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@illus/eslint-config": "workspace:*",
+    "eslint": "10.11.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}
