@@ -7,6 +7,16 @@
     "lint": {
       "outputs": []
     },
+    "typecheck": {
+      "outputs": []
+    },
+    "test": {
+      "outputs": []
+    },
+    "e2e": {
+      "outputs": ["playwright-report/**", "test-results/**"],
+      "cache": false
+    },
     "dev": {}
   }
 }

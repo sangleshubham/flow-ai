@@ -1,23 +1,30 @@
 {
   "name": "@flow/monorepo",
   "private": true,
-  "packageManager": "pnpm@10.6.4+sha512.da3d715bfd22a9a105e6e8088cfc7826699332ded60c423b14ec613a185f1602206702ff0fe4c438cb15c979081ce4cb02568e364b15174503a63c7a8e2a5f6c",
+  "packageManager": "pnpm@10.34.5",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
     "lint": "turbo run lint",
     "release": "pnpm -r publish --access public",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "e2e": "turbo run e2e",
+    "eval": "node -e \"console.error('pnpm eval runs live model calls; the harness is implemented by W10 in evals/ and is run by Shubham only.'); process.exit(1)\"",
+    "contracts": "pnpm --filter @illus/core contracts",
+    "fixtures:epub": "node fixtures/scripts/make-synthetic-epub.ts"
   },
   "lint-staged": {
     "*.{js,json,css,ts,tsx,md,mdx}": "prettier --write",
     "!(pnpm-lock).{yml,yaml}": "prettier --write",
-    "*.{js,ts,tsx}": "eslint --fix"
+    "{apps,packages/internal,packages/epubjs}/**/*.{js,ts,tsx}": "eslint --fix"
   },
   "devDependencies": {
     "@changesets/changelog-github": "0.4.4",
     "@changesets/cli": "2.22.0",
     "@typescript-eslint/eslint-plugin": "5.19.0",
+    "@typescript-eslint/parser": "5.10.1",
     "cross-env": "7.0.3",
     "eslint": "8.13.0",
     "eslint-config-next": "12.1.5",
@@ -25,6 +32,7 @@
     "eslint-plugin-react": "7.29.4",
     "esno": "0.14.1",
     "husky": "7.0.4",
+    "jszip": "3.10.1",
     "lint-staged": "12.3.7",
     "prettier": "2.6.2",
     "prettier-plugin-tailwindcss": "0.1.8",
@@ -37,6 +45,6 @@
     "typescript": "4.6.3"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=24.0.0"
   }
 }

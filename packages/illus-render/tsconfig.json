@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.illus.json",
+  "compilerOptions": {
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "src",
+    "test",
+    "*.ts"
+  ]
+}
