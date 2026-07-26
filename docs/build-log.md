@@ -24,3 +24,7 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
   - W4: render Vega via `vega-interpreter` once approved
   - W7: Pyodide worker CSP comes from its own response headers
   - `.claude/worktrees/` is not gitignored (W0 to add on next amend)
+
+## Checkpoint after wave 0 — 2026-10-09
+- Approved by Shubham: contracts v1.0 frozen (incl. ADR 0003); ADR 0001 CSP exceptions; `vega-interpreter` 2.3.2 added to §19; tooling deps (`typedoc-plugin-markdown`, jsdom, `@testing-library/dom`, `@types/node`); ADR 0004 out-of-ownership edits and audit baseline.
+- Deferred to before wave 2: Dropbox sync / remote-URL import, Next.js 12 advisories (ADR 0005), Flow's Sentry config.
