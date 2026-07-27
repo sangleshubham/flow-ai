@@ -23,8 +23,8 @@ const QUOTES: Record<string, string> = {
   '»': '"', // »
 }
 const DASHES = /[‐-―−⁃﹘﹣－]/g
-/** Soft hyphen plus invisible zero-width characters: dropped entirely. */
-const INVISIBLE = /^[­​‌‍⁠﻿]+$/
+/** Soft hyphen plus invisible zero-width characters: dropped wherever they occur, even inside a cluster. */
+const INVISIBLE = /[\u00AD\u200B\u200C\u200D\u2060\uFEFF]/
 /** A base character with its combining marks, or a run of stray marks; NFKC is applied per cluster. */
 const CLUSTER = /\P{M}\p{M}*|\p{M}+/gu
 
@@ -42,10 +42,19 @@ export function normalizeText(input: string): Normalized {
   const end: number[] = []
   let space: [number, number] | null = null
 
-  for (const m of input.matchAll(CLUSTER)) {
-    const cs = m.index
-    const ce = cs + m[0].length
-    if (INVISIBLE.test(m[0])) continue
+  // Drop invisible characters first (keeping each remaining unit's original index), so a base letter and
+  // a combining mark separated by a soft hyphen still compose.
+  let visible = ''
+  const at: number[] = []
+  for (let i = 0; i < input.length; i++) {
+    if (INVISIBLE.test(input[i]!)) continue
+    visible += input[i]
+    at.push(i)
+  }
+
+  for (const m of visible.matchAll(CLUSTER)) {
+    const cs = at[m.index]!
+    const ce = at[m.index + m[0].length - 1]! + 1
     const out = unify(m[0].normalize('NFKC').toLowerCase())
     if (out.trim() === '') {
       space = space ? [space[0], ce] : [cs, ce]
