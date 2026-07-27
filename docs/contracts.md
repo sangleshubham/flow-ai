@@ -8182,6 +8182,20 @@ Newest first.
 
 ***
 
+#### Normalized
+
+Normalised text plus, for each UTF-16 unit `i` of `text`, the original range `[start[i], end[i])`.
+
+##### Properties
+
+| Property | Type |
+| ------ | ------ |
+| <a id="property-end"></a> `end` | `number`[] |
+| <a id="property-start"></a> `start` | `number`[] |
+| <a id="property-text"></a> `text` | `string` |
+
+***
+
 #### ParsedSectionId
 
 ##### Properties
@@ -8485,6 +8499,19 @@ put(value): Promise<void>;
 
 ***
 
+#### QuoteMatch
+
+##### Properties
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-end-1"></a> `end` | `number` | - |
+| <a id="property-fuzzy"></a> `fuzzy` | `boolean` | - |
+| <a id="property-similarity"></a> `similarity` | `number` | 1 for exact matches, else the Levenshtein similarity. |
+| <a id="property-start-1"></a> `start` | `number` | Offsets into the original (un-normalised) text. |
+
+***
+
 #### ReaderBridge
 
 All contact with Flow and epub.js (§14). Implemented by `@illus/reader-bridge`.
@@ -8703,7 +8730,7 @@ scrollTo(cfi): Promise<void>;
 | ------ | ------ |
 | <a id="property-blockids"></a> `blockIds` | `string`[] |
 | <a id="property-cfirange"></a> `cfiRange` | `string` |
-| <a id="property-text"></a> `text` | `string` |
+| <a id="property-text-1"></a> `text` | `string` |
 
 ***
 
@@ -12505,6 +12532,16 @@ keyed by `Target` string (or pointer name / container id) so frames stay JSON-se
 
 ***
 
+#### FUZZY\_THRESHOLD
+
+```ts
+const FUZZY_THRESHOLD: 0.9 = 0.9;
+```
+
+Minimum normalised Levenshtein similarity for a fuzzy match (§16 step 4).
+
+***
+
 #### GlossaryOutput
 
 ```ts
@@ -12670,6 +12707,19 @@ const GraphNodeShape: ZodEnum<{
   store: "store";
 }>;
 ```
+
+***
+
+#### ground
+
+```ts
+const ground: GroundingFn;
+```
+
+The grounding matcher (§16). Locates an evidence quote in the permitted blocks: exact in the cited block,
+else exact in another permitted block (re-attributed), else fuzzy (similarity ≥ 0.9). Fills `start`/`end`
+(offsets into the block's `text`) and `fuzzy`. A match whose label is not near the quote is
+`half-grounded`; a quote under 3 words or not found is `failed`.
 
 ***
 
@@ -13211,6 +13261,26 @@ const MathTerm: ZodObject<{
   symbol: ZodString;
 }, $strip>;
 ```
+
+***
+
+#### MAX\_DROPPED\_SHARE
+
+```ts
+const MAX_DROPPED_SHARE: 0.3 = 0.3;
+```
+
+Share of dropped elements above which the extractor is re-run once (§8 stage 3 step 3, §16 L2).
+
+***
+
+#### MIN\_QUOTE\_WORDS
+
+```ts
+const MIN_QUOTE_WORDS: 3 = 3;
+```
+
+Quotes shorter than this many words fail (§16 step 6).
 
 ***
 
@@ -16178,6 +16248,116 @@ Record of the `visuals` store (§5), keyed by the visual cache key.
 
 ### Functions
 
+#### addIssues()
+
+```ts
+function addIssues(report, issues): object;
+```
+
+Merges issues from another check into a report (the hook for W6's animation validation, §11, and
+for render checks, §16 L4) and recomputes `ok`.
+
+##### Parameters
+
+| Parameter | Type | Description |
+| ------ | ------ | ------ |
+| `report` | \{ `counts`: \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \}; `dropped`: `string`[]; `escalated`: `boolean`; `groundingScore`: `number`; `issues`: `object`[]; `ok`: `boolean`; `retried`: `boolean`; \} | - |
+| `report.counts` | \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \} | - |
+| `report.counts.dropped` | `number` | - |
+| `report.counts.fuzzy` | `number` | - |
+| `report.counts.grounded` | `number` | - |
+| `report.counts.halfGrounded` | `number` | - |
+| `report.counts.total` | `number` | - |
+| `report.dropped` | `string`[] | Ids of elements removed because their evidence failed or they dangled. |
+| `report.escalated` | `boolean` | The model tier was escalated once (§8, §9). |
+| `report.groundingScore` | `number` | - |
+| `report.issues` | `object`[] | - |
+| `report.ok` | `boolean` | - |
+| `report.retried` | `boolean` | The extractor was re-run once with this report attached (§8 stage 3 step 3). |
+| `issues` | readonly `object`[] | - |
+
+##### Returns
+
+###### counts
+
+```ts
+counts: object;
+```
+
+####### counts.dropped
+
+```ts
+dropped: number;
+```
+
+####### counts.fuzzy
+
+```ts
+fuzzy: number;
+```
+
+####### counts.grounded
+
+```ts
+grounded: number;
+```
+
+####### counts.halfGrounded
+
+```ts
+halfGrounded: number;
+```
+
+####### counts.total
+
+```ts
+total: number;
+```
+
+###### dropped
+
+```ts
+dropped: string[];
+```
+
+Ids of elements removed because their evidence failed or they dangled.
+
+###### escalated
+
+```ts
+escalated: boolean;
+```
+
+The model tier was escalated once (§8, §9).
+
+###### groundingScore
+
+```ts
+groundingScore: number;
+```
+
+###### issues
+
+```ts
+issues: object[];
+```
+
+###### ok
+
+```ts
+ok: boolean;
+```
+
+###### retried
+
+```ts
+retried: boolean;
+```
+
+The extractor was re-run once with this report attached (§8 stage 3 step 3).
+
+***
+
 #### criticPasses()
 
 ```ts
@@ -16420,6 +16600,49 @@ Effort of escalated calls: `deep` tier at `medium`, or `high` for `translator` (
 
 ***
 
+#### findQuote()
+
+```ts
+function findQuote(text, quote): QuoteMatch | null;
+```
+
+Finds a quote in one text after normalising both (§16 steps 1, 2, 4): the first exact occurrence, else
+the best fuzzy window. Offsets refer to the original `text`. Used by `ground()` and by the reader
+bridge's `quoteToCfi` (W9).
+
+##### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `text` | `string` |
+| `quote` | `string` |
+
+##### Returns
+
+[`QuoteMatch`](#quotematch) \| `null`
+
+***
+
+#### groundingScore()
+
+```ts
+function groundingScore(counts): number;
+```
+
+(grounded + 0.5 × half-grounded) / total, or 0 when there is nothing to ground (§16).
+
+##### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `counts` | `Pick`\<[`ValidationReport`](#validationreport)\[`"counts"`\], `"total"` \| `"grounded"` \| `"halfGrounded"`\> |
+
+##### Returns
+
+`number`
+
+***
+
 #### headingSlugPath()
 
 ```ts
@@ -16560,6 +16783,97 @@ A string limited to `max` words (e.g. evidence quotes ≤ 30 words, §5).
 ##### Returns
 
 `ZodString`
+
+***
+
+#### needsReextract()
+
+```ts
+function needsReextract(report): boolean;
+```
+
+§8 stage 3 step 3: more than 30% of elements dropped, or too few left for the intent → re-extract once.
+
+##### Parameters
+
+| Parameter | Type | Description |
+| ------ | ------ | ------ |
+| `report` | \{ `counts`: \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \}; `dropped`: `string`[]; `escalated`: `boolean`; `groundingScore`: `number`; `issues`: `object`[]; `ok`: `boolean`; `retried`: `boolean`; \} | - |
+| `report.counts` | \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \} | - |
+| `report.counts.dropped` | `number` | - |
+| `report.counts.fuzzy` | `number` | - |
+| `report.counts.grounded` | `number` | - |
+| `report.counts.halfGrounded` | `number` | - |
+| `report.counts.total` | `number` | - |
+| `report.dropped` | `string`[] | Ids of elements removed because their evidence failed or they dangled. |
+| `report.escalated` | `boolean` | The model tier was escalated once (§8, §9). |
+| `report.groundingScore` | `number` | - |
+| `report.issues` | `object`[] | - |
+| `report.ok` | `boolean` | - |
+| `report.retried` | `boolean` | The extractor was re-run once with this report attached (§8 stage 3 step 3). |
+
+##### Returns
+
+`boolean`
+
+***
+
+#### normalizeText()
+
+```ts
+function normalizeText(input): Normalized;
+```
+
+NFKC, lowercase, unified quotes and dashes, soft hyphens removed, whitespace runs collapsed to one
+space, trimmed (§16 step 1). Idempotent: `normalizeText(normalizeText(s).text).text === normalizeText(s).text`.
+
+##### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `input` | `string` |
+
+##### Returns
+
+[`Normalized`](#normalized)
+
+***
+
+#### originalRange()
+
+```ts
+function originalRange(
+   n, 
+   from, 
+   to
+): object;
+```
+
+Original `[start, end)` of the normalised range `[from, to)` (to > from).
+
+##### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `n` | [`Normalized`](#normalized) |
+| `from` | `number` |
+| `to` | `number` |
+
+##### Returns
+
+`object`
+
+###### end
+
+```ts
+end: number;
+```
+
+###### start
+
+```ts
+start: number;
+```
 
 ***
 
@@ -16767,6 +17081,60 @@ function traceKey(i): Promise<string>;
 ##### Returns
 
 `Promise`\<`string`\>
+
+***
+
+#### validate()
+
+```ts
+function validate<K>(
+   kind, 
+   ir, 
+   ctx
+): ValidationResult<K extends 
+  | "math"
+  | "html"
+  | "graph"
+  | "sequence"
+  | "state"
+  | "class"
+  | "er"
+  | "template"
+  | "chart"
+| "timeline" ? IrOf<K> : unknown>;
+```
+
+Schema, grounding and structural checks for one IR (§16 L1–L3). Returns the IR after dropping
+ungrounded and dangling elements and applying safe auto-fixes, plus the report. `report.ok` is false
+when any error remains (the caller then runs `repair` once, §16). Never throws on bad input.
+
+##### Type Parameters
+
+| Type Parameter |
+| ------ |
+| `K` *extends* \| `"math"` \| `"html"` \| `"graph"` \| `"sequence"` \| `"state"` \| `"class"` \| `"er"` \| `"template"` \| `"chart"` \| `"trace"` \| `"timeline"` |
+
+##### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `kind` | `K` |
+| `ir` | `unknown` |
+| `ctx` | [`ValidationContext`](#validationcontext) |
+
+##### Returns
+
+[`ValidationResult`](#validationresult)\<`K` *extends* 
+  \| `"math"`
+  \| `"html"`
+  \| `"graph"`
+  \| `"sequence"`
+  \| `"state"`
+  \| `"class"`
+  \| `"er"`
+  \| `"template"`
+  \| `"chart"`
+  \| `"timeline"` ? [`IrOf`](#irof)\<`K`\> : `unknown`\>
 
 ***
 
