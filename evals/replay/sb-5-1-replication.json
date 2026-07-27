@@ -1,0 +1,174 @@
+{
+  "caseId": "sb-5-1-replication",
+  "source": "handwritten",
+  "blocks": [
+    {
+      "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b0",
+      "kind": "paragraph",
+      "text": "The leader accepts client requests and appends each command to its log as a new entry."
+    },
+    {
+      "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b1",
+      "kind": "paragraph",
+      "text": "The leader then sends AppendEntries messages to every follower in parallel."
+    },
+    {
+      "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b2",
+      "kind": "paragraph",
+      "text": "A follower appends the entries to its own log and replies to the leader with a success flag."
+    },
+    {
+      "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b3",
+      "kind": "paragraph",
+      "text": "A server is always in one of three states: follower, candidate or leader. A follower that hears no heartbeat becomes a candidate and starts an election. A candidate that receives votes from a majority becomes the leader."
+    },
+    {
+      "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b4",
+      "kind": "paragraph",
+      "text": "Each log entry stores a term number and a command, and every server stores many log entries."
+    }
+  ],
+  "aliases": {
+    "leader": [
+      "leader server"
+    ]
+  },
+  "planAttempts": [
+    {
+      "sectionId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1",
+      "needsVisual": true,
+      "reason": "The section explains a structure or process.",
+      "items": [
+        {
+          "planItemId": "p1",
+          "conceptIds": [],
+          "priority": 1,
+          "animate": true,
+          "kind": "sequence",
+          "intent": "Show one replication round between client, leader and follower"
+        }
+      ]
+    }
+  ],
+  "visuals": [
+    {
+      "planItemId": "p1",
+      "kind": "sequence",
+      "attempts": [
+        {
+          "type": "sequence",
+          "title": "One replication round",
+          "participants": [
+            {
+              "id": "client",
+              "label": "Client",
+              "evidence": {
+                "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b0",
+                "quote": "The leader accepts client requests"
+              }
+            },
+            {
+              "id": "leader",
+              "label": "Leader",
+              "evidence": {
+                "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b0",
+                "quote": "The leader accepts client requests"
+              }
+            },
+            {
+              "id": "follower",
+              "label": "Follower",
+              "evidence": {
+                "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b1",
+                "quote": "sends AppendEntries messages to every follower in parallel"
+              }
+            }
+          ],
+          "messages": [
+            {
+              "id": "m1",
+              "from": "client",
+              "to": "leader",
+              "label": "request",
+              "kind": "sync",
+              "evidence": {
+                "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b0",
+                "quote": "The leader accepts client requests"
+              }
+            },
+            {
+              "id": "m2",
+              "from": "leader",
+              "to": "follower",
+              "label": "AppendEntries",
+              "kind": "async",
+              "evidence": {
+                "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b1",
+                "quote": "sends AppendEntries messages to every follower in parallel"
+              }
+            },
+            {
+              "id": "m3",
+              "from": "follower",
+              "to": "leader",
+              "label": "success",
+              "kind": "reply",
+              "evidence": {
+                "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b2",
+                "quote": "replies to the leader with a success flag"
+              }
+            },
+            {
+              "id": "m4",
+              "from": "leader",
+              "to": "follower",
+              "label": "heartbeat",
+              "kind": "async",
+              "evidence": {
+                "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b1",
+                "quote": "the leader sends periodic heartbeat messages"
+              }
+            }
+          ]
+        }
+      ],
+      "critic": {
+        "pass": true,
+        "scores": {
+          "legibility": 4,
+          "intentMatch": 4,
+          "clutter": 4
+        },
+        "issues": []
+      }
+    }
+  ],
+  "calls": [
+    {
+      "role": "planner",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 3100,
+      "outputTokens": 170,
+      "latencyMs": 3300
+    },
+    {
+      "role": "extractor.mermaid",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 3600,
+      "outputTokens": 800,
+      "latencyMs": 5600
+    },
+    {
+      "role": "critic",
+      "model": "gpt-6.1-sol",
+      "effort": "low",
+      "inputTokens": 2000,
+      "outputTokens": 130,
+      "latencyMs": 2700
+    }
+  ],
+  "path": "static",
+  "latencyMs": 12100
+}

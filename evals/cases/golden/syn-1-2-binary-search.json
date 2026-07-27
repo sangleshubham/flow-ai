@@ -1,0 +1,18 @@
+{
+  "id": "syn-1-2-binary-search",
+  "category": "algorithmic",
+  "bookRef": "synthetic",
+  "sectionId": "c911e05c7aff3525:1:chapter-1-basics/1-2-code:2",
+  "title": "1.2 Code",
+  "expected": {
+    "needsVisual": true,
+    "acceptableKinds": [
+      "trace",
+      "template"
+    ],
+    "mustInclude": [],
+    "mustNotInclude": []
+  },
+  "notes": "The book gives no input, so no expected return value.",
+  "source": "golden"
+}

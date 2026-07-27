@@ -1,0 +1,149 @@
+{
+  "caseId": "mini-bst",
+  "source": "handwritten",
+  "blocks": [
+    {
+      "blockId": "e7a1e7a1e7a1e7a1:1:2-binary-search-trees:0#b0",
+      "kind": "paragraph",
+      "text": "In a binary search tree, every key in the left subtree of a node is smaller than the node's key, and every key in the right subtree is larger."
+    },
+    {
+      "blockId": "e7a1e7a1e7a1e7a1:1:2-binary-search-trees:0#b1",
+      "kind": "paragraph",
+      "text": "Inserting the keys 8, 3, 10, 1 and 6 in that order makes 8 the root. The key 3 becomes the left child of 8 and 10 becomes its right child. The key 1 becomes the left child of 3, and 6 becomes the right child of 3."
+    }
+  ],
+  "planAttempts": [
+    {
+      "sectionId": "e7a1e7a1e7a1e7a1:1:2-binary-search-trees:0",
+      "needsVisual": true,
+      "reason": "The section explains a structure or process.",
+      "items": [
+        {
+          "planItemId": "p1",
+          "conceptIds": [],
+          "priority": 1,
+          "animate": false,
+          "kind": "template",
+          "templateId": "tree",
+          "intent": "Show the tree after inserting 8, 3, 10, 1 and 6"
+        }
+      ]
+    }
+  ],
+  "visuals": [
+    {
+      "planItemId": "p1",
+      "kind": "template",
+      "attempts": [
+        {
+          "type": "template",
+          "templateId": "tree",
+          "props": {
+            "root": "n8",
+            "nodes": [
+              {
+                "id": "n8",
+                "key": 8,
+                "left": "n3",
+                "right": "n10"
+              },
+              {
+                "id": "n3",
+                "key": 3,
+                "left": "n1",
+                "right": "n6"
+              },
+              {
+                "id": "n10",
+                "key": 10
+              },
+              {
+                "id": "n1",
+                "key": 1
+              },
+              {
+                "id": "n6",
+                "key": 6
+              }
+            ]
+          },
+          "evidence": [
+            {
+              "path": "nodes.0",
+              "evidence": {
+                "blockId": "e7a1e7a1e7a1e7a1:1:2-binary-search-trees:0#b1",
+                "quote": "makes 8 the root"
+              }
+            },
+            {
+              "path": "nodes.1",
+              "evidence": {
+                "blockId": "e7a1e7a1e7a1e7a1:1:2-binary-search-trees:0#b1",
+                "quote": "The key 3 becomes the left child of 8"
+              }
+            },
+            {
+              "path": "nodes.2",
+              "evidence": {
+                "blockId": "e7a1e7a1e7a1e7a1:1:2-binary-search-trees:0#b1",
+                "quote": "10 becomes its right child"
+              }
+            },
+            {
+              "path": "nodes.3",
+              "evidence": {
+                "blockId": "e7a1e7a1e7a1e7a1:1:2-binary-search-trees:0#b1",
+                "quote": "The key 1 becomes the left child of 3"
+              }
+            },
+            {
+              "path": "nodes.4",
+              "evidence": {
+                "blockId": "e7a1e7a1e7a1e7a1:1:2-binary-search-trees:0#b1",
+                "quote": "6 becomes the right child of 3"
+              }
+            }
+          ]
+        }
+      ],
+      "critic": {
+        "pass": true,
+        "scores": {
+          "legibility": 4,
+          "intentMatch": 4,
+          "clutter": 4
+        },
+        "issues": []
+      }
+    }
+  ],
+  "calls": [
+    {
+      "role": "planner",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 1600,
+      "outputTokens": 140,
+      "latencyMs": 2700
+    },
+    {
+      "role": "extractor.template",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 3000,
+      "outputTokens": 600,
+      "latencyMs": 4800
+    },
+    {
+      "role": "critic",
+      "model": "gpt-6.1-sol",
+      "effort": "low",
+      "inputTokens": 1800,
+      "outputTokens": 110,
+      "latencyMs": 2300
+    }
+  ],
+  "path": "static",
+  "latencyMs": 10200
+}

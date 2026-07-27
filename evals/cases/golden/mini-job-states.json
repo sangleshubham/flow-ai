@@ -1,0 +1,23 @@
+{
+  "id": "mini-job-states",
+  "category": "state",
+  "bookRef": "eval-mini",
+  "sectionId": "e7a1e7a1e7a1e7a1:3:4-job-lifecycle:0",
+  "title": "4 Job Lifecycle",
+  "expected": {
+    "needsVisual": true,
+    "acceptableKinds": [
+      "state"
+    ],
+    "mustInclude": [
+      "queued",
+      "running",
+      "done",
+      "failed"
+    ],
+    "mustNotInclude": [
+      "cancelled"
+    ]
+  },
+  "source": "golden"
+}

@@ -11,7 +11,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "e2e": "turbo run e2e",
-    "eval": "node -e \"console.error('pnpm eval runs live model calls; the harness is implemented by W10 in evals/ and is run by Shubham only.'); process.exit(1)\"",
+    "eval": "pnpm --filter @illus/evals eval",
     "contracts": "pnpm --filter @illus/core contracts",
     "fixtures:epub": "node fixtures/scripts/make-synthetic-epub.ts"
   },

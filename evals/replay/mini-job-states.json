@@ -1,0 +1,162 @@
+{
+  "caseId": "mini-job-states",
+  "source": "handwritten",
+  "blocks": [
+    {
+      "blockId": "e7a1e7a1e7a1e7a1:3:4-job-lifecycle:0#b0",
+      "kind": "paragraph",
+      "text": "A job starts in the queued state. When a worker picks it up, the job moves to running."
+    },
+    {
+      "blockId": "e7a1e7a1e7a1e7a1:3:4-job-lifecycle:0#b1",
+      "kind": "paragraph",
+      "text": "A running job that finishes moves to done. A running job that raises an error moves to failed. Retrying a failed job moves it back to queued."
+    }
+  ],
+  "planAttempts": [
+    {
+      "sectionId": "e7a1e7a1e7a1e7a1:3:4-job-lifecycle:0",
+      "needsVisual": true,
+      "reason": "The section explains a structure or process.",
+      "items": [
+        {
+          "planItemId": "p1",
+          "conceptIds": [],
+          "priority": 1,
+          "animate": false,
+          "kind": "state",
+          "intent": "Show the job lifecycle and its transitions"
+        }
+      ]
+    }
+  ],
+  "visuals": [
+    {
+      "planItemId": "p1",
+      "kind": "state",
+      "attempts": [
+        {
+          "type": "state",
+          "title": "Job lifecycle",
+          "initial": "queued",
+          "final": [
+            "done"
+          ],
+          "states": [
+            {
+              "id": "queued",
+              "label": "Queued",
+              "evidence": {
+                "blockId": "e7a1e7a1e7a1e7a1:3:4-job-lifecycle:0#b0",
+                "quote": "A job starts in the queued state"
+              }
+            },
+            {
+              "id": "running",
+              "label": "Running",
+              "evidence": {
+                "blockId": "e7a1e7a1e7a1e7a1:3:4-job-lifecycle:0#b0",
+                "quote": "the job moves to running"
+              }
+            },
+            {
+              "id": "done",
+              "label": "Done",
+              "evidence": {
+                "blockId": "e7a1e7a1e7a1e7a1:3:4-job-lifecycle:0#b1",
+                "quote": "A running job that finishes moves to done"
+              }
+            },
+            {
+              "id": "failed",
+              "label": "Failed",
+              "evidence": {
+                "blockId": "e7a1e7a1e7a1e7a1:3:4-job-lifecycle:0#b1",
+                "quote": "raises an error moves to failed"
+              }
+            }
+          ],
+          "transitions": [
+            {
+              "id": "t1",
+              "from": "queued",
+              "to": "running",
+              "event": "worker picks it up",
+              "evidence": {
+                "blockId": "e7a1e7a1e7a1e7a1:3:4-job-lifecycle:0#b0",
+                "quote": "When a worker picks it up, the job moves to running"
+              }
+            },
+            {
+              "id": "t2",
+              "from": "running",
+              "to": "done",
+              "event": "finishes",
+              "evidence": {
+                "blockId": "e7a1e7a1e7a1e7a1:3:4-job-lifecycle:0#b1",
+                "quote": "A running job that finishes moves to done"
+              }
+            },
+            {
+              "id": "t3",
+              "from": "running",
+              "to": "failed",
+              "event": "raises an error",
+              "evidence": {
+                "blockId": "e7a1e7a1e7a1e7a1:3:4-job-lifecycle:0#b1",
+                "quote": "A running job that raises an error moves to failed"
+              }
+            },
+            {
+              "id": "t4",
+              "from": "failed",
+              "to": "queued",
+              "event": "retry",
+              "evidence": {
+                "blockId": "e7a1e7a1e7a1e7a1:3:4-job-lifecycle:0#b1",
+                "quote": "Retrying a failed job moves it back to queued"
+              }
+            }
+          ]
+        }
+      ],
+      "critic": {
+        "pass": true,
+        "scores": {
+          "legibility": 4,
+          "intentMatch": 4,
+          "clutter": 4
+        },
+        "issues": []
+      }
+    }
+  ],
+  "calls": [
+    {
+      "role": "planner",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 1500,
+      "outputTokens": 130,
+      "latencyMs": 2400
+    },
+    {
+      "role": "extractor.mermaid",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 2400,
+      "outputTokens": 700,
+      "latencyMs": 5000
+    },
+    {
+      "role": "critic",
+      "model": "gpt-6.1-sol",
+      "effort": "low",
+      "inputTokens": 1900,
+      "outputTokens": 120,
+      "latencyMs": 2500
+    }
+  ],
+  "path": "static",
+  "latencyMs": 10400
+}
