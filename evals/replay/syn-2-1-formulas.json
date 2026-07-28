@@ -1,0 +1,105 @@
+{
+  "caseId": "syn-2-1-formulas",
+  "source": "handwritten",
+  "blocks": [
+    {
+      "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b0",
+      "kind": "paragraph",
+      "text": "The number of steps of the search in Listing 1.1 is bounded by the formula below."
+    },
+    {
+      "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b1",
+      "kind": "math",
+      "text": "steps = ⌊log2 n⌋ + 1"
+    },
+    {
+      "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b2",
+      "kind": "paragraph",
+      "text": "Here n is the number of items. A quorum needs q > n/2 votes."
+    }
+  ],
+  "planAttempts": [
+    {
+      "sectionId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1",
+      "needsVisual": true,
+      "reason": "The section explains a structure or process.",
+      "items": [
+        {
+          "planItemId": "p1",
+          "conceptIds": [],
+          "priority": 1,
+          "animate": false,
+          "kind": "math",
+          "intent": "Explain the terms of the step bound"
+        }
+      ]
+    }
+  ],
+  "visuals": [
+    {
+      "planItemId": "p1",
+      "kind": "math",
+      "attempts": [
+        {
+          "type": "math",
+          "sourceBlockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b1",
+          "terms": [
+            {
+              "symbol": "n",
+              "meaning": "number of items",
+              "evidence": {
+                "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b2",
+                "quote": "n is the number of items"
+              }
+            },
+            {
+              "symbol": "steps",
+              "meaning": "steps of the search",
+              "evidence": {
+                "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b0",
+                "quote": "The number of steps of the search"
+              }
+            }
+          ]
+        }
+      ],
+      "critic": {
+        "pass": true,
+        "scores": {
+          "legibility": 4,
+          "intentMatch": 4,
+          "clutter": 4
+        },
+        "issues": []
+      }
+    }
+  ],
+  "calls": [
+    {
+      "role": "planner",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 2700,
+      "outputTokens": 120,
+      "latencyMs": 2900
+    },
+    {
+      "role": "extractor.math",
+      "model": "gpt-6.1-sol",
+      "effort": "low",
+      "inputTokens": 2600,
+      "outputTokens": 300,
+      "latencyMs": 3400
+    },
+    {
+      "role": "critic",
+      "model": "gpt-6.1-sol",
+      "effort": "low",
+      "inputTokens": 1900,
+      "outputTokens": 120,
+      "latencyMs": 2600
+    }
+  ],
+  "path": "static",
+  "latencyMs": 9100
+}

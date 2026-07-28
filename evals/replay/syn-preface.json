@@ -1,0 +1,37 @@
+{
+  "caseId": "syn-preface",
+  "source": "handwritten",
+  "blocks": [
+    {
+      "blockId": "c911e05c7aff3525:0:preface:0#b0",
+      "kind": "paragraph",
+      "text": "This synthetic book exists to test an EPUB indexer. It has no headings on this page, so its section title must come from the table of contents."
+    },
+    {
+      "blockId": "c911e05c7aff3525:0:preface:0#b1",
+      "kind": "paragraph",
+      "text": "Everything in it is original text released under CC0."
+    }
+  ],
+  "planAttempts": [
+    {
+      "sectionId": "c911e05c7aff3525:0:preface:0",
+      "needsVisual": false,
+      "reason": "Preface about the book itself; nothing to visualise.",
+      "items": []
+    }
+  ],
+  "visuals": [],
+  "calls": [
+    {
+      "role": "planner",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 2400,
+      "outputTokens": 90,
+      "latencyMs": 2600
+    }
+  ],
+  "path": "no-visual",
+  "latencyMs": 2700
+}

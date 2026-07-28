@@ -1,0 +1,29 @@
+{
+  "name": "@illus/evals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Eval harness (spec §18): golden cases, replay/live runner, metrics against thresholds, reports, effort sweep (§9).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run",
+    "eval": "node src/cli.ts"
+  },
+  "dependencies": {
+    "@illus/core": "workspace:*",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@illus/eslint-config": "workspace:*",
+    "@types/node": "24.13.6",
+    "eslint": "10.11.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}

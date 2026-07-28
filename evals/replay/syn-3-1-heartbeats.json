@@ -1,0 +1,114 @@
+{
+  "caseId": "syn-3-1-heartbeats",
+  "source": "handwritten",
+  "blocks": [
+    {
+      "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings:1#b0",
+      "kind": "paragraph",
+      "text": "A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order. The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term. Terms act as a logical clock that orders leaders over time. A log entry carries the term in which the leader received it."
+    },
+    {
+      "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings:1#b1",
+      "kind": "paragraph",
+      "text": "Followers reject entries that do not match the previous index and term. Snapshots compact the log once its prefix has been applied everywhere. A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order. The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term."
+    }
+  ],
+  "planAttempts": [
+    {
+      "sectionId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings:1",
+      "needsVisual": true,
+      "reason": "The section explains a structure or process.",
+      "items": [
+        {
+          "planItemId": "p1",
+          "conceptIds": [],
+          "priority": 1,
+          "animate": false,
+          "kind": "state",
+          "intent": "Show how a follower starts an election"
+        }
+      ]
+    }
+  ],
+  "visuals": [
+    {
+      "planItemId": "p1",
+      "kind": "state",
+      "attempts": [
+        {
+          "type": "state",
+          "title": "Missing heartbeats",
+          "initial": "follower",
+          "final": [],
+          "states": [
+            {
+              "id": "follower",
+              "label": "Follower",
+              "evidence": {
+                "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings:1#b0",
+                "quote": "When a follower misses heartbeats it starts an election"
+              }
+            },
+            {
+              "id": "election",
+              "label": "Candidate",
+              "evidence": {
+                "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings:1#b0",
+                "quote": "it starts an election for a new term"
+              }
+            }
+          ],
+          "transitions": [
+            {
+              "id": "t1",
+              "from": "follower",
+              "to": "election",
+              "event": "misses heartbeats",
+              "evidence": {
+                "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings:1#b1",
+                "quote": "When a follower misses heartbeat it starts an election"
+              }
+            }
+          ]
+        }
+      ],
+      "critic": {
+        "pass": true,
+        "scores": {
+          "legibility": 4,
+          "intentMatch": 4,
+          "clutter": 4
+        },
+        "issues": []
+      }
+    }
+  ],
+  "calls": [
+    {
+      "role": "planner",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 6100,
+      "outputTokens": 150,
+      "latencyMs": 3600
+    },
+    {
+      "role": "extractor.mermaid",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 6800,
+      "outputTokens": 700,
+      "latencyMs": 5200
+    },
+    {
+      "role": "critic",
+      "model": "gpt-6.1-sol",
+      "effort": "low",
+      "inputTokens": 1900,
+      "outputTokens": 140,
+      "latencyMs": 2500
+    }
+  ],
+  "path": "static",
+  "latencyMs": 11900
+}

@@ -1,0 +1,19 @@
+{
+  "id": "mini-sum",
+  "category": "algorithmic",
+  "bookRef": "eval-mini",
+  "sectionId": "e7a1e7a1e7a1e7a1:2:3-summing-a-list:0",
+  "title": "3 Summing a List",
+  "expected": {
+    "needsVisual": true,
+    "acceptableKinds": [
+      "trace"
+    ],
+    "mustInclude": [],
+    "mustNotInclude": [],
+    "trace": {
+      "expectedReturn": "12"
+    }
+  },
+  "source": "golden"
+}

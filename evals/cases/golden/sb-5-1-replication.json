@@ -1,0 +1,25 @@
+{
+  "id": "sb-5-1-replication",
+  "category": "protocol",
+  "bookRef": "small-book",
+  "sectionId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1",
+  "title": "5.1 Leaders and Followers",
+  "expected": {
+    "needsVisual": true,
+    "acceptableKinds": [
+      "sequence",
+      "graph"
+    ],
+    "mustInclude": [
+      "Leader",
+      "Follower",
+      "AppendEntries"
+    ],
+    "mustNotInclude": [
+      "Raft",
+      "heartbeat"
+    ]
+  },
+  "notes": "Replay fixture adds one invented message that grounding drops.",
+  "source": "golden"
+}
