@@ -11,6 +11,8 @@ const withTM = require('next-transpile-modules')([
   '@flow/internal',
   '@flow/epubjs',
   '@material/material-color-utilities',
+  '@illus/core',
+  '@illus/llm',
 ])
 
 const IS_DEV = process.env.NODE_ENV === 'development'
@@ -37,7 +39,23 @@ const sentryWebpackPluginOptions = {
 const config = {
   pageExtensions: ['ts', 'tsx'],
   webpack(config) {
+    // docs/prompts/<role>.md imported as raw text at build time (spec §9, W2).
+    config.module.rules.push({
+      test: /[\\/]docs[\\/]prompts[\\/][^\\/]+\.md$/,
+      type: 'asset/source',
+    })
     return config
+  },
+  // Sign in with ChatGPT stays at /auth/chatgpt/* (spec §9); the Pages Router serves it under /api.
+  // No `locale: false`: with i18n, Next 12.3 inserts the default locale before matching, so a
+  // locale-free source never matches. This form serves /auth/… and /<locale>/auth/… (ADR 0007, W2).
+  async rewrites() {
+    return [
+      {
+        source: '/auth/chatgpt/:action',
+        destination: '/api/auth/chatgpt/:action',
+      },
+    ]
   },
   i18n: {
     locales: ['en-US', 'zh-CN', 'ja-JP', 'de-DE'],
