@@ -12,14 +12,17 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@illus/core": "workspace:*"
+    "@illus/core": "workspace:*",
+    "dexie": "4.4.6",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@illus/eslint-config": "workspace:*",
     "eslint": "10.11.0",
+    "fake-indexeddb": "6.2.5",
     "typescript": "5.9.3",
     "vitest": "4.1.11"
   }
