@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Spec §17. W11 also sends this policy as a response header; the meta tag keeps the page safe when served without it. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Illustration sandbox</title>
+  </head>
+  <body>
+    <script>
+      // Embedded by @illus/render in <iframe sandbox="allow-scripts"> (no allow-same-origin).
+      // Accepts exactly one message from the embedding window and writes it into this document.
+      ;(function () {
+        var done = false
+        window.addEventListener('message', function (e) {
+          if (done || e.source !== window.parent) return
+          var d = e.data
+          if (!d || d.type !== 'illus-html' || typeof d.html !== 'string') return
+          done = true
+          document.open()
+          document.write(d.html)
+          document.close()
+        })
+      })()
+    </script>
+  </body>
+</html>

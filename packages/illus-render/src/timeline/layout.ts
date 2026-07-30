@@ -25,13 +25,16 @@ export function layoutTimeline(ir: TimelineIR): TimelineLayout {
       const y = laneY.get(e.lane)!
       const x = xOf(e.at)
       const toY = e.to !== undefined && e.to !== e.lane ? laneY.get(e.to) : undefined
+      // The message lands on the target lane's next event when there is one, else 0.6 columns later.
+      const next = ir.events.filter((o) => o.lane === e.to && o.at > e.at).sort((a, b) => a.at - b.at)[0]
+      const x2 = next ? xOf(next.at) - TL.dot - 2 : x + TL.colW * 0.6
       return {
         id: e.id,
         lane: e.lane,
         x,
         y,
         lines: wrapLabel(e.label, TL.wrap, 2),
-        ...(toY !== undefined ? { arrow: { x2: x + TL.colW * 0.6, y2: toY } } : {}),
+        ...(toY !== undefined ? { arrow: { x2, y2: toY } } : {}),
       }
     })
   return {

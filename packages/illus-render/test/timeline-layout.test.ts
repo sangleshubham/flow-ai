@@ -15,11 +15,14 @@ describe('layoutTimeline', () => {
     expect(l.ticks.map((t) => t.at)).toEqual([0, 1, 2])
   })
 
-  it('draws cross-lane messages as arrows to the target lane', () => {
+  it('draws cross-lane messages as arrows to the target lane, landing on its next event', () => {
     const l = layoutTimeline(make.timelineIR())
     const a2 = l.events.find((e) => e.id === 'a2')!
-    expect(a2.arrow).toEqual({ x2: a2.x + TL.colW * 0.6, y2: l.lanes[1]!.y })
+    const a3 = l.events.find((e) => e.id === 'a3')!
+    expect(a2.arrow).toEqual({ x2: a3.x - TL.dot - 2, y2: l.lanes[1]!.y })
     expect(l.events.find((e) => e.id === 'a1')!.arrow).toBeUndefined()
+    const lone = layoutTimeline(make.timelineIR({ events: make.timelineIR().events.slice(0, 2) }))
+    expect(lone.events[1]!.arrow!.x2).toBe(lone.events[1]!.x + TL.colW * 0.6)
   })
 
   it('shares one column between simultaneous events and skips events on unknown lanes', () => {
