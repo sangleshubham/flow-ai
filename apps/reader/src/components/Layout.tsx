@@ -16,7 +16,7 @@ import { useRecoilState } from 'recoil'
 
 import {
   Env,
-  Action,
+  type Action,
   useAction,
   useBackground,
   useColorScheme,
@@ -38,7 +38,7 @@ import { TimelineView } from './viewlets/TimelineView'
 import { TocView } from './viewlets/TocView'
 import { TypographyView } from './viewlets/TypographyView'
 
-export const Layout: React.FC = ({ children }) => {
+export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
   useColorScheme()
 
   const [ready, setReady] = useState(false)
@@ -320,7 +320,7 @@ const SideBar: React.FC = () => {
 }
 
 interface ReaderProps extends ComponentProps<'div'> {}
-const Reader: React.FC = ({ className, ...props }: ReaderProps) => {
+const Reader: React.FC<ReaderProps> = ({ className, ...props }) => {
   useSplitViewItem(Reader)
   const [bg] = useBackground()
 

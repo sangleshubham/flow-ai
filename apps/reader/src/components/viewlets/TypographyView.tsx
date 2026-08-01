@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { useCallback, useRef, useState } from 'react'
 import { MdAdd, MdRemove } from 'react-icons/md'
 
-import { RenditionSpread } from '@flow/epubjs/types/rendition'
+import type { RenditionSpread } from '@flow/epubjs/types/rendition'
 import { useTranslation } from '@flow/reader/hooks'
 import { reader, useReaderSnapshot } from '@flow/reader/models'
 import {
@@ -102,17 +102,13 @@ export const TypographyView: React.FC<PaneViewProps> = (props) => {
       >
         <Select
           name={t('page_view')}
-          value={spread ?? RenditionSpread.Auto}
+          value={spread ?? 'auto'}
           onChange={(e) => {
             setTypography('spread', e.target.value as RenditionSpread)
           }}
         >
-          <option value={RenditionSpread.None}>
-            {t('page_view.single_page')}
-          </option>
-          <option value={RenditionSpread.Auto}>
-            {t('page_view.double_page')}
-          </option>
+          <option value={'none'}>{t('page_view.single_page')}</option>
+          <option value={'auto'}>{t('page_view.double_page')}</option>
         </Select>
         <TextField
           as="input"
