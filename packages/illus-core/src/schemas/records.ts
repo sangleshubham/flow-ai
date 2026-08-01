@@ -25,11 +25,15 @@ export const VisualRecord = z.object({
   kind: VisualKind,
   /** The validated IR (`IR`), or `null` for `trace` visuals, which point at `traceKey`. */
   ir: z.unknown(),
-  /** The compiled, renderer-ready spec. */
+  /**
+   * For IR kinds: `null`, or the IR again. `@illus/render` turns the validated IR into engine input
+   * itself (v1.1, ADR 0008); the graph layout is cached in `layout`. Template and HTML kinds keep
+   * whatever their renderer needs.
+   */
   spec: z.unknown(),
   animation: AnimationIR.optional(),
   traceKey: z.string().min(1).optional(),
-  /** Cached layout result so revisits skip layout (§10). */
+  /** Cached graph layout (ELK result) so revisits skip layout (§10); written from the renderer's `onLayout`. */
   layout: z.unknown().optional(),
   validation: ValidationReport,
   critic: CriticReport.optional(),
