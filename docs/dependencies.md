@@ -13,7 +13,7 @@ Every external library v1 may use (spec §19), pinned to an exact version **at l
 | --- | --- | --- | --- | --- | --- | --- |
 | Flow (fork base) | `36f3cc7` | 2026-03-28 | AGPL-3.0 | `apps/reader` | — | [github.com/pacexy/flow](https://github.com/pacexy/flow) |
 | epub.js | **`@flow/epubjs` workspace** (0.3.93 fork) | vendored | BSD-2-Clause | `book-index`, `reader-bridge` | Use the vendored fork, not npm `epubjs` (ADR 0002) | [repo](https://github.com/futurepress/epub.js) · [API](http://epubjs.org/documentation/0.3/) |
-| `next`, `react`, `react-dom` | 12.3.4, 18.0.0, 18.0.0 (Flow's) | — | MIT | `apps/reader` | Inherited; 12.3.4 has critical advisories → 12.3.7 proposed ([ADR 0005](adr/0005-nextjs-12-security.md)) | [nextjs.org/docs](https://nextjs.org/docs) · [react.dev](https://react.dev) |
+| `next`, `react`, `react-dom` | 12.3.4, 18.0.0, 18.0.0 (Flow's) | — | MIT | `apps/reader`; React 18.0.0 also dev + peer `^18.0.0` of `@illus/render` | Inherited; 12.3.4 has critical advisories → 12.3.7 by W11 in wave 2, Next 15.5 after M1 ([ADR 0005](adr/0005-nextjs-12-security.md), accepted) | [nextjs.org/docs](https://nextjs.org/docs) · [react.dev](https://react.dev) |
 | `openai` | 7.23.0 | 2026-09-23 | Apache-2.0 | `/api/llm` (server) | Node ≥ 22: the Docker image must move to Node 24 (flow-audit §9); peer `zod ^3.25 \|\| ^4` ✓ | [Sign in with ChatGPT](https://developers.openai.com/siwc/quickstart) · [limits](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations) |
 | `openid-client` | 6.8.8 | 2026-09-05 | MIT | `/auth/chatgpt/*` (server) | ESM; server only | same |
 | `zod` | 4.6.5 | 2026-09-13 | MIT | everywhere (`@illus/core`) | Needs TypeScript ≥ 5.5; `z.toJSONSchema` built in | [zod.dev](https://zod.dev) |
@@ -22,6 +22,7 @@ Every external library v1 may use (spec §19), pinned to an exact version **at l
 | `mermaid` | 11.17.2 | 2026-08-25 | MIT | `render` | ESM; 12.0.0 (2026-09-10) skipped under the new-major rule | [mermaid.js.org](https://mermaid.js.org) |
 | `vega` | 6.4.0 | 2026-08-14 | BSD-3-Clause | `render` | ESM; needs `vega-interpreter` under the CSP | [Vega-Lite docs](https://vega.github.io/vega-lite/docs/) |
 | `vega-lite` | 6.4.3 | 2026-04-24 | BSD-3-Clause | `render` | peer `vega ^6` ✓; 6.5.0 is newer than the cut-off | same |
+| `vega-interpreter` | 2.3.2 | 2026-08-14 | BSD-3-Clause | `render` | CSP-safe Vega expressions without `'unsafe-eval'` ([ADR 0001](adr/0001-csp-exceptions.md)); approved after wave 0 | [vega-interpreter](https://github.com/vega/vega/tree/main/packages/vega-interpreter) |
 | `vega-embed` | 7.3.0 | 2026-09-23 | BSD-3-Clause | `render` | peers `vega`, `vega-lite` ✓ | [vega-embed](https://github.com/vega/vega-embed) |
 | `katex` | 0.18.9 | 2026-09-23 | MIT | `render` | Self-host fonts (CSP `font-src 'self'`) | [katex.org/docs](https://katex.org/docs/) (→ `/docs/browser.html`) |
 | `d3-hierarchy` | 3.1.2 | 2022-04-02 | ISC | `render` | ESM; stable, no newer release | [d3js.org/d3-hierarchy](https://d3js.org/d3-hierarchy) |
@@ -35,12 +36,6 @@ Every external library v1 may use (spec §19), pinned to an exact version **at l
 | `fastest-levenshtein` | 1.0.16 | 2022-08-02 | MIT | `core` (grounding, W10) | Latest release | [fastest-levenshtein](https://github.com/ka-weihe/fastest-levenshtein) |
 | `zustand` | **not used** | — | — | — | Flow already has Valtio (flow-audit §4); §19 allows Zustand only if Flow has no state library | [docs](https://zustand.docs.pmnd.rs) |
 
-### Requested additions (need approval)
-
-| Library | Pin | Published | Licence | For | Why |
-| --- | --- | --- | --- | --- | --- |
-| `vega-interpreter` | 2.3.2 | 2026-08-14 | BSD-3-Clause | `render` (W4) | CSP-safe Vega expressions without `'unsafe-eval'` ([ADR 0001](adr/0001-csp-exceptions.md)); [docs](https://github.com/vega/vega/tree/main/packages/vega-interpreter) |
-
 ## Development and test tooling
 
 | Tool | Pin | Published | Licence | Where | Notes | Docs |
@@ -48,18 +43,24 @@ Every external library v1 may use (spec §19), pinned to an exact version **at l
 | Node.js | 24 LTS (24.20.0 locally) | — | MIT | everywhere | D11; type stripping runs `.ts` scripts | — |
 | pnpm | 10.34.5 | 2026-07-10 | MIT | `packageManager` | Upgraded from Flow's 10.6.4 for `minimumReleaseAge` | [pnpm.io](https://pnpm.io) |
 | Turborepo (`turbo`) | 1.11.3 (Flow's) | 2024-01-04 | MPL-2.0 | root | Kept: turbo 2 renames `pipeline` to `tasks`; upgrade is a separate change | [turborepo docs](https://turborepo.com/docs) (→ turborepo.dev) |
-| TypeScript | 5.9.3 | 2025-09-30 | Apache-2.0 | every `@illus` package | Flow root stays 4.6.3 until W9 (ADR 0002); TS 6/7 unsupported by typescript-eslint and TypeDoc | [typescriptlang.org/docs](https://www.typescriptlang.org/docs/) |
+| TypeScript | 5.9.3 | 2025-09-30 | Apache-2.0 | every `@illus` package, root, `apps/reader` | Root and `apps/reader` raised from Flow's 4.6.3 ([ADR 0009](adr/0009-reader-build-on-typescript-5.md)); TS 6/7 unsupported by typescript-eslint and TypeDoc | [typescriptlang.org/docs](https://www.typescriptlang.org/docs/) |
 | Vitest | 4.1.11 | 2026-08-18 | MIT | every `@illus` package | 5.0.1 (2026-09-15) skipped under the new-major rule | [vitest.dev](https://vitest.dev) |
 | Testing Library (React) | `@testing-library/react` 16.3.3 + `@testing-library/dom` 10.4.2 | 2026-08-27 / 2026-09-13 | MIT | component tests (W4–W9) | peers React 18 ✓; needs `@types/react` 18 | [testing-library.com](https://testing-library.com/docs/react-testing-library/intro/) |
-| jsdom | 30.1.1 | 2026-09-22 | MIT | Vitest DOM environment | The "jsdom" of §18 component tests; Node ≥ 22.22 / 24.15 | — |
+| jsdom | 30.1.1 | 2026-09-22 | MIT | Vitest DOM environment (`book-index`, `render`) | The "jsdom" of §18 component tests; Node ≥ 22.22 / 24.15 | — |
+| `@vitest/browser-playwright` | 4.1.11 | 2026-08-18 | MIT | `book-index` (dev) | Vitest browser mode on Chromium for the epub.js tests (W1); same version as Vitest | [vitest.dev/guide/browser](https://vitest.dev/guide/browser/) |
+| `playwright` | 1.63.0 | 2026-09-04 | Apache-2.0 | `book-index` (dev) | Browser provider for `@vitest/browser-playwright`; same version as `@playwright/test` | [playwright.dev](https://playwright.dev) |
+| `fake-indexeddb` | 6.2.5 | 2025-11-07 | Apache-2.0 | `store` (dev) | In-memory IndexedDB so Dexie migrations and export/import run under Vitest in Node ([ADR 0006-w2](adr/0006-w2-llm-server-entry-and-test-deps.md)); never bundled | [fake-indexeddb](https://github.com/dumbmatter/fakeIndexedDB) |
+| `vite` | 8.3.1 | 2026-09-24 | MIT | `render` (dev) | Dev server for the Playwright harness; already in the lockfile through Vitest ([ADR 0006](adr/0006-render-input-and-element-ids.md)) | [vite.dev](https://vite.dev) |
+| `@types/react`, `@types/react-dom` | 18.3.31, 18.3.7 | 2026-06-05 / 2025-04-30 | MIT | `render` (dev), `apps/reader` (dev) | React 18 types; `apps/reader` moved off `@types/react` 17.0.43 so one copy of the JSX types is loaded ([ADR 0009](adr/0009-reader-build-on-typescript-5.md)) | — |
 | fast-check | 4.10.2 | 2026-09-19 | MIT | property tests | — | [fast-check.dev](https://fast-check.dev) |
 | Playwright | `@playwright/test` 1.63.0 | 2026-09-04 | Apache-2.0 | E2E, visual regression | 1.64.0 is newer than the cut-off | [playwright.dev](https://playwright.dev) |
 | ESLint | 10.11.0 | 2026-09-18 | MIT | every `@illus` package | Flat config; Flow keeps ESLint 8.13 | — |
+| `@typescript-eslint/parser`, `@typescript-eslint/eslint-plugin` (Flow's ESLint 8 stack) | 5.62.0 | 2023-07-10 | BSD-2-Clause / MIT | root `.eslintrc.js`, `next lint` | Raised from 5.10.1/5.19.0, which drop TS 5 decorators; a pnpm override also lifts `eslint-config-next`'s own parser ([ADR 0009](adr/0009-reader-build-on-typescript-5.md)) | — |
 | `typescript-eslint` | 8.70.1 | 2026-09-21 | MIT | `tooling/eslint-config` | Parser and rules for ESLint 10; supports TS < 6.1 | — |
 | `eslint-plugin-boundaries` | 7.2.0 | 2026-08-09 | MIT | `tooling/eslint-config` | Package dependency rules (§4) | [eslint-plugin-boundaries](https://github.com/javierbrea/eslint-plugin-boundaries) |
 | TypeDoc | 0.28.20 | 2026-07-05 | Apache-2.0 | `@illus/core` `pnpm contracts` | — | [typedoc.org](https://typedoc.org) |
 | `typedoc-plugin-markdown` | 4.13.1 | 2026-09-18 | MIT | `@illus/core` `pnpm contracts` | Markdown output for `docs/contracts.md` (part of "TypeDoc" in §19) | [typedoc-plugin-markdown](https://github.com/typedoc2md/typedoc-plugin-markdown) |
-| `@types/node` | 24.13.6 | 2026-09-19 | MIT | `@illus/core/scripts` | Types for Node scripts only; `src/` stays DOM-free without Node globals | — |
+| `@types/node` | 24.13.6 | 2026-09-19 | MIT | `@illus/core/scripts`, `llm`, `render`, `evals`, `apps/reader` (all dev) | Node types; `@illus/core/src` stays DOM-free without Node globals. `apps/reader` moved off 17.0.22 (ADR 0009) | — |
 | `jszip` | 3.10.1 (Flow's version) | 2022-08-02 | MIT OR GPL-3.0-or-later | root, `fixtures/scripts` | Builds the synthetic EPUB; already a Flow dependency | — |
 | Caddy / Tailscale | n/a (not npm) | — | Apache-2.0 / BSD-3 | VPS deployment (W11) | — | [caddyserver.com/docs](https://caddyserver.com/docs/) · [tailscale](https://tailscale.com/kb) (→ /docs) |
 

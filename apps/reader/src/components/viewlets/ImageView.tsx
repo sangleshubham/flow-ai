@@ -7,9 +7,10 @@ import { PaneView, PaneViewProps } from '../base'
 
 export const ImageView: React.FC<PaneViewProps> = (props) => {
   const { focusedBookTab } = useReaderSnapshot()
-  const sections = focusedBookTab?.sections?.filter((s) => s.images.length) as
-    | ISection[]
-    | undefined
+  // Cast before filtering: the snapshot's deep readonly type is too deep for TS 5.9 (TS2589).
+  const sections = (focusedBookTab?.sections as ISection[] | undefined)?.filter(
+    (s) => s.images.length,
+  )
 
   if ((sections?.length ?? 0) > 500) return null
 

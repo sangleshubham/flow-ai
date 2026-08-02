@@ -8,12 +8,9 @@ import Themes from './themes'
 import Hook from './utils/hook'
 import Queue from './utils/queue'
 
-export enum RenditionSpread {
-  Auto = 'auto',
-  None = 'none',
-  /* @deprecated */
-  Always = 'always',
-}
+// A string union, not an enum: a `.d.ts` emits no JavaScript, and enums fail `erasableSyntaxOnly`.
+// 'always' is deprecated.
+export type RenditionSpread = 'auto' | 'none' | 'always'
 
 export interface RenditionOptions {
   width?: number | string

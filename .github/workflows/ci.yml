@@ -1,4 +1,4 @@
-# Merge gate (spec §18, CLAUDE.md): install, lint, typecheck, test, supply-chain audit.
+# Merge gate (spec §18, CLAUDE.md): install, lint, typecheck, test, app build, supply-chain audit.
 # Never calls a live model: ILLUS_LLM_MODE=replay. Actions are pinned to commit SHAs.
 name: CI
 
@@ -34,10 +34,13 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Lint, typecheck, test
         run: pnpm turbo run lint typecheck test
-      - name: Synthetic EPUB is up to date
+      # tsc does not see what Next 12's SWC cannot compile (e.g. `satisfies`); only a real build does (ADR 0009).
+      - name: Reader app builds (next build, replay mode, no secrets)
+        run: pnpm --filter @flow/reader build
+      - name: Fixture EPUBs are up to date
         run: |
           pnpm fixtures:epub
-          git diff --exit-code -- fixtures/books/synthetic.epub
+          git diff --exit-code -- fixtures/books
       - name: Contracts doc is up to date
         run: |
           pnpm contracts
