@@ -37,10 +37,10 @@ jobs:
       # tsc does not see what Next 12's SWC cannot compile (e.g. `satisfies`); only a real build does (ADR 0009).
       - name: Reader app builds (next build, replay mode, no secrets)
         run: pnpm --filter @flow/reader build
-      - name: Synthetic EPUB is up to date
+      - name: Fixture EPUBs are up to date
         run: |
           pnpm fixtures:epub
-          git diff --exit-code -- fixtures/books/synthetic.epub
+          git diff --exit-code -- fixtures/books
       - name: Contracts doc is up to date
         run: |
           pnpm contracts
