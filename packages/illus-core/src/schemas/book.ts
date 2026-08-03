@@ -6,7 +6,12 @@ import { maxWords, Sha256Hex, Timestamp } from './common.ts'
 export const BlockKind = z.enum(['paragraph', 'code', 'figure', 'table', 'math', 'list', 'aside', 'quote'])
 export type BlockKind = z.infer<typeof BlockKind>
 
-/** One block of book text. `text` is normalised plain text (NFC, whitespace collapsed, §6 step 9). */
+/**
+ * One block of book text. `text` is normalised plain text: NFC, soft hyphens removed, whitespace collapsed
+ * (§6 step 9). Exception since v1.2 (ADR 0008): for `kind: 'code'` it keeps line breaks and indentation
+ * (tabs included); only trailing whitespace on each line and blank lines at the start and end are trimmed.
+ * Grounding stays whitespace-insensitive: §16 collapses whitespace in quote and block before matching.
+ */
 export const Block = z
   .object({
     blockId: z.string().min(1),

@@ -221,9 +221,16 @@ describe('schema limits from the spec', () => {
   })
 })
 
-describe('contracts v1.1 amendments (ADR 0008)', () => {
-  it('reports version 1.1.0', () => {
-    expect(core.CONTRACTS_VERSION).toBe('1.1.0')
+describe('contracts v1.1 and v1.2 amendments (ADR 0008)', () => {
+  it('reports version 1.2.0', () => {
+    expect(core.CONTRACTS_VERSION).toBe('1.2.0')
+  })
+
+  it('grounds quotes in code blocks whatever their whitespace (code text keeps its layout)', () => {
+    const code = 'def total(xs):\n    s = 0\n    for x in xs:\n        s += x\n    return s'
+    expect(core.Block.parse(make.block({ kind: 'code', text: code, code: { source: code, langHint: 'python' } })).text).toBe(code)
+    expect(core.findQuote(code, 'for x in xs: s += x')).not.toBeNull()
+    expect(core.findQuote(code, 'for x in xs:\n        s += x')).not.toBeNull()
   })
 
   it('stores null or the IR as VisualRecord.spec, with the layout beside it', () => {

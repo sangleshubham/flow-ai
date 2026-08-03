@@ -1,4 +1,4 @@
-// Public API of @illus/core (contracts v1.1). Test factories and fakes live in `@illus/core/testing`.
+// Public API of @illus/core (contracts v1.2). Test factories and fakes live in `@illus/core/testing`.
 export * from './schemas/index.ts'
 export { sha256Hex } from './hash/index.ts'
 export * from './ids/index.ts'
@@ -13,4 +13,4 @@ export * from './grounding/index.ts'
 export * from './validate/index.ts'
 
 /** Version of the published contracts (docs/contracts.md). */
-export const CONTRACTS_VERSION = '1.1.0'
+export const CONTRACTS_VERSION = '1.2.0'
