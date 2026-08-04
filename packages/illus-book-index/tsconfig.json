@@ -1,10 +1,5 @@
 {
   "extends": "../../tsconfig.illus.json",
-  "compilerOptions": {
-    // @flow/epubjs ships types/rendition.ts (a .ts file with an enum), which skipLibCheck does not skip and
-    // erasableSyntaxOnly rejects. This package's own sources stay erasable (ADR 0006).
-    "erasableSyntaxOnly": false
-  },
   "include": [
     "src",
     "test",

@@ -69,12 +69,13 @@ describe('synthetic.epub edge cases', () => {
   test('the tiny section 2.3 is merged into 2.3.1', () => {
     expect(titled('2.3 A Tiny Section').mergedInto).toBe(titled('2.3.1 Straight Into a Subheading').sectionId)
   })
-  test('3.1 splits by paragraphs, 3.2 at its h5 headings', () => {
+  test('3.1 splits by paragraphs, 3.2 at its h5 headings (later parts titled by the h5)', () => {
     expect(sections.filter((s) => s.title.startsWith('3.1 ')).length).toBeGreaterThan(2)
-    expect(sections.filter((s) => s.title.startsWith('3.2 ')).map((s) => s.title)).toEqual([
-      '3.2 An Oversized Section With h5 Subheadings (part 1)',
-      '3.2 An Oversized Section With h5 Subheadings (part 2)',
-      '3.2 An Oversized Section With h5 Subheadings (part 3)',
+    const at = sections.indexOf(titled('3.2 An Oversized Section With h5 Subheadings'))
+    expect(sections.slice(at, at + 3).map((s) => [s.title, s.number])).toEqual([
+      ['3.2 An Oversized Section With h5 Subheadings', '3.2'],
+      ['Part two', '3.2'],
+      ['Part three', '3.2'],
     ])
     expect(sections.every((s) => s.tokenEstimate <= 6000)).toBe(true)
   })
