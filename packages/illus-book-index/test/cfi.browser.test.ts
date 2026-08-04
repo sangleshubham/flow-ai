@@ -37,14 +37,14 @@ test('synthetic.epub: block → CFI → rendered range text equals block text', 
     for (const block of blocks.filter((b: Block) => inSpine(b))) {
       const range = new EpubCFI(block.cfiRange).toRange(doc)
       expect(range, block.blockId).not.toBeNull()
-      expect(blockTextOfRange(range), block.blockId).toBe(block.text)
+      expect(blockTextOfRange(range, block.kind), block.blockId).toBe(block.text)
       checked.blocks++
     }
     for (const section of sections.filter((s: SectionNode) => s.spineHref === href)) {
       const start = new EpubCFI(section.cfiStart).toRange(doc)
       const at = start.startContainer.nodeType === 1 ? (start.startContainer as Element) : start.startContainer.parentElement!
       if (!section.title.includes('(part ') && section.level && at.localName !== 'body') {
-        expect(at.closest('h1,h2,h3,h4')?.textContent?.replace(/\s+/g, ' ').trim(), section.sectionId).toBeTruthy()
+        expect(at.closest('h1,h2,h3,h4,h5,h6')?.textContent?.replace(/\s+/g, ' ').trim(), section.sectionId).toBeTruthy()
       }
       expect(getSectionAt(sections, section.cfiStart)?.sectionId).toBe(section.sectionId)
       checked.sections++

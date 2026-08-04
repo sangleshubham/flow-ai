@@ -3,7 +3,7 @@
 import { EpubCFI } from '@flow/epubjs'
 import type { Block, BlockKind } from '@illus/core'
 
-import { normalizeText, parseCaptionLabel, type Label } from './text.ts'
+import { normalizeCodeText, normalizeText, parseCaptionLabel, type Label } from './text.ts'
 
 const OPS_NS = 'http://www.idpf.org/2007/ops'
 const TEXT_NODE = 3
@@ -107,32 +107,40 @@ function nearestBlock(node: Node): Element | null {
 }
 
 /**
- * Text covered by a range, as stored in `Block.text` (before normalisation): excluded subtrees are left out
- * and a space separates text from different block-level elements (list items, table cells). The CFI
- * round-trip test resolves a block's `cfiRange` in a rendered document and compares this to `Block.text`.
+ * Text covered by a range, as stored in `Block.text` (before normalisation): excluded subtrees are left out,
+ * `<br>` is a line break, and `sep` separates text from different block-level elements (list items, table
+ * cells; code lines written as `<p>`s). The CFI round-trip test resolves a block's `cfiRange` in a rendered
+ * document and compares this to `Block.text`.
  */
-export function rawTextOfRange(range: Range): string {
+function rawTextOfRange(range: Range, sep: string): string {
   const root = range.commonAncestorContainer
   const doc = root.ownerDocument ?? (root as Document)
-  const walker = doc.createTreeWalker(root, 4 /* NodeFilter.SHOW_TEXT */)
+  const walker = doc.createTreeWalker(root, 5 /* NodeFilter.SHOW_ELEMENT | SHOW_TEXT */)
   const parts: string[] = []
   let prevBlock: Element | null | undefined
   for (let node: Node | null = root.nodeType === TEXT_NODE ? root : walker.nextNode(); node; node = walker.nextNode()) {
     if (!range.intersectsNode(node) || insideExcluded(node, null)) continue
+    if (node.nodeType === ELEMENT_NODE) {
+      if (tagOf(node as Element) === 'br') parts.push('\n')
+      continue
+    }
     let text = node.nodeValue ?? ''
     if (node === range.endContainer) text = text.slice(0, range.endOffset)
     if (node === range.startContainer) text = text.slice(range.startOffset)
     const block = nearestBlock(node)
-    if (prevBlock !== undefined && block !== prevBlock) parts.push(' ')
+    if (prevBlock !== undefined && block !== prevBlock) parts.push(sep)
     prevBlock = block
     parts.push(text)
   }
   return parts.join('')
 }
 
-/** `Block.text` of a range: `rawTextOfRange` normalised (§6 step 9). */
-export function blockTextOfRange(range: Range): string {
-  return normalizeText(rawTextOfRange(range))
+/**
+ * `Block.text` of a range (§6 step 9): whitespace collapsed, except for `kind: 'code'`, which keeps line
+ * breaks and indentation (contracts v1.2).
+ */
+export function blockTextOfRange(range: Range, kind?: BlockKind): string {
+  return kind === 'code' ? normalizeCodeText(rawTextOfRange(range, '\n')) : normalizeText(rawTextOfRange(range, ' '))
 }
 
 function idsIn(nodes: readonly Node[]): string[] {
@@ -163,7 +171,10 @@ function linksIn(nodes: readonly Node[]): RawLink[] {
 }
 
 const hasText = (el: Element) => includedTextNodes([el]).some((t) => /\S/.test(t.nodeValue ?? ''))
-const isImageOnly = (el: Element) => tagOf(el) === 'img' || (!hasText(el) && el.querySelector('img, image, svg') !== null)
+const IMAGE = 'img, image, svg'
+const imageIn = (n: Node): Element | null =>
+  n.nodeType !== ELEMENT_NODE ? null : (n as Element).matches(IMAGE) ? (n as Element) : (n as Element).querySelector(IMAGE)
+const isImageOnly = (el: Element): boolean => tagOf(el) === 'img' || (!hasText(el) && el.querySelector(IMAGE) !== null)
 const isCaption = (el: Element) =>
   tagOf(el) === 'figcaption' || classes(el).some((c) => c.toLowerCase().includes('caption'))
 
@@ -220,7 +231,7 @@ class Walker {
     return new EpubCFI(target, this.cfiBase).toString()
   }
 
-  private point(node: Text, offset: number): string {
+  private point(node: Node, offset: number): string {
     const range = this.doc.createRange()
     range.setStart(node, offset)
     range.collapse(true)
@@ -248,7 +259,8 @@ class Walker {
     const produced: Produced[] = []
     let run: Node[] = []
     const flush = () => {
-      const block = run.length ? this.block('paragraph', run) : null
+      const img = run.find((n) => n.nodeType === ELEMENT_NODE && isImageOnly(n as Element)) as Element | undefined
+      const block = run.length ? (this.block('paragraph', run) ?? (img ? this.figure(run, img, null) : null)) : null
       if (block) produced.push({ el: null, block })
       run = []
     }
@@ -265,7 +277,9 @@ class Walker {
         run.push(child)
         continue
       }
-      // `img` with a following caption paragraph → one figure block (§6 step 6).
+      // `img` with a following caption paragraph → one figure block (§6 step 6), built at the caption.
+      const next = child.nextElementSibling
+      if (isImageOnly(child) && next && isCaption(next) && isBlockLevel(next)) continue
       const prev = child.previousElementSibling
       if (isCaption(child) && prev && isImageOnly(prev)) {
         const at = run.indexOf(prev)
@@ -308,6 +322,7 @@ class Walker {
       if (epubSection) this.epubDepth--
       return null
     }
+    if (isImageOnly(el)) return this.figure([el], el, null)
     return this.block('paragraph', [el])
   }
 
@@ -335,30 +350,51 @@ class Walker {
     this.sections.push(this.current)
   }
 
-  /** Range over a block's first to last non-blank included text node; `null` when it has no text. */
-  private range(nodes: readonly Node[]): { range: Range; first: Text; last: Text } | null {
-    const texts = includedTextNodes(nodes).filter((t) => /\S/.test(t.nodeValue ?? ''))
-    const first = texts[0]
+  /**
+   * Range over a block's first to last non-blank included text node; `null` when it has no text. Code starts
+   * at its first text node even when blank, so first-line indentation in a separate node is kept.
+   */
+  private range(nodes: readonly Node[], code: boolean): Range | null {
+    const all = includedTextNodes(nodes)
+    const texts = all.filter((t) => /\S/.test(t.nodeValue ?? ''))
+    const first = code ? all[0] : texts[0]
     const last = texts.at(-1)
     if (!first || !last) return null
     const range = this.doc.createRange()
     range.setStart(first, 0)
     range.setEnd(last, last.length)
-    return { range, first, last }
+    return range
   }
 
-  private block(kind: BlockKind, nodes: readonly Node[], extra: Partial<RawBlock> = {}): RawBlock | null {
-    const r = this.range(nodes)
-    if (!r) return null
-    const text = blockTextOfRange(r.range)
-    if (!text) return null
+  /**
+   * CFIs of a block: a range over its text, or, for a caption-less image (no text), the image element's node
+   * CFI in all three fields, since epub.js CFIs cannot end on an element boundary (ADR 0025).
+   */
+  private cfis(kind: BlockKind, nodes: readonly Node[], image: boolean): Pick<RawBlock, 'text' | 'cfiRange' | 'cfiStart' | 'cfiEnd'> | null {
+    const range = this.range(nodes, kind === 'code')
+    if (range) {
+      const text = blockTextOfRange(range, kind)
+      if (text)
+        return {
+          text,
+          cfiRange: this.cfi(range),
+          cfiStart: this.point(range.startContainer, range.startOffset),
+          cfiEnd: this.point(range.endContainer, range.endOffset),
+        }
+    }
+    const img = image ? nodes.map(imageIn).find(Boolean) : undefined
+    if (!img) return null
+    const cfi = this.cfi(img)
+    return { text: '', cfiRange: cfi, cfiStart: cfi, cfiEnd: cfi }
+  }
+
+  private block(kind: BlockKind, nodes: readonly Node[], extra: Partial<RawBlock> = {}, image = false): RawBlock | null {
+    const at = this.cfis(kind, nodes, image)
+    if (!at) return null
     const block: RawBlock = {
       kind,
-      text,
       ...extra,
-      cfiRange: this.cfi(r.range),
-      cfiStart: this.point(r.first, 0),
-      cfiEnd: this.point(r.last, r.last.length),
+      ...at,
       anchors: [...this.pending, ...idsIn(nodes)],
       links: linksIn(nodes),
     }
@@ -371,15 +407,10 @@ class Walker {
 
   private typed(kind: Exclude<BlockKind, 'paragraph' | 'quote' | 'figure'>, el: Element): RawBlock | null {
     if (kind === 'code') {
-      const r = this.range([el])
-      const source = r
-        ? rawTextOfRange(r.range)
-            .normalize('NFC')
-            .replace(/^\s*\n/, '')
-            .trimEnd()
-        : ''
       const langHint = langHintOf(el)
-      return this.block('code', [el], { code: langHint ? { source, langHint } : { source } })
+      const block = this.block('code', [el], { code: { source: '', ...(langHint && { langHint }) } })
+      if (block) block.code!.source = block.text // same text since contracts v1.2
+      return block
     }
     if (kind === 'table') {
       const rows = [...el.querySelectorAll('tr')].map((tr) =>
@@ -396,14 +427,15 @@ class Walker {
     return this.block(kind, [el])
   }
 
-  private figure(nodes: readonly Element[], img: Element | null, captionEl: Element | null): RawBlock | null {
+  private figure(nodes: readonly Node[], img: Element | null, captionEl: Element | null): RawBlock | null {
     const caption = captionEl ? normalizeText(captionEl.textContent ?? '') : undefined
     const label = caption ? parseCaptionLabel(caption) : undefined
     const imgEl = img && tagOf(img) !== 'img' ? (img.querySelector('img') ?? img) : img
     const alt = imgEl?.getAttribute('alt') ?? undefined
     const imgHref = imgEl?.getAttribute('src') ?? imgEl?.getAttribute('href') ?? imgEl?.getAttribute('xlink:href') ?? undefined
     const figure = { ...(caption && { caption }), ...(alt && { alt }), ...(imgHref && { imgHref }) }
-    return this.block('figure', nodes, { figure, ...(label && { label: label.label }) })
+    // Caption-less image: a figure block with empty text, its CFI range spanning the image (ADR 0025).
+    return this.block('figure', nodes, { figure, ...(label && { label: label.label }) }, true)
   }
 }
 

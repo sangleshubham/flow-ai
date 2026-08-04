@@ -2,11 +2,25 @@
 // cross-reference patterns (steps 5, 7, 13). Pure and DOM-free.
 
 /** Bump when the structural output for the same EPUB changes; books indexed with an older version are re-indexed (§6 step 1). */
-export const INDEX_VERSION = 1
+export const INDEX_VERSION = 2
 
 /** Block text: NFC, soft hyphens (U+00AD) removed, whitespace collapsed and trimmed (§6 step 9). */
 export function normalizeText(text: string): string {
   return text.normalize('NFC').replace(/­/g, '').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * `Block.text` of a code block (contracts v1.2): NFC, soft hyphens removed, CRLF → LF, trailing whitespace
+ * on each line and blank lines at the start and end trimmed. Line breaks and indentation (tabs too) are kept.
+ */
+export function normalizeCodeText(text: string): string {
+  return text
+    .normalize('NFC')
+    .replace(/\u00AD/g, '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[^\S\n]+$/gm, '')
+    .replace(/^\n+/, '')
+    .trimEnd()
 }
 
 /**

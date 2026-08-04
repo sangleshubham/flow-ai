@@ -133,10 +133,13 @@ describe('oversized sections (§6 step 11)', () => {
     expect(sections.length).toBeGreaterThan(1)
   })
 
-  test('with h5 headings: split before each h5', async () => {
-    const body = `<h1>A</h1><h5>One</h5>${prose(3500)}<h5>Two</h5>${prose(3500)}`
+  test('with h5 headings: split before each h5; later parts are titled by their h5', async () => {
+    const body = `<h1>1 A</h1><h5>One</h5>${prose(3500)}<h5>Two</h5>${prose(3500)}`
     const { sections, blocks } = await indexDocs([body])
-    expect(sections.map((s) => s.title)).toEqual(['A (part 1)', 'A (part 2)'])
+    expect(sections.map((s) => [s.title, s.number, s.headingPath])).toEqual([
+      ['1 A', '1', ['1 A']],
+      ['Two', '1', ['Two']],
+    ])
     expect(blocks.find((b) => b.sectionId === sections[1]!.sectionId)!.text).toBe('Two')
   })
 })
