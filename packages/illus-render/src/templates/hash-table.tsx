@@ -104,7 +104,7 @@ function HashTableView({ ir, props: p, layout: base, frame, onReady }: TemplateV
         const value = kit.val(t, '')
         return (
           <g key={e.id} {...kit.el(e.path, t)}>
-            {chained && <Arrow pts={[[from.x + (prev ? from.w : 34) - (prev ? 0 : 17), from.y + H / 2], [box.x, box.y + H / 2]]} />}
+            {chained && <Arrow pts={[[from.x + from.w, from.y + H / 2], [box.x, box.y + H / 2]]} />}
             <Cell box={box} text={value !== '' ? `${e.key}: ${value}` : entryText(e)} rx={chained ? 6 : 0} cls={chained ? 't-cell' : 't-region'} sub={open && (e.slot ?? e.hash) !== e.hash ? `home ${e.hash}` : undefined} />
           </g>
         )

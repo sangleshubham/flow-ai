@@ -71,7 +71,7 @@ function ArrayView({ ir, props: p, layout: L, frame, onReady }: TemplateViewProp
       {cells.map((b, i) => {
         const t = cellT(i)
         const v = kit.content(t, (el) => p.values[idx(el)]!)
-        kit.at(t, b)
+        kit.at(t, { ...b, h: L.baseY + 16 - b.y })
         return (
           <g key={i} {...kit.el(`values.${i}`, t)}>
             {bars ? (

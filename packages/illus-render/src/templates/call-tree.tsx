@@ -20,20 +20,22 @@ interface Layout {
 
 const H = 28
 const callW = (label: string) => Math.max(44, textW(label, 13, true) + 16)
+/** Room right of each call for its return value (mirrored on the left so boxes stay centred). */
+const RET_W = 54
 
 function layout(p: Props): Layout {
   const byParent = new Map<string, string[]>()
   for (const c of p.calls) if (c.parent) byParent.set(c.parent, [...(byParent.get(c.parent) ?? []), c.id])
   const labels = new Map(p.calls.map((c) => [c.id, c.label]))
   const root = p.calls.find((c) => !c.parent) ?? p.calls[0]!
-  const t = layoutTree(root.id, (id) => byParent.get(id) ?? [], (id) => callW(labels.get(id)!), { gap: 12, levelH: 64 })
+  const t = layoutTree(root.id, (id) => byParent.get(id) ?? [], (id) => callW(labels.get(id)!) + 2 * RET_W, { gap: 4, levelH: 56 })
   const top = TOP + (p.label ? 18 : 0) + 4
   const boxes = new Map<string, Box>()
   for (const [id, pl] of t.places) {
     const w = callW(labels.get(id)!)
     boxes.set(id, { x: PAD + pl.x - w / 2, y: top + pl.y, w, h: H })
   }
-  return { width: t.width + PAD * 2 + 24, height: top + t.height + H + 20 + BOTTOM, boxes }
+  return { width: t.width + PAD * 2, height: top + t.height + H + BOTTOM, boxes }
 }
 
 function CallTreeView({ ir, props: p, layout: L, frame, onReady }: TemplateViewProps<Props, Layout>) {
@@ -66,14 +68,9 @@ function CallTreeView({ ir, props: p, layout: L, frame, onReady }: TemplateViewP
         return (
           <g key={c.id} {...kit.el(`calls.${i}`, t)}>
             <Cell box={b} text={c.label} rx={6} cls={c.memo ? 't-band' : 't-cell'} />
-            {c.memo && (
-              <T x={b.x + b.w / 2} y={b.y - 6} cls="t-small">
-                memo
-              </T>
-            )}
-            {ret !== '' && (
-              <T x={b.x + b.w / 2} y={b.y + H + 10} cls="t-mono t-cap" anchor="middle">
-                {`→ ${ret}`}
+            {(ret !== '' || c.memo) && (
+              <T x={b.x + b.w + 4} y={b.y + H / 2} cls="t-mono t-cap" anchor="start">
+                {`${ret !== '' ? `→${ret}` : ''}${c.memo ? ' memo' : ''}`}
               </T>
             )}
           </g>
