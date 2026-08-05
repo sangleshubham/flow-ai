@@ -35,11 +35,6 @@ test('@illus/book-index yields the eval-mini sections and blocks', async () => {
       blocks: (await repos.blocks.listBySection(s.sectionId)).map((b) => ({ blockId: b.blockId, kind: b.kind, text: b.text })),
     })),
   )
-  // §5/§6 step 9 collapse whitespace in every block, code included, so the indexer flattens the listing's
-  // line breaks and indentation while eval-mini keeps them. Open contract question in ADR 0008.
-  const collapsed = EVAL_MINI_SECTIONS.map((s) => ({
-    ...s,
-    blocks: s.blocks.map((b) => (b.kind === 'code' ? { ...b, text: b.text.replace(/\s+/g, ' ').trim() } : b)),
-  }))
-  expect(indexed).toEqual(collapsed)
+  // Contracts v1.2: code blocks keep line breaks and indentation, so every block must match exactly.
+  expect(indexed).toEqual(EVAL_MINI_SECTIONS)
 })
