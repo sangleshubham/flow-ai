@@ -34,3 +34,6 @@ export type { TimelineLayout } from './timeline/layout.ts'
 export { download, exportPng, exportSvg } from './export.ts'
 export { sanitizeKatex, sanitizeMathMl, sanitizeSvg } from './sanitize.ts'
 export { SANDBOX_MESSAGE, SANDBOX_URL } from './html/HtmlFallbackView.tsx'
+
+// Template library (§10). Owner: W5 (ADR 0015).
+export * from './templates/index.ts'
