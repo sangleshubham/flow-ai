@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- The app policy from ADR 0001 (no 'unsafe-eval'), plus ws: for the Vite dev client. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' blob: ws:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' blob:; font-src 'self' blob: data:; media-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'self'"
+    />
+    <title>@illus/render templates harness</title>
+    <style>
+      /* Stand-in for Flow's Theme.tsx output (docs/flow-audit.md §6): Material tokens as RGB triples. */
+      :root {
+        --md-sys-color-surface: 251 252 255;
+        --md-sys-color-on-surface: 25 28 30;
+        --md-sys-color-on-surface-variant: 64 72 77;
+        --md-sys-color-outline-variant: 192 199 205;
+        --md-sys-color-primary: 0 101 141;
+        --md-sys-color-tertiary: 99 89 124;
+        --md-sys-color-outline: 112 120 126;
+        --md-sys-typescale-body-medium-family: Arial;
+      }
+      :root.dark {
+        --md-sys-color-surface: 25 28 30;
+        --md-sys-color-on-surface: 225 226 229;
+        --md-sys-color-on-surface-variant: 192 199 205;
+        --md-sys-color-outline-variant: 64 72 77;
+        --md-sys-color-primary: 134 206 255;
+        --md-sys-color-tertiary: 206 192 233;
+        --md-sys-color-outline: 138 146 151;
+      }
+      body { margin: 0; padding: 16px; background: rgb(var(--md-sys-color-surface)); }
+      #root { width: 560px; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>
