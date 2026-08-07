@@ -660,9 +660,15 @@ importers:
 
   packages/illus-pipeline:
     dependencies:
+      '@illus/context':
+        specifier: workspace:*
+        version: link:../illus-context
       '@illus/core':
         specifier: workspace:*
         version: link:../illus-core
+      '@illus/llm':
+        specifier: workspace:*
+        version: link:../illus-llm
     devDependencies:
       '@illus/eslint-config':
         specifier: workspace:*

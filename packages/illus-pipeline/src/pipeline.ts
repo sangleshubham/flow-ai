@@ -1,0 +1,639 @@
+// The section orchestrator (§15): cache → context → plan → extract → validate → (animate, critic) → store.
+import {
+  COMPILER_VERSION,
+  ConceptModelKind,
+  LlmError,
+  ROLES,
+  ground as defaultGround,
+  needsReextract,
+  planKey,
+  resolveFlags,
+  sectionContentHash,
+  sha256Hex,
+  traceKey,
+  validate as defaultValidate,
+  visualKey,
+} from '@illus/core'
+import type {
+  AnimationIR,
+  Block,
+  CriticReport,
+  Flags,
+  GroundingFn,
+  IllusRepos,
+  LlmCall,
+  LlmResult,
+  PlanItem,
+  PlanRecord,
+  RoleName,
+  RoleSpec,
+  SchemaName,
+  SectionNode,
+  TemplateRegistry,
+  TraceRunner,
+  ValidationIssue,
+  ValidationReport,
+  Validator,
+  VisualKind,
+  VisualPlan,
+  VisualRecord,
+} from '@illus/core'
+import { CONTEXT_VERSION, attrs, escapeText, packContext } from '@illus/context'
+import type { LexicalSearch, PackedContext } from '@illus/context'
+import { resolveRoute } from '@illus/llm'
+import type { ModelsConfig } from '@illus/llm'
+
+import { createLimiter, limitLlm } from './limiter.ts'
+
+/** How long a request waits for `indexNow` before planning with partial context (§15 step 2). */
+export const INDEX_WAIT_MS = 20_000
+export const MAX_LLM_REQUESTS = 4
+export const MAX_SECTIONS = 2
+export const MAX_INSTRUCTION_CHARS = 300
+
+// ---------------------------------------------------------------- public types
+
+export type ItemStage =
+  | 'queued'
+  | 'cached'
+  | 'extracting'
+  | 'retrying'
+  | 'escalating'
+  | 'tracing'
+  | 'patching'
+  | 'animating'
+  | 'critic'
+  | 'storing'
+
+export interface SectionJobEvents {
+  plan: { plan: VisualPlan; record: PlanRecord; partialContext: boolean; fromCache: boolean }
+  'no-visual': { reason: string }
+  'item-progress': { planItemId: string; stage: ItemStage }
+  'item-ready': { planItemId: string; record: VisualRecord; fromCache: boolean }
+  'item-failed': { planItemId: string; code: string; message: string; report?: ValidationReport }
+  /** The job could not plan (unknown section, planner failure, plan limit). */
+  error: { code: string; message: string }
+  done: { cancelled: boolean }
+}
+export type SectionJobEvent = keyof SectionJobEvents
+
+export interface SectionJob {
+  /** The section actually generated (after `mergedInto`, or the synthetic selection id). */
+  readonly sectionId: string
+  on<E extends SectionJobEvent>(event: E, cb: (payload: SectionJobEvents[E]) => void): () => void
+  /** Cancels the planner call and queued items; extractor calls in flight complete and are cached (§15). */
+  cancel(): void
+  readonly cancelled: boolean
+  /** Settles after `done` was emitted. */
+  readonly finished: Promise<void>
+}
+
+export interface RequestOptions {
+  /** "Illustrate anyway": re-plan, telling the planner the reader asked for a visual (§8). */
+  force?: boolean
+  /** "Regenerate with instruction" (≤ 300 characters): a new visual record, the old one is kept. */
+  instruction?: string
+  /** Kind override: re-runs stages 2–4 for `planItemId` (or every item) with this kind. */
+  kindOverride?: VisualKind
+  /** Run only this plan item. */
+  planItemId?: string
+  /** Keep jobs of other sections running (default: navigating cancels them). */
+  keepOthers?: boolean
+}
+
+/** W8's patch flow (§13), injected; called for items with a concept model when `conceptModels` is on. */
+export type ConceptModelRoute = (input: {
+  planItem: PlanItem
+  section: SectionNode
+  context: PackedContext
+  llm: LlmCall
+}) => Promise<{
+  kind: VisualKind
+  ir: unknown
+  report: ValidationReport
+  promptVersions: Record<string, string>
+  models: Record<string, string>
+  usageTokens: number
+}>
+
+export interface PipelineDeps {
+  repos: IllusRepos
+  llm: LlmCall
+  /** Prompt registry of `@illus/llm` (version and budget of each role). */
+  prompts: { get(role: RoleName): { version: string; budgetTokens: number } }
+  /** `ILLUS_MODELS_JSON`: the expected model and effort enter cache-key lookups before any call. */
+  models: ModelsConfig
+  flags?: Flags | (() => Flags)
+  validate?: Validator
+  ground?: GroundingFn
+  /** The concept pass (`@illus/concepts`), for `indexNow` (§15 step 2). */
+  concepts?: { indexNow(sectionId: string): Promise<boolean> }
+  indexWaitMs?: number
+  /** W1's MiniSearch block index for the lexical fallback (§7). */
+  lexical?: LexicalSearch
+  /** W5's registry: template descriptions for the extractor and props checks for `validate()`. */
+  templates?: TemplateRegistry
+  /** W7: runs translated code in the Pyodide worker (`tracer` flag). */
+  traceRunner?: TraceRunner
+  tracerVersion?: string | number
+  /** W6: animation validation (§11); errors drop the animation, the static visual stays. */
+  validateAnimation?: (ir: unknown, animation: AnimationIR) => ValidationIssue[]
+  /** W8 (`conceptModels` flag). */
+  conceptModels?: ConceptModelRoute
+  /** W10 phase B (`critic` flag): renders and judges a record. */
+  critic?: (record: VisualRecord) => Promise<CriticReport | undefined>
+  now?: () => number
+  maxLlmRequests?: number
+  maxSections?: number
+}
+
+export interface Pipeline {
+  requestSection(sectionId: string, opts?: RequestOptions): SectionJob
+  /** "Illustrate selection" (§8): a synthetic section of the selected blocks, with the parent as path context. */
+  requestSelection(sel: { parentSectionId: string; blockIds: string[] }, opts?: RequestOptions): SectionJob
+}
+
+// ---------------------------------------------------------------- kind routing
+
+const EXTRACTOR: Record<Exclude<VisualKind, 'trace'>, { role: RoleName; schema: SchemaName }> = {
+  graph: { role: 'extractor.graph', schema: 'GraphIR' },
+  sequence: { role: 'extractor.mermaid', schema: 'SequenceIR' },
+  state: { role: 'extractor.mermaid', schema: 'StateIR' },
+  class: { role: 'extractor.mermaid', schema: 'ClassIR' },
+  er: { role: 'extractor.mermaid', schema: 'ErIR' },
+  template: { role: 'extractor.template', schema: 'TemplateIR' },
+  chart: { role: 'extractor.chart', schema: 'ChartIR' },
+  math: { role: 'extractor.math', schema: 'MathIR' },
+  timeline: { role: 'extractor.timeline', schema: 'TimelineIR' },
+  html: { role: 'html-fallback', schema: 'HtmlIR' },
+}
+
+/** The role whose prompt/model enters an item's visual key. */
+export function roleForKind(kind: VisualKind): RoleName {
+  return kind === 'trace' ? 'translator' : EXTRACTOR[kind].role
+}
+
+/** Kinds behind a feature flag (§4). */
+const KIND_FLAG: Partial<Record<VisualKind, keyof Flags>> = { template: 'templates', trace: 'tracer', html: 'htmlFallback' }
+
+export function kindEnabled(kind: VisualKind, flags: Flags): boolean {
+  const f = KIND_FLAG[kind]
+  return !f || flags[f]
+}
+
+class ItemFailure extends Error {
+  readonly code: string
+  readonly report: ValidationReport | undefined
+  constructor(code: string, message: string, report?: ValidationReport) {
+    super(message)
+    this.code = code
+    this.report = report
+  }
+}
+
+const emptyReport = (): ValidationReport => ({
+  ok: true,
+  groundingScore: 0,
+  counts: { total: 0, grounded: 0, halfGrounded: 0, fuzzy: 0, dropped: 0 },
+  dropped: [],
+  issues: [],
+  retried: false,
+  escalated: false,
+})
+
+const tokensOf = (r: Pick<LlmResult<unknown>, 'usage'>) => r.usage.input + r.usage.output
+
+// ---------------------------------------------------------------- pipeline
+
+export function createPipeline(deps: PipelineDeps): Pipeline {
+  const { repos } = deps
+  const llm = limitLlm(deps.llm, createLimiter(deps.maxLlmRequests ?? MAX_LLM_REQUESTS))
+  const sectionSlots = createLimiter(deps.maxSections ?? MAX_SECTIONS)
+  const validate = deps.validate ?? defaultValidate
+  const ground = deps.ground ?? defaultGround
+  const now = deps.now ?? Date.now
+  const flagsNow = () => (typeof deps.flags === 'function' ? deps.flags() : (deps.flags ?? resolveFlags()))
+  const jobs = new Set<Job>()
+
+  /** Expected (primary, then fallback) model runs of a role: cache lookups try each in order. */
+  function expectedRuns(role: RoleName, escalate = false) {
+    const promptVersion = deps.prompts.get(role).version
+    return resolveRoute(deps.models, role, escalate).chain.map((m) => ({ promptVersion, model: m.model, effort: m.effort }))
+  }
+
+  async function firstHit<T>(keys: Promise<string>[], get: (k: string) => Promise<T | undefined>): Promise<T | undefined> {
+    for (const k of keys) {
+      const hit = await get(await k)
+      if (hit) return hit
+    }
+    return undefined
+  }
+
+  type Listener = (p: never) => void
+  class Job implements SectionJob {
+    sectionId: string
+    cancelled = false
+    readonly controller = new AbortController()
+    readonly listeners = new Map<SectionJobEvent, Set<Listener>>()
+    finished: Promise<void>
+    resolveFinished!: () => void
+
+    constructor(sectionId: string) {
+      this.sectionId = sectionId
+      this.finished = new Promise((r) => (this.resolveFinished = r))
+    }
+    on<E extends SectionJobEvent>(event: E, cb: (payload: SectionJobEvents[E]) => void) {
+      const set = this.listeners.get(event) ?? new Set()
+      set.add(cb as Listener)
+      this.listeners.set(event, set)
+      return () => void set.delete(cb as Listener)
+    }
+    emit<E extends SectionJobEvent>(event: E, payload: SectionJobEvents[E]) {
+      if (this.cancelled && event !== 'done') return
+      for (const cb of this.listeners.get(event) ?? []) (cb as (p: SectionJobEvents[E]) => void)(payload)
+    }
+    cancel() {
+      if (this.cancelled) return
+      this.cancelled = true
+      this.controller.abort()
+    }
+  }
+
+  function start(job: Job, opts: RequestOptions, resolveSection: () => Promise<{ section: SectionNode; synthetic?: Block[]; indexId: string }>) {
+    if (opts.instruction && opts.instruction.length > MAX_INSTRUCTION_CHARS)
+      throw new Error(`instruction is longer than ${MAX_INSTRUCTION_CHARS} characters`)
+    if (!opts.keepOthers) for (const other of jobs) if (other.sectionId !== job.sectionId) other.cancel()
+    jobs.add(job)
+    // Start on a later tick so the caller can subscribe first.
+    void Promise.resolve()
+      .then(() => sectionSlots.run(async () => (job.cancelled ? undefined : runJob(job, opts, await resolveSection()))))
+      .catch((e: unknown) => {
+        if (!(e instanceof LlmError && e.code === 'aborted'))
+          job.emit('error', { code: e instanceof LlmError ? e.code : 'internal', message: (e as Error)?.message ?? String(e) })
+      })
+      .finally(() => {
+        jobs.delete(job)
+        job.emit('done', { cancelled: job.cancelled })
+        job.resolveFinished()
+      })
+    return job
+  }
+
+  async function runJob(job: Job, opts: RequestOptions, target: { section: SectionNode; synthetic?: Block[]; indexId: string }) {
+    const { section } = target
+    const flags = flagsNow()
+    const signal = job.controller.signal
+
+    // §15 step 2: the concept index, waited for up to 20 s.
+    let partialContext = false
+    if (!(await repos.sectionIndex.get(target.indexId))) {
+      if (deps.concepts) {
+        let timer: ReturnType<typeof setTimeout> | undefined
+        const timeout = new Promise<boolean>((r) => (timer = setTimeout(() => r(false), deps.indexWaitMs ?? INDEX_WAIT_MS)))
+        partialContext = !(await Promise.race([deps.concepts.indexNow(target.indexId).catch(() => false), timeout]))
+        clearTimeout(timer)
+      } else partialContext = true
+    }
+    if (job.cancelled) return
+
+    const synthetic = target.synthetic && { section, blocks: target.synthetic }
+    const repo = { ...repos, ...(deps.lexical && { lexical: deps.lexical }) }
+
+    // §15 step 3: plan.
+    const planKeys = expectedRuns('planner').map((planner) =>
+      planKey({ bookId: section.bookId, sectionId: section.sectionId, contentHash: section.contentHash, contextVersion: CONTEXT_VERSION, planner }),
+    )
+    let record = opts.force ? undefined : await firstHit(planKeys, (k) => repos.plans.get(k))
+    const fromCache = !!record
+    if (!record) {
+      const packed = await packContext({ role: 'planner', sectionId: section.sectionId, budgetTokens: deps.prompts.get('planner').budgetTokens, repo, ...(synthetic && { synthetic }) })
+      const body = opts.force
+        ? `${packed.body}\n<force>The reader asked for a visual of this section. Set needsVisual to true unless nothing in it can be drawn from the text.</force>`
+        : packed.body
+      const res = await llm.call('planner', { prefix: packed.prefix, body }, { signal, bookId: section.bookId, sectionId: section.sectionId })
+      const plan: VisualPlan = { ...res.data, sectionId: section.sectionId }
+      record = {
+        cacheKey: await planKey({
+          bookId: section.bookId,
+          sectionId: section.sectionId,
+          contentHash: section.contentHash,
+          contextVersion: CONTEXT_VERSION,
+          planner: { promptVersion: res.promptVersion, model: res.model, effort: res.effort },
+        }),
+        bookId: section.bookId,
+        sectionId: section.sectionId,
+        plan,
+        partialContext,
+        model: res.model,
+        effort: res.effort,
+        promptVersion: res.promptVersion,
+        usageTokens: tokensOf(res),
+        createdAt: now(),
+        stale: false,
+      }
+      await repos.plans.put(record)
+    }
+    if (job.cancelled) return
+    const plan = record.plan
+    const items = plan.items
+      .filter((i) => !opts.planItemId || i.planItemId === opts.planItemId)
+      .map((i) => (opts.kindOverride ? overrideKind(i, opts.kindOverride) : i))
+      .filter((i) => kindEnabled(i.kind, flags))
+      .sort((a, b) => a.priority - b.priority)
+    job.emit('plan', { plan: { ...plan, items }, record, partialContext: record.partialContext, fromCache })
+    if (!plan.needsVisual) {
+      job.emit('no-visual', { reason: plan.reason })
+      return
+    }
+
+    // §15 step 5: item 1 at once, then the rest two at a time.
+    const itemSlots = createLimiter(2)
+    const runOne = async (item: PlanItem) => {
+      if (job.cancelled) return
+      try {
+        await runItem(job, item, record, section, synthetic, opts, flags)
+      } catch (e) {
+        if (e instanceof LlmError && e.code === 'aborted') return
+        const f = e instanceof ItemFailure ? e : new ItemFailure(e instanceof LlmError ? e.code : 'internal', (e as Error)?.message ?? String(e))
+        job.emit('item-failed', { planItemId: item.planItemId, code: f.code, message: f.message, ...(f.report && { report: f.report }) })
+      }
+    }
+    const [first, ...rest] = items
+    for (const i of items) job.emit('item-progress', { planItemId: i.planItemId, stage: 'queued' })
+    if (first) await runOne(first)
+    await Promise.all(rest.map((i) => itemSlots.run(() => runOne(i))))
+  }
+
+  async function runItem(
+    job: Job,
+    item: PlanItem,
+    plan: PlanRecord,
+    section: SectionNode,
+    synthetic: { section: SectionNode; blocks: Block[] } | undefined,
+    opts: RequestOptions,
+    flags: Flags,
+  ) {
+    const progress = (stage: ItemStage) => job.emit('item-progress', { planItemId: item.planItemId, stage })
+    if (item.kind === 'template' && !item.templateId) throw new ItemFailure('needs-template', 'a template item needs a templateId')
+    const role = roleForKind(item.kind)
+    const instruction = opts.instruction?.trim() || undefined
+    const keys = expectedRuns(role).map((extractor) =>
+      visualKey({ planKey: plan.cacheKey, planItem: item, extractor, compilerVersion: COMPILER_VERSION, ...(instruction && { instruction }) }),
+    )
+    const hit = await firstHit(keys, (k) => repos.visuals.get(k))
+    if (hit) {
+      progress('cached')
+      job.emit('item-ready', { planItemId: item.planItemId, record: hit, fromCache: true })
+      return
+    }
+
+    const repo = { ...repos, ...(deps.lexical && { lexical: deps.lexical }) }
+    const packed = await packContext({ role, sectionId: section.sectionId, planItem: item, budgetTokens: deps.prompts.get(role).budgetTokens, repo, ...(synthetic && { synthetic }) })
+    const blocks = new Map((await repos.blocks.bulkGet(packed.usedBlockIds)).flatMap((b) => (b ? [[b.blockId, b] as const] : [])))
+    if (synthetic) for (const b of synthetic.blocks) blocks.set(b.blockId, b)
+    const extra = [
+      item.kind === 'template' && item.templateId ? templateBlock(item.templateId) : '',
+      instruction ? `<user_instruction>${escapeText(instruction)}</user_instruction>` : '',
+    ].filter(Boolean)
+    const ctx = { prefix: packed.prefix, body: [packed.body, ...extra].join('\n') }
+    const callOpts = { bookId: section.bookId, sectionId: section.sectionId }
+
+    let ir: unknown
+    let report: ValidationReport
+    let kind: VisualKind = item.kind
+    let usage = 0
+    const promptVersions: Record<string, string> = {}
+    const models: Record<string, string> = {}
+    const note = (r: RoleName, res: LlmResult<unknown>) => {
+      promptVersions[r] = res.promptVersion
+      models[r] = `${res.model}@${res.effort}`
+      usage += tokensOf(res)
+    }
+    let traceKeyOut: string | undefined
+    let storeRun = expectedRuns(role)[0]!
+
+    if (item.kind === 'trace') {
+      progress('tracing')
+      const t = await traceRoute(item, packed, callOpts, note)
+      ;({ ir, report } = { ir: null, report: emptyReport() })
+      traceKeyOut = t.traceKey
+      storeRun = t.run
+    } else if (flags.conceptModels && (item.conceptModelId || item.newConceptModel) && deps.conceptModels) {
+      progress('patching')
+      const out = await deps.conceptModels({ planItem: item, section, context: packed, llm })
+      ;({ ir, report, kind } = out)
+      Object.assign(promptVersions, out.promptVersions)
+      Object.assign(models, out.models)
+      usage += out.usageTokens
+    } else {
+      const { role: exRole, schema } = EXTRACTOR[item.kind]
+      const attempt = async (feedback: string, escalate: boolean) => {
+        const body = feedback ? `${ctx.body}\n${feedback}` : ctx.body
+        try {
+          const res = await llm.call(exRole, { prefix: ctx.prefix, body }, {
+            ...callOpts,
+            schemaName: schema as never,
+            ...(item.kind === 'template' && item.templateId && { templateId: item.templateId }),
+            ...(escalate && { escalate }),
+          })
+          note(exRole, res)
+          storeRun = { promptVersion: res.promptVersion, model: res.model, effort: res.effort }
+          return validate(item.kind, res.data, { blocks, ground, ...(deps.templates && { templates: deps.templates }), aliases: await aliasMap(section.bookId) })
+        } catch (e) {
+          // An L1 schema failure is treated like an unusable extraction: retried, then escalated.
+          if (e instanceof LlmError && e.code === 'schema') {
+            const r = emptyReport()
+            return { ir: undefined, report: { ...r, ok: false, issues: [{ layer: 'schema' as const, severity: 'error' as const, code: 'schema', message: e.message }] } }
+          }
+          throw e
+        }
+      }
+      const unusable = (r: ValidationReport, out: unknown) => out === undefined || needsReextract(r)
+      progress('extracting')
+      let v = await attempt('', false)
+      let retried = false
+      let escalated = false
+      if (unusable(v.report, v.ir)) {
+        progress('retrying')
+        retried = true
+        v = await attempt(reportBlock(v.report), false)
+        if (unusable(v.report, v.ir) && (ROLES[exRole] as RoleSpec).escalationTier) {
+          progress('escalating')
+          escalated = true
+          v = await attempt(reportBlock(v.report), true)
+        }
+      }
+      report = { ...v.report, retried, escalated }
+      if (unusable(report, v.ir) || !report.ok) throw new ItemFailure('validation', 'the extracted IR failed validation', report)
+      ir = v.ir
+    }
+
+    // §15 step 7: animate when asked and enabled.
+    let animation: AnimationIR | undefined
+    if (item.animate && flags.animations && item.kind !== 'trace') {
+      progress('animating')
+      try {
+        const res = await llm.call('animator', { prefix: ctx.prefix, body: `${ctx.body}\n<ir>${escapeText(JSON.stringify(ir))}</ir>` }, callOpts)
+        note('animator', res)
+        const issues = deps.validateAnimation?.(ir, res.data) ?? []
+        if (issues.some((i) => i.severity === 'error')) report = { ...report, issues: [...report.issues, ...issues.map((i) => ({ ...i, severity: 'warning' as const }))] }
+        else animation = res.data
+      } catch (e) {
+        if (e instanceof LlmError && (e.code === 'aborted' || e.code === 'plan-limit')) throw e
+        report = { ...report, issues: [...report.issues, { layer: 'animation', severity: 'warning', code: 'animation-failed', message: (e as Error).message }] }
+      }
+    }
+
+    progress('storing')
+    let record: VisualRecord = {
+      cacheKey: await visualKey({ planKey: plan.cacheKey, planItem: item, extractor: storeRun, compilerVersion: COMPILER_VERSION, ...(instruction && { instruction }) }),
+      bookId: section.bookId,
+      sectionId: section.sectionId,
+      planItemId: item.planItemId,
+      kind,
+      ir,
+      spec: null,
+      ...(animation && { animation }),
+      ...(traceKeyOut && { traceKey: traceKeyOut }),
+      validation: report,
+      promptVersions,
+      models,
+      usageTokens: usage,
+      createdAt: now(),
+      stale: false,
+      ...(instruction && { instruction }),
+    }
+    if (flags.critic && deps.critic) {
+      progress('critic')
+      const critic = await deps.critic(record).catch(() => undefined)
+      if (critic) record = { ...record, critic }
+    }
+    await repos.visuals.put(record)
+    job.emit('item-ready', { planItemId: item.planItemId, record, fromCache: false })
+  }
+
+  async function traceRoute(
+    item: PlanItem,
+    packed: PackedContext,
+    callOpts: { bookId: string; sectionId: string },
+    note: (r: RoleName, res: LlmResult<unknown>) => void,
+  ) {
+    if (!deps.traceRunner) throw new ItemFailure('unavailable', 'no trace runner')
+    const code = item.codeBlockId ? await repos.blocks.get(item.codeBlockId) : undefined
+    if (!code) throw new ItemFailure('missing-code-block', `code block ${item.codeBlockId} not found`)
+    const source = code.code?.source ?? code.text
+    const tracerVersion = deps.tracerVersion ?? 1
+    const run = expectedRuns('translator')[0]!
+    const existing = await firstHit(
+      expectedRuns('translator').map((translator) => traceKey({ codeSource: source, translator, tracerVersion })),
+      (k) => repos.traces.get(k),
+    )
+    if (existing) return { traceKey: existing.cacheKey, run }
+    const res = await llm.call('translator', { prefix: packed.prefix, body: packed.body }, callOpts)
+    note('translator', res)
+    const scenarios = await deps.traceRunner.runTrace({ codeBlockId: code.blockId, translation: res.data })
+    const used = { promptVersion: res.promptVersion, model: res.model, effort: res.effort }
+    const key = await traceKey({ codeSource: source, translator: used, tracerVersion })
+    await repos.traces.put({
+      cacheKey: key,
+      bookId: callOpts.bookId,
+      codeBlockId: code.blockId,
+      translation: res.data,
+      scenarios,
+      mode: 'executed',
+      promptVersions: { translator: res.promptVersion },
+      models: { translator: res.model },
+      efforts: { translator: res.effort },
+      createdAt: now(),
+      stale: false,
+    })
+    return { traceKey: key, run: used }
+  }
+
+  /** Canonical name → aliases for the relevance check; read per call because the concept pass may still be running. */
+  async function aliasMap(bookId: string) {
+    return new Map((await repos.concepts.listByBook(bookId)).map((c) => [c.canonical, c.aliases]))
+  }
+
+  function templateBlock(id: NonNullable<PlanItem['templateId']>): string {
+    const t = deps.templates?.getTemplate(id)
+    if (!t) return `<template${attrs([['id', id]])}/>`
+    return [
+      `<template${attrs([['id', id]])}>`,
+      `<description>${escapeText(t.description)}</description>`,
+      `<when_to_use>${escapeText(t.whenToUse)}</when_to_use>`,
+      `<example>${escapeText(JSON.stringify(t.example))}</example>`,
+      '</template>',
+    ].join('\n')
+  }
+
+  return {
+    requestSection(sectionId, opts = {}) {
+      const job = new Job(sectionId)
+      return start(job, opts, async () => {
+        let section = await repos.sections.get(sectionId)
+        if (!section) throw new LlmError('upstream', `unknown section ${sectionId}`)
+        // §15 step 1: tiny sections are generated with the section they were merged into.
+        const seen = new Set<string>()
+        while (section.mergedInto && !seen.has(section.sectionId)) {
+          seen.add(section.sectionId)
+          const into: SectionNode | undefined = await repos.sections.get(section.mergedInto)
+          if (!into) break
+          section = into
+        }
+        job.sectionId = section.sectionId
+        return { section, indexId: section.sectionId }
+      })
+    },
+
+    requestSelection({ parentSectionId, blockIds }, opts = {}) {
+      const job = new Job(`${parentSectionId}~sel`)
+      return start(job, opts, async () => {
+        const parent = await repos.sections.get(parentSectionId)
+        if (!parent) throw new LlmError('upstream', `unknown section ${parentSectionId}`)
+        const blocks = (await repos.blocks.bulkGet(blockIds)).filter((b): b is Block => !!b)
+        if (!blocks.length) throw new LlmError('upstream', 'the selection has no known blocks')
+        const contentHash = await sectionContentHash(blocks.map((b) => b.text))
+        const section: SectionNode = {
+          ...parent,
+          sectionId: `${parent.sectionId}~sel-${(await sha256Hex(blockIds.join('\n'))).slice(0, 12)}`,
+          title: `${parent.title} (selection)`,
+          parentId: parent.sectionId,
+          childIds: [],
+          blockIds: blocks.map((b) => b.blockId),
+          contentHash,
+          tokenEstimate: Math.ceil(blocks.reduce((n, b) => n + b.text.length, 0) / 3.6),
+          cfiStart: blocks[0]!.cfiRange,
+          cfiEnd: blocks.at(-1)!.cfiRange,
+        }
+        delete section.mergedInto
+        job.sectionId = section.sectionId
+        return { section, synthetic: blocks, indexId: parent.sectionId }
+      })
+    },
+  }
+}
+
+/** Kind override (§8): the item with another kind; fields that do not fit the new kind are dropped. */
+export function overrideKind(item: PlanItem, kind: VisualKind): PlanItem {
+  const out: PlanItem = { ...item, kind }
+  if (kind !== 'template') delete out.templateId
+  if (!ConceptModelKind.safeParse(kind).success) {
+    delete out.conceptModelId
+    delete out.newConceptModel
+  }
+  return out
+}
+
+/** The validator report attached to a retry (§8 stage 3 step 3). */
+export function reportBlock(report: ValidationReport): string {
+  const issues = report.issues
+    .filter((i) => i.severity === 'error' || i.code === 'quote-not-found')
+    .map((i) => `  <issue${attrs([['code', i.code], ['element', i.elementId]])}>${escapeText(i.message)}</issue>`)
+  return [
+    `<validator_report${attrs([['dropped', report.counts.dropped], ['total', report.counts.total]])}>`,
+    ...issues,
+    '  <retry>Your previous answer failed these checks. Answer again: quote verbatim from the blocks, keep every element grounded, and keep enough elements for the plan item.</retry>',
+    '</validator_report>',
+  ].join('\n')
+}
