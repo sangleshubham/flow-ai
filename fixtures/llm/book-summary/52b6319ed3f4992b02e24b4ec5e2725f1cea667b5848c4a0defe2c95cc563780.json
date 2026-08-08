@@ -1,5 +1,5 @@
 {
-  "key": "377357368720f84828092748a8dc0010efd33c0b39a553a5d1dd6f0927a000cc",
+  "key": "52b6319ed3f4992b02e24b4ec5e2725f1cea667b5848c4a0defe2c95cc563780",
   "source": "handwritten",
   "role": "book-summary",
   "promptVersion": "1.0.0",
@@ -14,7 +14,7 @@
     ]
   },
   "usage": {
-    "input": 952,
+    "input": 928,
     "output": 200,
     "cachedInput": 0
   },
