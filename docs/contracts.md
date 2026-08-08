@@ -12108,6 +12108,16 @@ const ClassRelation: ZodObject<{
 
 ***
 
+#### COMPILER\_VERSION
+
+```ts
+const COMPILER_VERSION: 1 = 1;
+```
+
+`COMPILER_VERSION` of the visual cache key (§5).
+
+***
+
 #### Concept
 
 ```ts

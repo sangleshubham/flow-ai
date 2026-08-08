@@ -1,0 +1,123 @@
+{
+  "key": "b6c678834df4517b523e7ba38ac887a2744a21efd11c6db962d17ce95e733026",
+  "source": "handwritten",
+  "role": "extractor.graph",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "GraphIR",
+  "data": {
+    "type": "graph",
+    "title": "A replicated log",
+    "direction": "LR",
+    "nodes": [
+      {
+        "id": "leader",
+        "label": "Leader",
+        "shape": "box",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "quote": "The leader sends heartbeats so that followers know it is still alive."
+        }
+      },
+      {
+        "id": "follower",
+        "label": "Follower",
+        "shape": "box",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "quote": "The leader sends heartbeats so that followers know it is still alive."
+        }
+      },
+      {
+        "id": "log",
+        "label": "Replicated log",
+        "shape": "store",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "quote": "A replicated log keeps every server in agreement about the order of commands."
+        }
+      },
+      {
+        "id": "server",
+        "label": "Server",
+        "shape": "box",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "quote": "Each server applies committed commands to its state machine in log order."
+        }
+      },
+      {
+        "id": "sm",
+        "label": "State machine",
+        "shape": "store",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "quote": "Each server applies committed commands to its state machine in log order."
+        }
+      },
+      {
+        "id": "snapshot",
+        "label": "Snapshot",
+        "shape": "store",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b1",
+          "quote": "Snapshots compact the log once its prefix has been applied everywhere."
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "from": "leader",
+        "to": "follower",
+        "label": "heartbeats",
+        "style": "dashed",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "quote": "The leader sends heartbeats so that followers know it is still alive."
+        }
+      },
+      {
+        "id": "e2",
+        "from": "log",
+        "to": "server",
+        "label": "order of commands",
+        "style": "solid",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "quote": "A replicated log keeps every server in agreement about the order of commands."
+        }
+      },
+      {
+        "id": "e3",
+        "from": "server",
+        "to": "sm",
+        "label": "applies committed commands",
+        "style": "solid",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "quote": "Each server applies committed commands to its state machine in log order."
+        }
+      },
+      {
+        "id": "e4",
+        "from": "snapshot",
+        "to": "log",
+        "label": "compacts",
+        "style": "solid",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b1",
+          "quote": "Snapshots compact the log once its prefix has been applied everywhere."
+        }
+      }
+    ],
+    "groups": []
+  },
+  "usage": {
+    "input": 3533,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: extractor.graph for 3.1 An Oversized Section Without Subheadings (part 1) id=\"p1\". Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}

@@ -1,0 +1,46 @@
+{
+  "key": "2c523a7800d0e1c48020540b312c169c37bb8ae19fff3d7f4f78c3a060b758f1",
+  "source": "handwritten",
+  "role": "planner",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "VisualPlan",
+  "data": {
+    "sectionId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1",
+    "needsVisual": true,
+    "reason": "The section describes the parts of a replicated log, the follower-to-election change and the contents of a log entry.",
+    "items": [
+      {
+        "planItemId": "p1",
+        "kind": "graph",
+        "intent": "How the leader, followers, replicated log, state machine and snapshots relate",
+        "conceptIds": [],
+        "priority": 1,
+        "animate": false
+      },
+      {
+        "planItemId": "p2",
+        "kind": "state",
+        "intent": "A follower that misses heartbeats starts an election",
+        "conceptIds": [],
+        "priority": 2,
+        "animate": false
+      },
+      {
+        "planItemId": "p3",
+        "kind": "class",
+        "intent": "What a log entry carries",
+        "conceptIds": [],
+        "priority": 3,
+        "animate": false
+      }
+    ]
+  },
+  "usage": {
+    "input": 3499,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: planner for 3.1 An Oversized Section Without Subheadings (part 1). Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}

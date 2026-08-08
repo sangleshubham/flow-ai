@@ -1,0 +1,210 @@
+{
+  "key": "64c894f64999278031aa9515e38bf9242d599d2c58bf733425a048c0344cd2df",
+  "source": "handwritten",
+  "role": "indexer",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6-luna",
+  "effort": "medium",
+  "schemaName": "IndexerOutput",
+  "data": {
+    "sections": [
+      {
+        "sectionId": "c911e05c7aff3525:0:preface:0",
+        "summary": "The book exists to test an EPUB indexer; its text is original and released under CC0.",
+        "defines": [],
+        "uses": [
+          {
+            "name": "EPUB indexer"
+          }
+        ],
+        "flags": {
+          "algorithm": false,
+          "protocol": false,
+          "architecture": false,
+          "dataStructure": false,
+          "stateMachine": false,
+          "math": false,
+          "codeHeavy": false,
+          "narrative": true
+        }
+      },
+      {
+        "sectionId": "c911e05c7aff3525:1:chapter-1-basics:0",
+        "summary": "The chapter introduces the basic building blocks.",
+        "defines": [],
+        "uses": [],
+        "flags": {
+          "algorithm": false,
+          "protocol": false,
+          "architecture": false,
+          "dataStructure": false,
+          "stateMachine": false,
+          "math": false,
+          "codeHeavy": false,
+          "narrative": true
+        }
+      },
+      {
+        "sectionId": "c911e05c7aff3525:1:chapter-1-basics/1-1-lists-and-tables:1",
+        "summary": "A server can be a follower, candidate or leader. Table 1.1 lists the RequestVote and AppendEntries messages with their senders and purposes; a term is a monotonically increasing election number.",
+        "defines": [
+          {
+            "name": "term",
+            "evidence": {
+              "blockId": "c911e05c7aff3525:1:chapter-1-basics/1-1-lists-and-tables:1#b3",
+              "quote": "Term A monotonically increasing election number."
+            }
+          }
+        ],
+        "uses": [
+          {
+            "name": "server"
+          },
+          {
+            "name": "follower"
+          },
+          {
+            "name": "candidate"
+          },
+          {
+            "name": "leader"
+          },
+          {
+            "name": "log"
+          },
+          {
+            "name": "RequestVote"
+          },
+          {
+            "name": "AppendEntries"
+          }
+        ],
+        "flags": {
+          "algorithm": false,
+          "protocol": true,
+          "architecture": false,
+          "dataStructure": false,
+          "stateMachine": true,
+          "math": false,
+          "codeHeavy": false,
+          "narrative": false
+        }
+      },
+      {
+        "sectionId": "c911e05c7aff3525:1:chapter-1-basics/1-2-code:2",
+        "summary": "Listing 1.1 is a binary search that halves the range on every step; its loop invariant keeps the target between lo and hi.",
+        "defines": [
+          {
+            "name": "binary search",
+            "evidence": {
+              "blockId": "c911e05c7aff3525:1:chapter-1-basics/1-2-code:2#b1",
+              "quote": "Listing 1.1 Binary search"
+            }
+          },
+          {
+            "name": "loop invariant",
+            "evidence": {
+              "blockId": "c911e05c7aff3525:1:chapter-1-basics/1-2-code:2#b6",
+              "quote": "the loop invariant is that the target, if present, lies between lo and hi."
+            }
+          }
+        ],
+        "uses": [
+          {
+            "name": "search"
+          }
+        ],
+        "flags": {
+          "algorithm": true,
+          "protocol": false,
+          "architecture": false,
+          "dataStructure": false,
+          "stateMachine": false,
+          "math": false,
+          "codeHeavy": true,
+          "narrative": false
+        }
+      },
+      {
+        "sectionId": "c911e05c7aff3525:2:chapter-2-math-and-figures:0",
+        "summary": "The chapter recalls the search of Chapter 1 and covers formulas and figures.",
+        "defines": [],
+        "uses": [
+          {
+            "name": "search"
+          }
+        ],
+        "flags": {
+          "algorithm": false,
+          "protocol": false,
+          "architecture": false,
+          "dataStructure": false,
+          "stateMachine": false,
+          "math": false,
+          "codeHeavy": false,
+          "narrative": false
+        }
+      },
+      {
+        "sectionId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1",
+        "summary": "The number of steps of the search is bounded by floor(log2 n) + 1, where n is the number of items. A quorum needs more than n/2 votes.",
+        "defines": [
+          {
+            "name": "quorum",
+            "evidence": {
+              "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b2",
+              "quote": "A quorum needs q>n2 votes."
+            }
+          }
+        ],
+        "uses": [
+          {
+            "name": "binary search"
+          }
+        ],
+        "flags": {
+          "algorithm": false,
+          "protocol": false,
+          "architecture": false,
+          "dataStructure": false,
+          "stateMachine": false,
+          "math": true,
+          "codeHeavy": false,
+          "narrative": false
+        }
+      },
+      {
+        "sectionId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-2-figures:2",
+        "summary": "Figure 2.1 shows a cluster of three servers and Figure 2.2 a log with five entries.",
+        "defines": [],
+        "uses": [
+          {
+            "name": "cluster"
+          },
+          {
+            "name": "log"
+          },
+          {
+            "name": "server"
+          }
+        ],
+        "flags": {
+          "algorithm": false,
+          "protocol": false,
+          "architecture": false,
+          "dataStructure": false,
+          "stateMachine": false,
+          "math": false,
+          "codeHeavy": false,
+          "narrative": false
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input": 1387,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: indexer for Preface, Chapter 1 Basics, 1.1 Lists and Tables, 1.2 Code, Chapter 2 Math and Figures, 2.1 Formulas, 2.2 Figures. Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}

@@ -1,0 +1,21 @@
+{
+  "key": "fee118e00a13095a88fd93c8c128e5f89cb3380e2f446ba5c9a7ebdc20592f68",
+  "source": "handwritten",
+  "role": "planner",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "VisualPlan",
+  "data": {
+    "sectionId": "c911e05c7aff3525:4:chapter-4-scripted-content:0",
+    "needsVisual": false,
+    "reason": "A single test sentence with nothing technical to draw.",
+    "items": []
+  },
+  "usage": {
+    "input": 537,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: planner for Chapter 4 Scripted Content. Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}

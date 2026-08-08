@@ -15,7 +15,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@illus/core": "workspace:*"
+    "@illus/core": "workspace:*",
+    "@illus/context": "workspace:*"
   },
   "devDependencies": {
     "@illus/eslint-config": "workspace:*",

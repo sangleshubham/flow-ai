@@ -1,0 +1,38 @@
+{
+  "key": "c007fe040b8008853769ce8715d3bf7d86d5d5a8a7c922f00b0ccd3196588807",
+  "source": "handwritten",
+  "role": "planner",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "VisualPlan",
+  "data": {
+    "sectionId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1",
+    "needsVisual": true,
+    "reason": "A formula with two named terms and a logarithmic growth rate.",
+    "items": [
+      {
+        "planItemId": "p1",
+        "kind": "math",
+        "intent": "What steps and n mean in the bound on search steps",
+        "conceptIds": [],
+        "priority": 1,
+        "animate": false
+      },
+      {
+        "planItemId": "p2",
+        "kind": "chart",
+        "intent": "How the number of search steps grows with the number of items",
+        "conceptIds": [],
+        "priority": 2,
+        "animate": false
+      }
+    ]
+  },
+  "usage": {
+    "input": 685,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: planner for 2.1 Formulas. Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}
