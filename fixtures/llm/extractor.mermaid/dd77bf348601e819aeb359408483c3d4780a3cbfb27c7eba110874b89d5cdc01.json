@@ -1,0 +1,40 @@
+{
+  "key": "dd77bf348601e819aeb359408483c3d4780a3cbfb27c7eba110874b89d5cdc01",
+  "source": "handwritten",
+  "role": "extractor.mermaid",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "ClassIR",
+  "data": {
+    "type": "class",
+    "title": "Log entry",
+    "classes": [
+      {
+        "id": "entry",
+        "label": "Log entry",
+        "fields": [
+          {
+            "name": "term",
+            "evidence": {
+              "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+              "quote": "A log entry carries the term in which the leader received it."
+            }
+          }
+        ],
+        "methods": [],
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "quote": "A log entry carries the term in which the leader received it."
+        }
+      }
+    ],
+    "relations": []
+  },
+  "usage": {
+    "input": 3520,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: extractor.mermaid for 3.1 An Oversized Section Without Subheadings (part 1) id=\"p3\". Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}

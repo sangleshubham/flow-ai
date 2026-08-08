@@ -1,0 +1,22 @@
+{
+  "key": "377357368720f84828092748a8dc0010efd33c0b39a553a5d1dd6f0927a000cc",
+  "source": "handwritten",
+  "role": "book-summary",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6-luna",
+  "effort": "low",
+  "schemaName": "BookSummary",
+  "data": {
+    "summary": "A synthetic test book. It introduces server states, the RequestVote and AppendEntries messages, a binary search with its loop invariant and a bound on its steps, and then explains replicated logs: heartbeats, elections, terms and snapshots.",
+    "conventions": [
+      "Listings, tables and figures are numbered by chapter, e.g. Listing 1.1.",
+      "Code listings are in Python."
+    ]
+  },
+  "usage": {
+    "input": 952,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: book-summary for . Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}

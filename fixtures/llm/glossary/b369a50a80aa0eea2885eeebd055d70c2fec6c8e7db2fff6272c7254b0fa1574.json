@@ -1,0 +1,25 @@
+{
+  "key": "b369a50a80aa0eea2885eeebd055d70c2fec6c8e7db2fff6272c7254b0fa1574",
+  "source": "handwritten",
+  "role": "glossary",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6-luna",
+  "effort": "low",
+  "schemaName": "GlossaryOutput",
+  "data": {
+    "merges": [
+      {
+        "canonical": "replicated log",
+        "aliases": [
+          "log"
+        ]
+      }
+    ]
+  },
+  "usage": {
+    "input": 195,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: glossary for . Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}
