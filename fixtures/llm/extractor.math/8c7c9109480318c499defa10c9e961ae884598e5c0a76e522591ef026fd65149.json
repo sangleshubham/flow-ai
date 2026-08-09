@@ -1,5 +1,5 @@
 {
-  "key": "f731aee3417c4ab3dc84e58b54c7db76a66eafabe907693cc433b5f0808d04bc",
+  "key": "8c7c9109480318c499defa10c9e961ae884598e5c0a76e522591ef026fd65149",
   "source": "handwritten",
   "role": "extractor.math",
   "promptVersion": "1.0.0",
@@ -29,7 +29,7 @@
     ]
   },
   "usage": {
-    "input": 712,
+    "input": 732,
     "output": 200,
     "cachedInput": 0
   },
