@@ -1,2 +1,5 @@
 # Sentry
 .sentryclirc
+test-results/
+playwright-report/
+.illus-data/
