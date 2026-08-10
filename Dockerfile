@@ -1,50 +1,34 @@
-# https://github.com/vercel/turborepo/blob/a2a04ed4eba28602c7cdb36377c75a2f7007e90d/examples/with-docker/apps/web/Dockerfile
+# syntax=docker/dockerfile:1
+# AI Illustrated Reader image (W11, spec §17, docs/deploy.md). Two stages on Node 24 (spec D11):
+# build the Next standalone server, then run it as a non-root user with ILLUS_DATA_DIR on a volume.
+# No `turbo prune`: a filtered pnpm install does the same job without turbo reading the pnpm 10 lockfile.
 
-FROM node:18-alpine AS builder
-# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
+FROM node:24-alpine AS builder
 RUN apk add --no-cache libc6-compat
-RUN apk update
-# Set working directory
 WORKDIR /app
-RUN yarn global add turbo
-COPY . .
-# Only Take packages that are needed to compile this app
-RUN turbo prune --scope=@flow/reader --docker
-
-# Add lockfile and package.json's of isolated subworkspace
-FROM node:18-alpine AS installer
-RUN apk add --no-cache libc6-compat
-RUN apk update
-WORKDIR /app
-
-# First install the dependencies (as they change less often)
-COPY .gitignore .gitignore
-COPY --from=builder /app/out/json/ .
-COPY --from=builder /app/out/pnpm-*.yaml .
+# HUSKY=0: no .git in the context, so skip the git-hook install in the root `prepare` script.
+ENV NEXT_TELEMETRY_DISABLED=1 HUSKY=0
 RUN corepack enable
-RUN pnpm i --frozen-lockfile
+# .dockerignore keeps node_modules, build output, .env* and private books out of the context.
+COPY . .
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile --filter @flow/reader...
+# Built in replay mode with no secrets, like CI. Every ILLUS_* value is read at runtime.
+RUN DOCKER=1 ILLUS_LLM_MODE=replay pnpm --filter @flow/reader build
 
-# Build the project
-COPY --from=builder /app/out/full/ .
-COPY turbo.json turbo.json
-COPY tsconfig.*json .
-
-RUN DOCKER=1 pnpm -F reader build
-
-FROM node:18-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
-
-# Don't run production as root
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-USER nextjs
-
-COPY --from=installer /app/apps/reader/next.config.js .
-COPY --from=installer /app/apps/reader/package.json .
-
-# Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
-COPY --from=installer --chown=nextjs:nodejs /app/apps/reader/.next/standalone ./
-COPY --from=installer --chown=nextjs:nodejs /app/apps/reader/.next/static ./apps/reader/.next/static
-
-CMD node apps/reader/server.js
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 ILLUS_DATA_DIR=/data
+# Token store and usage log live on a volume owned by the unprivileged `node` user (uid 1000).
+RUN mkdir -p /data && chown node:node /data
+COPY --from=builder --chown=node:node /app/apps/reader/.next/standalone ./
+COPY --from=builder --chown=node:node /app/apps/reader/.next/static ./apps/reader/.next/static
+# public/ holds the PWA files, theme-init.js, illus-sandbox.html and the self-hosted Pyodide assets
+# (public/pyodide, W7); the standalone server does not include it.
+COPY --from=builder --chown=node:node /app/apps/reader/public ./apps/reader/public
+USER node
+VOLUME ["/data"]
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s CMD wget -q -O /dev/null http://127.0.0.1:3000/login || exit 1
+WORKDIR /app/apps/reader
+CMD ["node", "server.js"]
