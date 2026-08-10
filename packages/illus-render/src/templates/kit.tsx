@@ -226,6 +226,7 @@ export const TEMPLATE_CSS = `
 .illus-tpl .t-link { fill: none; stroke: var(--illus-muted); stroke-width: 1.5px; }
 .illus-tpl .t-dash { stroke-dasharray: 5 4; }
 .illus-tpl .t-head { fill: var(--illus-muted); stroke: none; }
+.illus-tpl .t-top { fill: none; stroke: var(--illus-accent); stroke-width: 2px; }
 .illus-tpl text.t-ptr { font: 600 11px var(--illus-mono); fill: var(--illus-accent); }
 .illus-tpl .t-ann rect { fill: var(--illus-bg); stroke: var(--illus-accent); stroke-width: 1px; }
 .illus-tpl .t-ann text { font-size: 11px; }
