@@ -40,31 +40,45 @@
           "type": "template",
           "templateId": "tree",
           "props": {
-            "root": "n8",
+            "variant": "bst",
             "nodes": [
               {
                 "id": "n8",
-                "key": 8,
-                "left": "n3",
-                "right": "n10"
+                "keys": [
+                  8
+                ]
               },
               {
                 "id": "n3",
-                "key": 3,
-                "left": "n1",
-                "right": "n6"
+                "keys": [
+                  3
+                ],
+                "parent": "n8",
+                "side": "left"
               },
               {
                 "id": "n10",
-                "key": 10
+                "keys": [
+                  10
+                ],
+                "parent": "n8",
+                "side": "right"
               },
               {
                 "id": "n1",
-                "key": 1
+                "keys": [
+                  1
+                ],
+                "parent": "n3",
+                "side": "left"
               },
               {
                 "id": "n6",
-                "key": 6
+                "keys": [
+                  6
+                ],
+                "parent": "n3",
+                "side": "right"
               }
             ]
           },

@@ -242,6 +242,58 @@ describe('validate: template hook (W5 invariants)', () => {
     )
   })
 
+  describe('dropElement', () => {
+    const list = z.object({ items: z.array(z.string()), root: z.string() })
+    class TemplateDropError extends Error {
+      override name = 'TemplateDropError'
+    }
+    const dropSpec: TemplateSpec<z.infer<typeof list>> = {
+      id: 'stack',
+      description: 'stack',
+      whenToUse: 'stacks',
+      propsSchema: list,
+      example: { items: [], root: 'r' },
+      supportedActions: ['highlight'],
+      checkInvariants: (p) => (p.items.length ? [] : ['empty']),
+      dropElement(p, path) {
+        const m = /^items\.(\d+)$/.exec(path)
+        if (!m) throw new TemplateDropError(`stack: ${path} cannot be dropped`)
+        return { ...p, items: p.items.filter((_, i) => i !== Number(m[1])) }
+      },
+    }
+    const reg: TemplateRegistry = { getTemplate: () => dropSpec as TemplateSpec, listTemplates: () => [dropSpec as TemplateSpec] }
+    const ir = (evidence: { path: string; evidence: typeof BAD }[]) =>
+      make.templateIR({ templateId: 'stack', props: { items: ['a', 'b', 'c', 'd'], root: 'r' }, evidence })
+
+    it('drops an ungrounded list element and renumbers later evidence paths', () => {
+      const r = validate(
+        'template',
+        ir([
+          { path: 'items.0', evidence: Q.majorityLine },
+          { path: 'items.1', evidence: BAD },
+          { path: 'items.3', evidence: BAD },
+          { path: 'items.2', evidence: Q.majorityLine },
+        ]),
+        ctx({ templates: reg }),
+      )
+      expect(r.report.ok).toBe(true)
+      expect(r.report.dropped).toEqual(['items.3', 'items.1'])
+      expect(r.ir.props).toEqual({ items: ['a', 'c'], root: 'r' })
+      expect(r.ir.evidence.map((e) => e.path)).toEqual(['items.0', 'items.1'])
+    })
+
+    it('keeps the grounding error when dropElement throws TemplateDropError', () => {
+      let r: ReturnType<typeof validate<'template'>> | undefined
+      expect(() => {
+        r = validate('template', ir([{ path: 'items.0', evidence: Q.majorityLine }, { path: 'root', evidence: BAD }]), ctx({ templates: reg }))
+      }).not.toThrow()
+      expect(codes(r!.report, 'error')).toEqual(['template-element-ungrounded'])
+      expect(r!.report.issues[0]?.elementId).toBe('root')
+      expect(r!.report.dropped).toEqual([])
+      expect(r!.ir.props).toEqual({ items: ['a', 'b', 'c', 'd'], root: 'r' })
+    })
+  })
+
   it('warns when no registry is available', () => {
     expect(codes(validate('template', make.templateIR(), ctx()).report, 'warning')).toContain('template-unchecked')
   })
