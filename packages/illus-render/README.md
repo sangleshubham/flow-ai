@@ -81,7 +81,10 @@ function Pane({ record, frame, bridge }) {
 ## Tests
 
 - `pnpm test`: Vitest, unit (pure compilers, layout under Node, theme, elements) and jsdom component tests.
-- `pnpm e2e`: Playwright in Chromium against a Vite harness (`test/harness`) served under the ADR 0001 CSP. Visual baselines for every renderer in light and dark (`test/e2e/__screenshots__`, platform-suffixed; only `darwin` baselines exist so far), evidence ids and callbacks, frames, export, the layout worker, XSS and sandbox tests. Update baselines with `pnpm e2e --update-snapshots`. First run: `pnpm exec playwright install chromium`.
+- `pnpm e2e`: runs both `e2e:core` and `e2e:templates` sequentially, failing if either suite fails.
+- `pnpm e2e:core`: Playwright in Chromium against a Vite harness (`test/harness`) served under the ADR 0001 CSP. Visual baselines for every renderer in light and dark (`test/e2e/__screenshots__`, platform-suffixed; only `darwin` baselines exist so far), evidence ids and callbacks, frames, export, the layout worker, XSS and sandbox tests.
+- `pnpm e2e:templates`: all 16 templates in light and dark plus frame fixtures, using W5's existing harness and configuration. See the [template library documentation](src/templates/README.md#tests).
+- Baseline updates must be reviewed visually. Pass snapshot options to the relevant suite, e.g. `pnpm e2e:core --update-snapshots`; Linux baselines remain deferred. First run: `pnpm exec playwright install chromium`.
 
 ## Scripts
 

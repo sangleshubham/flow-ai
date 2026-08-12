@@ -1,30 +1,23 @@
 {
   "source": "handwritten",
-  "note": "Example 2 of docs/prompts/html-fallback.md. Key = sha256(JSON.stringify({role, promptVersion, model, prefix, body})) (spec §9); W2 may re-key to its final fixture format.",
+  "note": "Example 2 of docs/prompts/html-fallback.md. Uses the @illus/llm Fixture contract; the original request hash and response data are preserved.",
   "key": "4301554ed7a38b3514a7971243d36e27f97d624f328fdde701c546e4657c8ce7",
-  "request": {
-    "role": "html-fallback",
-    "promptVersion": "1.0.0",
-    "model": "gpt-6.1-sol",
-    "prefix": "<book_context>A short example book about how servers keep a replicated log consistent. Code listings are in Go.</book_context>",
-    "body": "<section id=\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1\" path=\"5 Log Replication › 5.1 Leaders and Followers\" ordinal=\"1\">\n  <block id=\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b4\" kind=\"paragraph\">Each log entry stores a term number and a command, and every server stores many log entries.</block>\n</section>",
-    "schemaName": "HtmlIR",
-    "effort": "medium"
+  "role": "html-fallback",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "prefix": "<book_context>A short example book about how servers keep a replicated log consistent. Code listings are in Go.</book_context>",
+  "body": "<section id=\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1\" path=\"5 Log Replication › 5.1 Leaders and Followers\" ordinal=\"1\">\n  <block id=\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b4\" kind=\"paragraph\">Each log entry stores a term number and a command, and every server stores many log entries.</block>\n</section>",
+  "schemaName": "HtmlIR",
+  "effort": "medium",
+  "data": {
+    "type": "html",
+    "html": "<!doctype html><html><head><meta charset=\"utf-8\"><style>:root{color-scheme:light dark}body{font:14px system-ui,sans-serif;background:Canvas;color:CanvasText;margin:12px}dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px}dt{font-weight:600}</style></head><body><h3>A log entry</h3><dl><dt>term number</dt><dd>stored in each log entry</dd><dt>command</dt><dd>stored in each log entry</dd></dl><p>Every server stores many log entries.</p></body></html>",
+    "reason": "Two stored fields are a definition list; a class or ER diagram would add structure the text does not state."
   },
-  "response": {
-    "ok": true,
-    "data": {
-      "type": "html",
-      "html": "<!doctype html><html><head><meta charset=\"utf-8\"><style>:root{color-scheme:light dark}body{font:14px system-ui,sans-serif;background:Canvas;color:CanvasText;margin:12px}dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px}dt{font-weight:600}</style></head><body><h3>A log entry</h3><dl><dt>term number</dt><dd>stored in each log entry</dd><dt>command</dt><dd>stored in each log entry</dd></dl><p>Every server stores many log entries.</p></body></html>",
-      "reason": "Two stored fields are a definition list; a class or ER diagram would add structure the text does not state."
-    },
-    "usage": {
-      "input": 900,
-      "output": 700,
-      "cachedInput": 0
-    },
-    "model": "gpt-6.1-sol",
-    "effort": "medium",
-    "latencyMs": 4200
-  }
+  "usage": {
+    "input": 900,
+    "output": 700,
+    "cachedInput": 0
+  },
+  "usedModel": "gpt-6.1-sol"
 }
