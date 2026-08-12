@@ -13,7 +13,9 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run --passWithNoTests",
-    "e2e": "playwright test"
+    "e2e": "pnpm e2e:core && pnpm e2e:templates",
+    "e2e:core": "playwright test",
+    "e2e:templates": "playwright test -c src/templates/e2e"
   },
   "dependencies": {
     "@illus/core": "workspace:*",
