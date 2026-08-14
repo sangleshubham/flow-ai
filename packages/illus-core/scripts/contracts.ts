@@ -99,6 +99,12 @@ async function typedocReference(): Promise<string> {
 /** Contract history. Each amendment names its ADR; add the newest first. */
 const CHANGELOG = `## Changelog
 
+### v1.3 (2026-10-09, [ADR 0030](adr/0030-w0-wave3-contracts.md))
+
+- Optional DOM-free \`TemplateSpec.targets(props): string[]\` exposes valid §11 targets; every returned string must parse as \`Target\`. Optional \`initialFrame(props)\` returns pointers and containers using the corresponding \`FrameState\` field types. These hooks match W5's implementations and let W6 validate targets and seed frame 0 without importing React. Existing template implementations remain valid.
+- \`make.templateIR()\` now uses array pointers \`[{ name: 'majority', index: 1 }]\`, with evidence paths \`values\` and \`pointers.0\`, matching W5's array props schema.
+- Reader Chromium E2E runs in CI after the production build, in replay mode with throwaway test credentials. Renderer visual tests remain deferred until Linux baselines are generated and approved; darwin screenshots are not used as Linux baselines.
+
 ### v1.2 (2026-10-09, [ADR 0008](adr/0008-contracts-v1-1.md))
 
 - \`Block.text\` of \`kind: 'code'\` blocks keeps line breaks and indentation (tabs included); only trailing whitespace per line and leading/trailing blank lines are trimmed. Every other kind still collapses whitespace (§6 step 9). Grounding stays whitespace-insensitive: quote and block are both collapsed before matching (§16), so a code quote matches with any spacing. W1 implements it in the indexer (wave 2). \`docs/spec.md\` is not edited.

@@ -1,4 +1,4 @@
-# Merge gate (spec §18, CLAUDE.md): install, lint, typecheck, test, app build, supply-chain audit.
+# Merge gate (spec §18, AGENTS.md): install, lint, typecheck, test, app build, reader E2E, supply-chain audit.
 # Never calls a live model: ILLUS_LLM_MODE=replay. Actions are pinned to commit SHAs.
 name: CI
 
@@ -37,6 +37,14 @@ jobs:
       # tsc does not see what Next 12's SWC cannot compile (e.g. `satisfies`); only a real build does (ADR 0009).
       - name: Reader app builds (next build, replay mode, no secrets)
         run: pnpm --filter @flow/reader build
+      - name: Install reader Chromium and system dependencies
+        run: pnpm --filter @flow/reader exec playwright install --with-deps chromium
+      # Reuse the build above; Playwright supplies throwaway test credentials to `next start`.
+      # Renderer screenshot suites remain deferred until Linux baselines are approved (ADR 0030).
+      - name: Reader browser E2E (production build, replay mode)
+        run: pnpm --filter @flow/reader e2e
+        env:
+          E2E_SKIP_BUILD: '1'
       - name: Fixture EPUBs are up to date
         run: |
           pnpm fixtures:epub

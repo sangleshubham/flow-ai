@@ -27,7 +27,7 @@ describe('irElements', () => {
     expect(ids(make.chartIR())).toEqual(['item:series-0'])
     expect(ids(make.mathIR())).toEqual(['item:term-0'])
     expect(ids(make.timelineIR())).toEqual(['group:leader', 'group:follower', 'node:a1', 'node:a2', 'node:a3'])
-    expect(ids(make.templateIR())).toEqual(['item:values', 'item:pointers.majority'])
+    expect(ids(make.templateIR())).toEqual(['item:values', 'item:pointers.0'])
   })
 
   it('indexes evidence by data-ir-id', () => {
