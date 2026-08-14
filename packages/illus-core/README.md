@@ -3,7 +3,7 @@
 The contracts every workstream builds against (spec §5, §9, §11–§13, §16): Zod schemas with `z.infer` types, ids, hashing, feature flags, cache keys, repository interfaces and the interfaces other workstreams implement. DOM-free; runs under plain Node.
 
 - Owner: W0 for `src/{schemas,ids,hash,flags,cache-keys,repos,testing}`; W3 owns `src/compile`, W6 `src/anim`, W10 `src/grounding` and `src/validate` (each fills its own `index.ts`, already re-exported from `src/index.ts`).
-- Contracts version: `CONTRACTS_VERSION` (1.2.0, approved; v1.1 and v1.2 changes in the changelog of docs/contracts.md and ADR 0008). Reference: [`docs/contracts.md`](../../docs/contracts.md), regenerated with `pnpm contracts`.
+- Contracts version: `CONTRACTS_VERSION` (1.3.0, approved; changes in the changelog of docs/contracts.md, ADR 0008 and ADR 0030). Reference: [`docs/contracts.md`](../../docs/contracts.md), regenerated with `pnpm contracts`.
 - Changing a public type after the freeze needs an ADR and a version bump (§4).
 
 ## Entry points
@@ -30,6 +30,7 @@ Deep imports (`@illus/core/src/...`) are rejected by lint.
   - Records: `VisualRecord`, `LlmLogEntry`, `SettingRecord`.
   - LLM (§9): `RoleName`, `SchemaName`, `SCHEMAS`, `ROLES`, `RoleOutput<R>`, `LlmRequest`, `LlmResponse`, `LlmError`, `ReasoningEffort`, `Tier`.
 - **Ports** (implemented elsewhere, injected): `LlmCall` (W2), `ReaderBridge`, `ThemeTokens` (W9), `TraceRunner` (W7), `GroundingFn`, `Validator` (W10), `TemplateSpec`, `TemplateRegistry` (W5), `LayoutGraphFn` (W4).
+- **Template frame hooks** (optional, DOM-free): `TemplateSpec.targets(props)` lists valid animation targets; `initialFrame(props)` seeds pointers and containers using the corresponding `FrameState` fields. W5 supplies the hooks; W6 validates targets and clones seeds before applying actions. Existing templates may omit both hooks. `make.templateIR()` uses W5's array pointers list and evidence path `pointers.0`.
 - **Repositories** (W2 implements with Dexie): `IllusRepos` and one interface per store of §5.
 - **Grounding** (W10, §16): `ground` (the `GroundingFn`), `findQuote(text, quote)` (exact, else fuzzy; original offsets; also for W9's `quoteToCfi`), `normalizeText` (NFKC, lowercase, unified quotes/dashes, no soft hyphens, collapsed whitespace, with an offset map) and `originalRange`, `groundingScore`, `FUZZY_THRESHOLD` (0.9), `MIN_QUOTE_WORDS` (3).
 - **Validation** (W10, §16 L1–L3): `validate(kind, ir, ctx)` (the `Validator`: Zod parse, grounding with drops and dangling cascade, structural rules and safe auto-fixes, template props and invariants through `ctx.templates`), `needsReextract(report)` (> 30% dropped or too few elements left), `addIssues(report, issues)` (merges animation or render issues and recomputes `ok`), `MAX_DROPPED_SHARE`.

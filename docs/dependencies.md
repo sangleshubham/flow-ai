@@ -5,7 +5,7 @@ Every external library v1 may use (spec §19), pinned to an exact version **at l
 - **Enforcement:** `.npmrc` `save-exact=true`; pnpm 10.34.5 `minimumReleaseAge: 20160` minutes in `pnpm-workspace.yaml`, so transitive dependencies are also ≥ 14 days old at resolution time; lockfile committed; `pnpm audit --audit-level high` in CI with the inherited-Flow baseline ([ADR 0004](adr/0004-ci-gate-and-audit-baseline.md)).
 - **Version rule** ([ADR 0002](adr/0002-package-boundaries-and-toolchain.md)): latest stable at least 14 days old. If that is the first weeks of a new major, use the previous major's latest.
 - **Links:** every documentation link in §19 was fetched on 2026-10-09 and returned HTTP 200, some through redirects noted below.
-- **Compatibility:** Flow runs React 18.0.0, Next.js 12.3.4 (Pages Router), and Node 24 for tooling (D11). "Peer" lists what the pin expects from its host.
+- **Compatibility:** Flow runs React 18.0.0, Next.js 12.3.7 (Pages Router), and Node 24 for tooling (D11). "Peer" lists what the pin expects from its host.
 
 ## Runtime libraries
 
@@ -13,7 +13,7 @@ Every external library v1 may use (spec §19), pinned to an exact version **at l
 | --- | --- | --- | --- | --- | --- | --- |
 | Flow (fork base) | `36f3cc7` | 2026-03-28 | AGPL-3.0 | `apps/reader` | — | [github.com/pacexy/flow](https://github.com/pacexy/flow) |
 | epub.js | **`@flow/epubjs` workspace** (0.3.93 fork) | vendored | BSD-2-Clause | `book-index`, `reader-bridge` | Use the vendored fork, not npm `epubjs` (ADR 0002) | [repo](https://github.com/futurepress/epub.js) · [API](http://epubjs.org/documentation/0.3/) |
-| `next`, `react`, `react-dom` | 12.3.4, 18.0.0, 18.0.0 (Flow's) | — | MIT | `apps/reader`; React 18.0.0 also dev + peer `^18.0.0` of `@illus/render` | Inherited; 12.3.4 has critical advisories → 12.3.7 by W11 in wave 2, Next 15.5 after M1 ([ADR 0005](adr/0005-nextjs-12-security.md), accepted) | [nextjs.org/docs](https://nextjs.org/docs) · [react.dev](https://react.dev) |
+| `next`, `react`, `react-dom` | 12.3.7, 18.0.0, 18.0.0 | — | MIT | `apps/reader`; React 18.0.0 also dev + peer `^18.0.0` of `@illus/render` | Next raised to 12.3.7 by W11 in wave 2; inherited React pins retained. Tailscale-only interim deployment; Next 15.5 migration after M1 ([ADR 0005](adr/0005-nextjs-12-security.md), accepted) | [nextjs.org/docs](https://nextjs.org/docs) · [react.dev](https://react.dev) |
 | `openai` | 7.23.0 | 2026-09-23 | Apache-2.0 | `/api/llm` (server) | Node ≥ 22: the Docker image must move to Node 24 (flow-audit §9); peer `zod ^3.25 \|\| ^4` ✓ | [Sign in with ChatGPT](https://developers.openai.com/siwc/quickstart) · [limits](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations) |
 | `openid-client` | 6.8.8 | 2026-09-05 | MIT | `/auth/chatgpt/*` (server) | ESM; server only | same |
 | `zod` | 4.6.5 | 2026-09-13 | MIT | everywhere (`@illus/core`) | Needs TypeScript ≥ 5.5; `z.toJSONSchema` built in | [zod.dev](https://zod.dev) |
@@ -36,6 +36,8 @@ Every external library v1 may use (spec §19), pinned to an exact version **at l
 | `fastest-levenshtein` | 1.0.16 | 2022-08-02 | MIT | `core` (grounding, W10) | Latest release | [fastest-levenshtein](https://github.com/ka-weihe/fastest-levenshtein) |
 | `zustand` | **not used** | — | — | — | Flow already has Valtio (flow-audit §4); §19 allows Zustand only if Flow has no state library | [docs](https://zustand.docs.pmnd.rs) |
 
+W11 removed the reader's direct dependencies on `@sentry/nextjs` (7.12.1), `dropbox` (10.32.0), `nookies` (2.5.2) and `swr` (1.3.0) in wave 2 alongside cloud sync, remote import and Sentry integration ([ADR 0020](adr/0020-w11-login-gate-and-deployment.md)). These are no longer reader runtime dependencies; this records the existing manifest and lockfile changes, without introducing new pins.
+
 ## Development and test tooling
 
 | Tool | Pin | Published | Licence | Where | Notes | Docs |
@@ -44,7 +46,7 @@ Every external library v1 may use (spec §19), pinned to an exact version **at l
 | pnpm | 10.34.5 | 2026-07-10 | MIT | `packageManager` | Upgraded from Flow's 10.6.4 for `minimumReleaseAge` | [pnpm.io](https://pnpm.io) |
 | Turborepo (`turbo`) | 1.11.3 (Flow's) | 2024-01-04 | MPL-2.0 | root | Kept: turbo 2 renames `pipeline` to `tasks`; upgrade is a separate change | [turborepo docs](https://turborepo.com/docs) (→ turborepo.dev) |
 | TypeScript | 5.9.3 | 2025-09-30 | Apache-2.0 | every `@illus` package, root, `apps/reader` | Root and `apps/reader` raised from Flow's 4.6.3 ([ADR 0009](adr/0009-reader-build-on-typescript-5.md)); TS 6/7 unsupported by typescript-eslint and TypeDoc | [typescriptlang.org/docs](https://www.typescriptlang.org/docs/) |
-| Vitest | 4.1.11 | 2026-08-18 | MIT | every `@illus` package | 5.0.1 (2026-09-15) skipped under the new-major rule | [vitest.dev](https://vitest.dev) |
+| Vitest | 4.1.11 | 2026-08-18 | MIT | every `@illus` package, `apps/reader` (dev) | Reader security unit tests added by W11; 5.0.1 (2026-09-15) skipped under the new-major rule | [vitest.dev](https://vitest.dev) |
 | Testing Library (React) | `@testing-library/react` 16.3.3 + `@testing-library/dom` 10.4.2 | 2026-08-27 / 2026-09-13 | MIT | component tests (W4–W9) | peers React 18 ✓; needs `@types/react` 18 | [testing-library.com](https://testing-library.com/docs/react-testing-library/intro/) |
 | jsdom | 30.1.1 | 2026-09-22 | MIT | Vitest DOM environment (`book-index`, `render`) | The "jsdom" of §18 component tests; Node ≥ 22.22 / 24.15 | — |
 | `@vitest/browser-playwright` | 4.1.11 | 2026-08-18 | MIT | `book-index` (dev) | Vitest browser mode on Chromium for the epub.js tests (W1); same version as Vitest | [vitest.dev/guide/browser](https://vitest.dev/guide/browser/) |
@@ -53,7 +55,7 @@ Every external library v1 may use (spec §19), pinned to an exact version **at l
 | `vite` | 8.3.1 | 2026-09-24 | MIT | `render` (dev) | Dev server for the Playwright harness; already in the lockfile through Vitest ([ADR 0006](adr/0006-render-input-and-element-ids.md)) | [vite.dev](https://vite.dev) |
 | `@types/react`, `@types/react-dom` | 18.3.31, 18.3.7 | 2026-06-05 / 2025-04-30 | MIT | `render` (dev), `apps/reader` (dev); whole workspace via pnpm `overrides` | React 18 types; a pnpm override forces these versions everywhere (Flow's `internal` and `website` still pin 17.0.43) so exactly one copy of the JSX types exists ([ADR 0009](adr/0009-reader-build-on-typescript-5.md)) | — |
 | fast-check | 4.10.2 | 2026-09-19 | MIT | property tests | — | [fast-check.dev](https://fast-check.dev) |
-| Playwright | `@playwright/test` 1.63.0 | 2026-09-04 | Apache-2.0 | E2E, visual regression | 1.64.0 is newer than the cut-off | [playwright.dev](https://playwright.dev) |
+| Playwright | `@playwright/test` 1.63.0 | 2026-09-04 | Apache-2.0 | `render`, `pipeline`, `apps/reader` (dev): E2E, visual regression | Reader E2E added by W11; CI installs Chromium with system dependencies and tests the production reader build. Renderer Linux baselines remain deferred (ADR 0030). 1.64.0 is newer than the cut-off | [playwright.dev](https://playwright.dev) |
 | ESLint | 10.11.0 | 2026-09-18 | MIT | every `@illus` package | Flat config; Flow keeps ESLint 8.13 | — |
 | `@typescript-eslint/parser`, `@typescript-eslint/eslint-plugin` (Flow's ESLint 8 stack) | 5.62.0 | 2023-07-10 | BSD-2-Clause / MIT | root `.eslintrc.js`, `next lint` | Raised from 5.10.1/5.19.0, which drop TS 5 decorators; a pnpm override also lifts `eslint-config-next`'s own parser ([ADR 0009](adr/0009-reader-build-on-typescript-5.md)) | — |
 | `typescript-eslint` | 8.70.1 | 2026-09-21 | MIT | `tooling/eslint-config` | Parser and rules for ESLint 10; supports TS < 6.1 | — |

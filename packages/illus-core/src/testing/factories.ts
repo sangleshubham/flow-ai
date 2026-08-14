@@ -335,10 +335,10 @@ export const make = {
     TemplateIR.parse({
       type: 'template',
       templateId: 'array',
-      props: { values: [1, 3, 3], pointers: { majority: 1 } },
+      props: { values: [1, 3, 3], pointers: [{ name: 'majority', index: 1 }] },
       evidence: [
         { path: 'values', evidence: Q.majorityLine },
-        { path: 'pointers.majority', evidence: Q.majorityLine },
+        { path: 'pointers.0', evidence: Q.majorityLine },
       ],
       ...o,
     }),

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { IR, sectionContentHash, SectionNode } from '../src/index.ts'
 import type { Evidence } from '../src/index.ts'
@@ -26,6 +27,27 @@ function collectEvidence(value: unknown, out: Evidence[] = []): Evidence[] {
 }
 
 describe('small book builders', () => {
+  it('builds an array template with list-form pointers and evidence paths that resolve', () => {
+    const ir = make.templateIR()
+    const props = z
+      .object({
+        values: z.array(z.number()),
+        pointers: z.array(z.object({ name: z.string(), index: z.number().int() })),
+      })
+      .parse(ir.props)
+    expect(props.pointers).toEqual([{ name: 'majority', index: 1 }])
+    expect(ir.evidence.map(({ path }) => path)).toEqual(['values', 'pointers.0'])
+    for (const { path } of ir.evidence) {
+      const element = path
+        .split('.')
+        .reduce<unknown>(
+          (value, key) => value && typeof value === 'object' ? (value as Record<string, unknown>)[key] : undefined,
+          props,
+        )
+      expect(element, path).toBeDefined()
+    }
+  })
+
   it('builds sections with real content hashes over their blocks', async () => {
     const book = await buildSmallBook()
     expect(book.sections.map((s) => SectionNode.parse(s).ordinal)).toEqual([0, 1, 2])

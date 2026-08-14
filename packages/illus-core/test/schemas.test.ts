@@ -221,9 +221,9 @@ describe('schema limits from the spec', () => {
   })
 })
 
-describe('contracts v1.1 and v1.2 amendments (ADR 0008)', () => {
-  it('reports version 1.2.0', () => {
-    expect(core.CONTRACTS_VERSION).toBe('1.2.0')
+describe('contracts amendments (ADR 0008, ADR 0030)', () => {
+  it('reports version 1.3.0', () => {
+    expect(core.CONTRACTS_VERSION).toBe('1.3.0')
   })
 
   it('grounds quotes in code blocks whatever their whitespace (code text keeps its layout)', () => {
@@ -253,5 +253,37 @@ describe('contracts v1.1 and v1.2 amendments (ADR 0008)', () => {
     const before = { items: [1, 2, 3] }
     expect(spec.dropElement?.(before, 'items.1')).toEqual({ items: [1, 3] })
     expect(before.items).toEqual([1, 2, 3])
+  })
+
+  it('lets templates expose targets and seed pointers and containers without mutating props', () => {
+    const props = z.object({ items: z.array(z.object({ id: z.string(), value: z.number() })) })
+    const spec: core.TemplateSpec<z.infer<typeof props>> = {
+      id: 'stack',
+      description: 'stack',
+      whenToUse: 'stacks',
+      propsSchema: props,
+      example: { items: [{ id: 'top', value: 3 }] },
+      supportedActions: ['push', 'pop', 'pointer'],
+      targets: (p) => p.items.map(({ id }) => `item:${id}`),
+      initialFrame: (p) => ({
+        pointers: { top: 'item:top' },
+        containers: { stack: p.items.map((item) => ({ ...item })) },
+      }),
+    }
+    const before = structuredClone(spec.example)
+    expect(spec.targets?.(before)).toEqual(['item:top'])
+    for (const target of spec.targets?.(before) ?? []) core.Target.parse(target)
+    const seed = spec.initialFrame?.(before)
+    const frame = core.FrameState.parse({ ...core.emptyFrame(), ...seed })
+    expect(frame.pointers).toEqual({ top: 'item:top' })
+    expect(frame.containers.stack).toEqual([{ id: 'top', value: 3 }])
+    frame.containers.stack![0]!.value = 4
+    expect(before).toEqual(spec.example)
+
+    // Old template implementations remain valid without either hook.
+    const { targets: _targets, initialFrame: _initialFrame, ...legacy } = spec
+    const legacySpec: core.TemplateSpec<z.infer<typeof props>> = legacy
+    expect(legacySpec.targets).toBeUndefined()
+    expect(legacySpec.initialFrame).toBeUndefined()
   })
 })
