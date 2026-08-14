@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
-import { HtmlIR, LlmResponse, sha256Hex } from '@illus/core'
+import { HtmlIR, LlmRequest, LlmUsage, sha256Hex } from '@illus/core'
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url))
 const prompt = readFileSync(`${ROOT}docs/prompts/html-fallback.md`, 'utf8')
@@ -52,12 +52,17 @@ describe('html-fallback replay fixtures', () => {
   it.each(files)('%s is hand-written, keyed by its request and returns a valid HtmlIR', async (file) => {
     const fx = JSON.parse(readFileSync(FIXTURE_DIR + file, 'utf8'))
     expect(fx.source).toBe('handwritten')
-    const { role, promptVersion, model, prefix, body } = fx.request
+    const { role, promptVersion, model, prefix, body } = fx
+    expect(fx).not.toHaveProperty('request')
+    expect(fx).not.toHaveProperty('response')
+    LlmRequest.parse({ ...fx, requestId: `fixture-${fx.key}` })
     expect(role).toBe('html-fallback')
     expect(prompt).toContain(`version: ${promptVersion}`)
     expect(file).toBe(`${await sha256Hex(JSON.stringify({ role, promptVersion, model, prefix, body }))}.json`)
-    const res = LlmResponse.parse(fx.response)
-    expect(res.ok).toBe(true)
-    if (res.ok) expect(HtmlIR.parse(res.data).html).not.toMatch(EXTERNAL)
+    expect(fx.key).toBe(file.slice(0, -5))
+    expect(fx.usedModel).toBe(model)
+    expect(fx.effort).toBe('medium')
+    LlmUsage.parse(fx.usage)
+    expect(HtmlIR.parse(fx.data).html).not.toMatch(EXTERNAL)
   })
 })
