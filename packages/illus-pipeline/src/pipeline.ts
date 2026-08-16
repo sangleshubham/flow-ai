@@ -4,6 +4,7 @@ import {
   ConceptModelKind,
   LlmError,
   ROLES,
+  Translation,
   ground as defaultGround,
   needsReextract,
   planKey,
@@ -136,8 +137,8 @@ export interface PipelineDeps {
   /** W7: runs translated code in the Pyodide worker (`tracer` flag). */
   traceRunner?: TraceRunner
   tracerVersion?: string | number
-  /** W6: animation validation (§11); errors drop the animation, the static visual stays. */
-  validateAnimation?: (ir: unknown, animation: AnimationIR) => ValidationIssue[]
+  /** W6: validate against exactly the permitted packed blocks; errors drop animation, preserving static IR. */
+  validateAnimation?: (ir: unknown, animation: AnimationIR, context: { blocks: ReadonlyMap<string, Block> }) => ValidationIssue[]
   /** W8 (`conceptModels` flag). */
   conceptModels?: ConceptModelRoute
   /** W10 phase B (`critic` flag): renders and judges a record. */
@@ -393,18 +394,18 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     }
 
     const repo = { ...repos, ...(deps.lexical && { lexical: deps.lexical }) }
-    const packed = await packContext({ role, sectionId: section.sectionId, planItem: item, budgetTokens: deps.prompts.get(role).budgetTokens, repo, ...(synthetic && { synthetic }) })
+    let packed = await packContext({ role, sectionId: section.sectionId, planItem: item, budgetTokens: deps.prompts.get(role).budgetTokens, repo, ...(synthetic && { synthetic }) })
     const blocks = new Map((await repos.blocks.bulkGet(packed.usedBlockIds)).flatMap((b) => (b ? [[b.blockId, b] as const] : [])))
     if (synthetic) for (const b of synthetic.blocks) blocks.set(b.blockId, b)
     const extra = [
       item.kind === 'template' && item.templateId ? templateBlock(item.templateId) : '',
       instruction ? `<user_instruction>${escapeText(instruction)}</user_instruction>` : '',
     ].filter(Boolean)
-    const ctx = { prefix: packed.prefix, body: [packed.body, ...extra].join('\n') }
+    let ctx = { prefix: packed.prefix, body: [packed.body, ...extra].join('\n') }
     const callOpts = { bookId: section.bookId, sectionId: section.sectionId }
 
-    let ir: unknown
-    let report: ValidationReport
+    let ir: unknown = null
+    let report: ValidationReport = emptyReport()
     let kind: VisualKind = item.kind
     let usage = 0
     const promptVersions: Record<string, string> = {}
@@ -415,35 +416,54 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       usage += tokensOf(res)
     }
     let traceKeyOut: string | undefined
+    let routeItem = item
+    let simulatedReason: string | undefined
     let storeRun = expectedRuns(role)[0]!
 
     if (item.kind === 'trace') {
       progress('tracing')
-      const t = await traceRoute(item, packed, callOpts, note)
-      ;({ ir, report } = { ir: null, report: emptyReport() })
-      traceKeyOut = t.traceKey
+      const t = await traceRoute(item, packed, callOpts, note, job.controller.signal, flags)
       storeRun = t.run
-    } else if (flags.conceptModels && (item.conceptModelId || item.newConceptModel) && deps.conceptModels) {
+      if ('traceKey' in t) {
+        traceKeyOut = t.traceKey
+        ;({ ir, report } = { ir: null, report: emptyReport() })
+      } else {
+        routeItem = t.item
+        kind = routeItem.kind
+        simulatedReason = t.reason
+        const fallbackRole = roleForKind(kind)
+        packed = await packContext({ role: fallbackRole, sectionId: section.sectionId, planItem: routeItem, budgetTokens: deps.prompts.get(fallbackRole).budgetTokens, repo, ...(synthetic && { synthetic }) })
+        blocks.clear()
+        for (const b of await repos.blocks.bulkGet(packed.usedBlockIds)) if (b) blocks.set(b.blockId, b)
+        if (synthetic) for (const b of synthetic.blocks) blocks.set(b.blockId, b)
+        ctx = { prefix: packed.prefix, body: [packed.body,
+          routeItem.templateId ? templateBlock(routeItem.templateId) : '',
+          `<trace_fallback mode="simulated">${escapeText(t.reason)}</trace_fallback>`,
+          instruction ? `<user_instruction>${escapeText(instruction)}</user_instruction>` : '',
+        ].filter(Boolean).join('\n') }
+      }
+    }
+    if (!traceKeyOut && flags.conceptModels && (routeItem.conceptModelId || routeItem.newConceptModel) && deps.conceptModels) {
       progress('patching')
       const out = await deps.conceptModels({ planItem: item, section, context: packed, llm })
       ;({ ir, report, kind } = out)
       Object.assign(promptVersions, out.promptVersions)
       Object.assign(models, out.models)
       usage += out.usageTokens
-    } else {
-      const { role: exRole, schema } = EXTRACTOR[item.kind]
+    } else if (!traceKeyOut) {
+      const { role: exRole, schema } = EXTRACTOR[routeItem.kind as Exclude<VisualKind, 'trace'>]
       const attempt = async (feedback: string, escalate: boolean) => {
         const body = feedback ? `${ctx.body}\n${feedback}` : ctx.body
         try {
           const res = await llm.call(exRole, { prefix: ctx.prefix, body }, {
             ...callOpts,
             schemaName: schema as never,
-            ...(item.kind === 'template' && item.templateId && { templateId: item.templateId }),
+            ...(routeItem.kind === 'template' && routeItem.templateId && { templateId: routeItem.templateId }),
             ...(escalate && { escalate }),
           })
           note(exRole, res)
-          storeRun = { promptVersion: res.promptVersion, model: res.model, effort: res.effort }
-          return validate(item.kind, res.data, { blocks, ground, ...(deps.templates && { templates: deps.templates }), aliases: await aliasMap(section.bookId) })
+          if (item.kind !== 'trace') storeRun = { promptVersion: res.promptVersion, model: res.model, effort: res.effort }
+          return validate(routeItem.kind, res.data, { blocks, ground, ...(deps.templates && { templates: deps.templates }), aliases: await aliasMap(section.bookId) })
         } catch (e) {
           // An L1 schema failure is treated like an unusable extraction: retried, then escalated.
           if (e instanceof LlmError && e.code === 'schema') {
@@ -472,15 +492,16 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       if (unusable(report, v.ir) || !report.ok) throw new ItemFailure('validation', 'the extracted IR failed validation', report)
       ir = v.ir
     }
+    if (simulatedReason) report = { ...report, issues: [...report.issues, { layer: 'structure', severity: 'warning', code: 'trace-simulated', message: simulatedReason }] }
 
     // §15 step 7: animate when asked and enabled.
     let animation: AnimationIR | undefined
-    if (item.animate && flags.animations && item.kind !== 'trace') {
+    if (routeItem.animate && flags.animations && kind !== 'trace') {
       progress('animating')
       try {
         const res = await llm.call('animator', { prefix: ctx.prefix, body: `${ctx.body}\n<ir>${escapeText(JSON.stringify(ir))}</ir>` }, callOpts)
         note('animator', res)
-        const issues = deps.validateAnimation?.(ir, res.data) ?? []
+        const issues = deps.validateAnimation?.(ir, res.data, { blocks }) ?? []
         if (issues.some((i) => i.severity === 'error')) report = { ...report, issues: [...report.issues, ...issues.map((i) => ({ ...i, severity: 'warning' as const }))] }
         else animation = res.data
       } catch (e) {
@@ -522,33 +543,91 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     packed: PackedContext,
     callOpts: { bookId: string; sectionId: string },
     note: (r: RoleName, res: LlmResult<unknown>) => void,
+    signal: AbortSignal,
+    flags: Flags,
   ) {
     if (!deps.traceRunner) throw new ItemFailure('unavailable', 'no trace runner')
     const code = item.codeBlockId ? await repos.blocks.get(item.codeBlockId) : undefined
     if (!code) throw new ItemFailure('missing-code-block', `code block ${item.codeBlockId} not found`)
+    if (!packed.usedBlockIds.includes(code.blockId))
+      throw new ItemFailure('trace-code-outside-context', `code block ${code.blockId} is not permitted by this section's context`)
+    if (code.kind !== 'code') throw new ItemFailure('trace-not-code', `block ${code.blockId} is not a code listing`)
     const source = code.code?.source ?? code.text
+    const body = `${packed.body}\n<trace_source${attrs([['block_id', code.blockId], ['lang', code.code?.langHint]])}>${escapeText(source)}</trace_source>`
     const tracerVersion = deps.tracerVersion ?? 1
-    const run = expectedRuns('translator')[0]!
     const existing = await firstHit(
       expectedRuns('translator').map((translator) => traceKey({ codeSource: source, translator, tracerVersion })),
       (k) => repos.traces.get(k),
     )
-    if (existing) return { traceKey: existing.cacheKey, run }
-    const res = await llm.call('translator', { prefix: packed.prefix, body: packed.body }, callOpts)
-    note('translator', res)
-    const scenarios = await deps.traceRunner.runTrace({ codeBlockId: code.blockId, translation: res.data })
+    if (existing) return { traceKey: existing.cacheKey, run: {
+      promptVersion: existing.promptVersions.translator!, model: existing.models.translator!, effort: existing.efforts.translator!,
+    } }
+    const res = await llm.call('translator', { prefix: packed.prefix, body }, callOpts)
+    const promptVersions: Record<string, string> = {}
+    const models: Record<string, string> = {}
+    const efforts: Record<string, LlmResult<unknown>['effort']> = {}
+    const account = (role: RoleName, result: LlmResult<unknown>) => {
+      note(role, result)
+      promptVersions[role] = result.promptVersion
+      models[role] = result.model
+      efforts[role] = result.effort
+    }
+    account('translator', res)
     const used = { promptVersion: res.promptVersion, model: res.model, effort: res.effort }
+    let translation = Translation.parse(res.data)
+    let repairs = 0
+    const fallbackItem = (route: 'timeline' | 'none' | 'simulated-template', reason: string) => {
+      if (signal.aborted) throw new LlmError('aborted', 'trace job cancelled')
+      if (route === 'none') throw new ItemFailure('trace-unsupported', reason)
+      if (route === 'timeline') return { run: used, reason, item: { ...overrideKind(item, 'timeline'), animate: false } }
+      const templateId = translation.vizHints[0]?.template
+      if (!flags.templates || !flags.animations || !templateId)
+        throw new ItemFailure('trace-fallback-unavailable', `${reason} Simulated walkthrough needs templates, animations and a translator template hint.`)
+      return { run: used, reason, item: { ...overrideKind(item, 'template'), templateId, animate: true } }
+    }
+    let scenarios
+    for (;;) {
+      if (signal.aborted) throw new LlmError('aborted', 'trace job cancelled')
+      if (!translation.traceable) {
+        const reason = translation.reason ?? 'The code cannot be executed by the trace worker.'
+        return fallbackItem(/concurr|thread|goroutine|async|parallel|distributed/i.test(reason) ? 'timeline' : 'none', reason)
+      }
+      try {
+        scenarios = await deps.traceRunner.runTrace({ codeBlockId: code.blockId, translation }, { signal })
+        break
+      } catch (error) {
+        if (signal.aborted) throw new LlmError('aborted', 'trace job cancelled')
+        // W7's structural error seam avoids any runtime dependency on the worker package.
+        const failure = error as { code?: string; route?: string; reason?: string; translation?: unknown; repairs?: number }
+        if (failure?.code !== 'trace-fallback' || !['timeline', 'none', 'simulated-template'].includes(failure.route ?? '') || typeof failure.reason !== 'string') throw error
+        const parsed = Translation.safeParse(failure.translation)
+        if (!parsed.success) throw error
+        translation = parsed.data
+        repairs = Math.max(repairs, Number.isInteger(failure.repairs) ? failure.repairs! : 0)
+        if (failure.route !== 'simulated-template' || repairs >= 2)
+          return fallbackItem(failure.route as 'timeline' | 'none' | 'simulated-template', failure.reason)
+        const fixed = await llm.call('trace-fixer', {
+          prefix: packed.prefix,
+          body: `${body}\n<translation>${escapeText(JSON.stringify(translation))}</translation>\n<trace_error attempt="${repairs + 1}">${escapeText(failure.reason)}</trace_error>`,
+        }, { ...callOpts, signal })
+        account('trace-fixer', fixed)
+        translation = Translation.parse(fixed.data)
+        repairs++
+      }
+    }
+    if (!scenarios.length || scenarios.some((s) => s.trace.error))
+      throw new ItemFailure('trace-execution', 'The runner returned no successful execution scenarios.')
     const key = await traceKey({ codeSource: source, translator: used, tracerVersion })
     await repos.traces.put({
       cacheKey: key,
       bookId: callOpts.bookId,
       codeBlockId: code.blockId,
-      translation: res.data,
+      translation,
       scenarios,
       mode: 'executed',
-      promptVersions: { translator: res.promptVersion },
-      models: { translator: res.model },
-      efforts: { translator: res.effort },
+      promptVersions,
+      models,
+      efforts,
       createdAt: now(),
       stale: false,
     })
