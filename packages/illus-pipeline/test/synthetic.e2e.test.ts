@@ -3,7 +3,7 @@
 // every non-template IR kind (plus template, no-visual and mergedInto), through the real @illus/llm
 // client in replay mode. `pnpm --filter @illus/pipeline fixtures:llm` (ILLUS_WRITE_FIXTURES=1) runs the
 // same flow and rewrites fixtures/llm/<role>/ for the W3 roles from test/fixtures/synthetic-calls.ts.
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { createConceptPass } from '@illus/concepts'
@@ -16,6 +16,7 @@ import { beforeAll, describe, expect, test } from 'vitest'
 import { createPipeline } from '../src/index.ts'
 import type { Pipeline } from '../src/index.ts'
 import { BOOK_SUMMARY, EXTRACTS, GLOSSARY, INDEX, PLANS, sectionKey } from './fixtures/synthetic-calls.ts'
+import { isCompleteFixture, writeFixtureProfile } from './fixtures/profile-writer.ts'
 import { collect } from './helpers.ts'
 import { ROOT, indexSyntheticBook } from './synthetic-book.ts'
 import type { IndexedBook } from './synthetic-book.ts'
@@ -104,7 +105,8 @@ function loadFixtures(): unknown[] {
     } catch {
       return []
     }
-    return files.map((f) => JSON.parse(readFileSync(join(FIXTURES, role, f), 'utf8')) as unknown)
+    return files.map((f) => JSON.parse(readFileSync(join(FIXTURES, role, f), 'utf8')) as { note?: string })
+      .filter((f) => !f.note?.startsWith('synthetic.epub browser:'))
   })
 }
 
@@ -201,11 +203,7 @@ describe('synthetic.epub end to end on replay fixtures', () => {
 
   test('fixtures: every committed W3 fixture is hand-written and used (or rewritten in generator mode)', () => {
     if (WRITE) {
-      for (const role of W3_ROLES) rmSync(join(FIXTURES, role), { recursive: true, force: true })
-      for (const f of written) {
-        mkdirSync(join(FIXTURES, f.role), { recursive: true })
-        writeFileSync(join(FIXTURES, f.role, `${f.key}.json`), `${JSON.stringify(f, null, 2)}\n`)
-      }
+      writeFixtureProfile(FIXTURES, W3_ROLES, written, isCompleteFixture)
       expect(new Set(written.map((f) => f.role))).toEqual(new Set(W3_ROLES))
       return
     }
