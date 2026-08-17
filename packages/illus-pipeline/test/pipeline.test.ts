@@ -4,7 +4,7 @@ import { make } from '@illus/core/testing'
 import { describe, expect, test } from 'vitest'
 
 import { createLimiter } from '../src/index.ts'
-import { SECTION_COMMIT_ID as C, SECTION_LEADERS_ID as L, collect, fakeLlm, pipelineWith, seededRepos } from './helpers.ts'
+import { SECTION_COMMIT_ID as C, SECTION_LEADERS_ID as L, TRACE_CODE_ID, collect, fakeLlm, pipelineWith, seededRepos, seededTraceRepos } from './helpers.ts'
 import type { Call } from './helpers.ts'
 
 const plan = (o: Partial<VisualPlan> = {}) => make.visualPlan(o)
@@ -193,7 +193,7 @@ describe('requestSection', () => {
     const items = [
       make.planItem({ planItemId: 'g', animate: true, newConceptModel: 'c1' }),
       make.planItem({ planItemId: 't', kind: 'template', templateId: 'array', priority: 2, animate: false }),
-      make.planItem({ planItemId: 'tr', kind: 'trace', codeBlockId: `${C}#b1`, priority: 3, animate: false }),
+      make.planItem({ planItemId: 'tr', kind: 'trace', codeBlockId: TRACE_CODE_ID, priority: 3, animate: false }),
     ]
     const llm = fakeLlm(byRole({
       planner: () => plan({ items }),
@@ -205,7 +205,7 @@ describe('requestSection', () => {
     expect(off.of('plan')[0]!.plan.items.map((i) => i.planItemId)).toEqual(['g'])
     expect(off.of('item-ready')[0]!.record.animation).toBeUndefined()
 
-    const repos2 = await seededRepos()
+    const repos2 = await seededTraceRepos()
     const patched: string[] = []
     const on = await collect(
       pipelineWith(repos2, llm, {
@@ -223,7 +223,7 @@ describe('requestSection', () => {
     expect(ready.g!.animation).toEqual(make.animationIR())
     expect(ready.g!.models).toEqual({ patcher: 'gpt-6.1-sol@medium', animator: 'gpt-6.1-sol@medium' })
     expect(ready.tr).toMatchObject({ kind: 'trace', ir: null, traceKey: expect.any(String) })
-    expect(await repos2.traces.get(ready.tr!.traceKey!)).toMatchObject({ mode: 'executed', codeBlockId: `${C}#b1` })
+    expect(await repos2.traces.get(ready.tr!.traceKey!)).toMatchObject({ mode: 'executed', codeBlockId: TRACE_CODE_ID })
     expect(on.of('plan')[0]!.plan.items.map((i) => i.planItemId)).toEqual(['g', 'tr'])
   })
 
@@ -236,6 +236,48 @@ describe('requestSection', () => {
     expect(llm.calls[0]!.ctx.body).toContain('<summary section="Leaders and Followers">')
     expect(llm.calls[0]!.ctx.body).not.toContain(`${L}#b2`)
     expect(r.of('plan')[0]!.record.sectionId).toBe(job.sectionId)
+  })
+
+  test('animation validation receives only packed evidence blocks, excluding later sections', async () => {
+    const repos = await seededRepos()
+    const llm = fakeLlm(byRole({ planner: () => plan(), 'extractor.graph': () => make.graphIR(), animator: () => make.animationIR(), repair: () => make.animationIR() }))
+    const result = await collect(pipelineWith(repos, llm, {
+      flags: resolveFlags({ animations: true }),
+      validateAnimation: (_ir, _animation, context) => {
+        expect(context.blocks.has(`${L}#b0`)).toBe(true)
+        expect(context.blocks.has(`${C}#b1`)).toBe(false)
+        return [{ layer: 'animation', severity: 'error', code: 'animation-grounding', message: 'Animation evidence is outside the allowed context.' }]
+      },
+    }).requestSection(L))
+    const record = result.of('item-ready')[0]!.record
+    expect(record.animation).toBeUndefined()
+    expect(record.validation.issues).toContainEqual(expect.objectContaining({ code: 'animation-grounding', severity: 'warning' }))
+    expect(record.kind).toBe('graph')
+    expect(llm.calls.filter((call) => call.role === 'repair')).toHaveLength(1)
+    expect(record.usageTokens).toBe(330)
+  })
+
+  test('animation repairs once with its validation report, revalidates with the same whitelist and accounts for the repair', async () => {
+    const repos = await seededRepos()
+    const original = make.animationIR()
+    const repaired = { ...original, steps: original.steps.map((step) => ({ ...step, narration: 'Corrected narration.' })) }
+    const llm = fakeLlm(byRole({ planner: () => plan(), 'extractor.graph': () => make.graphIR(), animator: () => original, repair: () => repaired }))
+    const whitelists: unknown[] = []
+    const result = await collect(pipelineWith(repos, llm, {
+      flags: resolveFlags({ animations: true }),
+      validateAnimation: (_ir, animation, { blocks }) => {
+        whitelists.push(blocks)
+        return animation.steps[0]!.narration === 'Corrected narration.' ? [] : [{ layer: 'animation', severity: 'error', code: 'animation-grounding', message: 'Evidence is missing.' }]
+      },
+    }).requestSection(L))
+    const record = result.of('item-ready')[0]!.record
+    expect(record.animation).toEqual(repaired)
+    expect(whitelists).toHaveLength(2)
+    expect(whitelists[0]).toBe(whitelists[1])
+    const repair = llm.calls.find((call) => call.role === 'repair')!
+    expect(repair.opts.schemaName).toBe('AnimationIR')
+    expect(repair.ctx.body).toContain('animation-grounding')
+    expect(record).toMatchObject({ usageTokens: 330, models: { repair: 'gpt-6.1-sol@medium' }, promptVersions: { repair: '1.0.0' } })
   })
 })
 
