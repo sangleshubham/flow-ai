@@ -68,6 +68,26 @@ function answer(c: Call): unknown {
 }
 
 describe('concept pass', () => {
+  test('keeps complete block arrays per section, including empty and multi-block sections', async () => {
+    const { repos, sections } = await book()
+    const empty = sections[0]!
+    await repos.blocks.delete(empty.blockIds[0]!)
+    await repos.sections.put({ ...empty, blockIds: [], tokenEstimate: 0 })
+    const multi = sections[1]!
+    const extra = { ...(await repos.blocks.get(multi.blockIds[0]!))!, blockId: makeBlockId(multi.sectionId, 1), text: 'A second paragraph belongs to this same section.' }
+    await repos.blocks.put(extra)
+    await repos.sections.put({ ...multi, blockIds: [...multi.blockIds, extra.blockId] })
+    const llm = fakeLlm(answer)
+    expect(await createConceptPass({ bookId: BOOK, repos, llm }).start()).toMatchObject({ indexed: N, done: true })
+    expect(await repos.sectionIndex.get(empty.sectionId)).toMatchObject({ summary: empty.title, indexedWith: { model: 'none' } })
+    const batches = llm.calls.filter((call) => call.role === 'indexer')
+    expect(batches.every((call) => !call.ctx.body.includes(`<section id="${empty.sectionId}"`))).toBe(true)
+    const request = batches.find((call) => call.ctx.body.includes(`<section id="${multi.sectionId}"`))!
+    expect(request.ctx.body).toContain(`id="${multi.blockIds[0]}"`)
+    expect(request.ctx.body).toContain(`id="${extra.blockId}"`)
+    expect(request.ctx.body).toContain(extra.text)
+  })
+
   test('indexes in batches, grounds definitions, merges the glossary, summarises at 30% and at completion', async () => {
     const { repos, sections } = await book()
     const llm = fakeLlm(answer)

@@ -168,7 +168,10 @@ export async function packContext(input: PackInput): Promise<PackedContext> {
   // 3. referenced: explicit, resolved cross-references to earlier material
   const ownIds = new Set(blocks.map((b) => b.blockId))
   const refsByBlock = new Map<string, CrossRef[]>()
-  for (const b of blocks) refsByBlock.set(b.blockId, await repo.crossRefs.listFromBlock(b.blockId))
+  for (const b of blocks) {
+    const refs = await repo.crossRefs.listFromBlock(b.blockId)
+    refsByBlock.set(b.blockId, refs)
+  }
   const seenTargets = new Set<string>()
   const referenced: Slot['items'] = []
   for (const b of blocks) {
