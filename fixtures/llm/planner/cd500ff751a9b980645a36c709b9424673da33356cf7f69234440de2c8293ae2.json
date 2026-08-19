@@ -13,12 +13,11 @@
     "items": [
       {
         "planItemId": "p1",
-        "kind": "template",
-        "intent": "The search range between lo and hi inside the items",
+        "kind": "graph",
+        "intent": "How lo, hi and mid define the binary search range",
         "conceptIds": [],
         "priority": 1,
-        "animate": true,
-        "templateId": "array"
+        "animate": false
       },
       {
         "planItemId": "p2",

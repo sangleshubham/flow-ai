@@ -189,10 +189,16 @@ describe('synthetic.epub end to end on replay fixtures', () => {
     expect(again.r.of('item-ready').every((e) => e.fromCache)).toBe(true)
   })
 
-  test('template (1.2, templates flag on); the trace item stays hidden while the tracer flag is off', async () => {
+  test('binary search uses symbolic bounds; trace stays hidden while its flag is off', async () => {
     const { r, records } = await ready('1.2')
-    expect(r.of('plan')[0]!.plan.items.map((i) => i.kind)).toEqual(['template'])
+    expect(r.of('plan')[0]!.plan.items.map((i) => i.kind)).toEqual(['graph'])
+    expectValid(records.p1, 'graph')
+  })
+
+  test('template (2.2, templates flag on) represents only the five entries stated by Figure 2.2', async () => {
+    const { records } = await ready('2.2')
     expectValid(records.p1, 'template')
+    expect(records.p1!.ir).toMatchObject({ props: { label: 'Log', values: ['entry', 'entry', 'entry', 'entry', 'entry'] } })
   })
 
   test('no visual for chapter 4', async () => {
