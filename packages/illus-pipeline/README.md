@@ -35,8 +35,9 @@ job.on('item-failed', ({ planItemId, report }) => store.fail(planItemId, report)
 - `test/synthetic.e2e.test.ts`: `synthetic.epub` → W1 index → concept pass → every non-template IR kind (plus template, no-visual, mergedInto, cache hits) through the real `@illus/llm` client in replay mode, on `fixtures/llm/<role>/` for the ten W3 roles.
 - `pnpm fixtures:llm` regenerates those fixtures from `test/fixtures/synthetic-calls.ts` (hand-written answers, `"source": "handwritten"`). Re-run it after any change to the structural index, the packer or a W3 prompt version.
 - Fixture regeneration replaces only its own profile's outputs. Browser replay artifacts and other profiles in the same role directories are preserved byte for byte; conflicting exact keys fail before any files change. `test/fixture-profiles.test.ts` covers both cases.
+- `ILLUS_BROWSER_REQUESTS=/absolute/capture.json pnpm fixtures:browser` authors responses from synthetic.epub for captured browser `LlmRequest[]`. Fixtures retain full public synthetic contexts; `test/browser-replay.test.ts` verifies exact hashes, actual client schema parsing and extractor grounding against only supplied blocks. Capture stages extend the browser profile without deleting earlier keys. No live model calls or runtime fixture fallback are used.
 - `test/prompts.test.ts`: every W3 prompt file parses, has the six §9 rules, two examples whose outputs pass the schema and quote their input verbatim; the planner carries the §8 kind table verbatim.
 
 ## Scripts
 
-- `pnpm lint` · `pnpm typecheck` · `pnpm test` · `pnpm fixtures:llm`
+- `pnpm lint` · `pnpm typecheck` · `pnpm test` · `pnpm fixtures:llm` · `pnpm fixtures:browser`
