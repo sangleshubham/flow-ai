@@ -1,0 +1,97 @@
+{
+  "source": "handwritten",
+  "role": "trace-fixer",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "Translation",
+  "prefix": "<book_context><title>W7 synthetic algorithm examples</title></book_context>",
+  "body": "<trace_source block_id=\"synthetic-1\" lang=\"c\">struct Node { int value; struct Node *next; };\nstruct Node *reverse(struct Node *head) {\n  struct Node *prev = NULL, *current = head;\n  while (current) {\n    struct Node *next = current-&gt;next;\n    current-&gt;next = prev;\n    prev = current;\n    current = next;\n  }\n  return prev;\n}</trace_source>\n<translation>{\"traceable\":true,\"python\":\"class Node:\\n    def __init__(self, value, next=None):\\n        self.value = value\\n        self.next = next\\ndef reverse(head):\\n    prev, current = None, head\\n    while current.next:\\n        next = current.next\\n        current.next = prev\\n        prev = current\\n        current = next\\n    return prev\",\"scenarios\":[{\"label\":\"three nodes\",\"entry\":\"reverse(Node(1,Node(2,Node(3))))\"},{\"label\":\"empty\",\"entry\":\"reverse(None)\"}],\"inputRationale\":\"Three nodes expose pointer rewiring; the empty list exercises the no-iteration case.\",\"lineMap\":[{\"py\":1,\"orig\":[1]},{\"py\":2,\"orig\":[1]},{\"py\":3,\"orig\":[1]},{\"py\":4,\"orig\":[1]},{\"py\":5,\"orig\":[2]},{\"py\":6,\"orig\":[3]},{\"py\":7,\"orig\":[4]},{\"py\":8,\"orig\":[5]},{\"py\":9,\"orig\":[6]},{\"py\":10,\"orig\":[7]},{\"py\":11,\"orig\":[8]},{\"py\":12,\"orig\":[10]}],\"focusFunctions\":[\"reverse\"],\"vizHints\":[{\"variable\":\"head\",\"fn\":\"reverse\",\"template\":\"linked-list\"},{\"variable\":\"prev\",\"fn\":\"reverse\",\"template\":\"linked-list\"},{\"variable\":\"current\",\"fn\":\"reverse\",\"template\":\"linked-list\"}],\"assumptions\":[\"Python object references preserve node aliasing; C allocation, deallocation and pointer arithmetic are not modelled.\"]}</translation>\n<trace_error>AttributeError: 'NoneType' object has no attribute 'next'</trace_error>",
+  "data": {
+    "traceable": true,
+    "python": "class Node:\n    def __init__(self, value, next=None):\n        self.value = value\n        self.next = next\ndef reverse(head):\n    prev, current = None, head\n    while current:\n        next = current.next\n        current.next = prev\n        prev = current\n        current = next\n    return prev",
+    "scenarios": [
+      {
+        "label": "three nodes",
+        "entry": "reverse(Node(1,Node(2,Node(3))))"
+      },
+      {
+        "label": "empty",
+        "entry": "reverse(None)"
+      }
+    ],
+    "inputRationale": "Three nodes expose pointer rewiring; the empty list exercises the no-iteration case.",
+    "lineMap": [
+      {
+        "py": 1,
+        "orig": [1]
+      },
+      {
+        "py": 2,
+        "orig": [1]
+      },
+      {
+        "py": 3,
+        "orig": [1]
+      },
+      {
+        "py": 4,
+        "orig": [1]
+      },
+      {
+        "py": 5,
+        "orig": [2]
+      },
+      {
+        "py": 6,
+        "orig": [3]
+      },
+      {
+        "py": 7,
+        "orig": [4]
+      },
+      {
+        "py": 8,
+        "orig": [5]
+      },
+      {
+        "py": 9,
+        "orig": [6]
+      },
+      {
+        "py": 10,
+        "orig": [7]
+      },
+      {
+        "py": 11,
+        "orig": [8]
+      },
+      {
+        "py": 12,
+        "orig": [10]
+      }
+    ],
+    "focusFunctions": ["reverse"],
+    "vizHints": [
+      {
+        "variable": "head",
+        "fn": "reverse",
+        "template": "linked-list"
+      },
+      {
+        "variable": "prev",
+        "fn": "reverse",
+        "template": "linked-list"
+      },
+      {
+        "variable": "current",
+        "fn": "reverse",
+        "template": "linked-list"
+      }
+    ],
+    "assumptions": [
+      "Python object references preserve node aliasing; C allocation, deallocation and pointer arithmetic are not modelled."
+    ]
+  },
+  "note": "Synthetic worked example; no private book text or live model call."
+}
