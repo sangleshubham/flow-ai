@@ -144,7 +144,12 @@ export function createConceptPass(deps: ConceptPassDeps): ConceptPass {
   /** Indexes one batch; returns how many sections got an index. */
   async function indexBatch(batch: SectionNode[], signal: AbortSignal): Promise<number> {
     const blocksBySection = new Map<string, Block[]>()
-    for (const s of batch) blocksBySection.set(s.sectionId, await repos.blocks.listBySection(s.sectionId))
+    for (const s of batch) {
+      // Next 12's async lowering can concatenate awaited arrays into call arguments. Keep the
+      // array in a local so Map.set receives exactly [sectionId, Block[]], even for empty sections.
+      const blocks = await repos.blocks.listBySection(s.sectionId)
+      blocksBySection.set(s.sectionId, blocks)
+    }
     const records: SectionIndexRecord[] = []
     // Sections without text need no model call.
     for (const s of batch)
