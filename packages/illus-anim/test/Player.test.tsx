@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import {
   buildFrames,
   validateAnimation,
@@ -20,15 +20,13 @@ import arrayFixture from '../../../fixtures/llm/animator/array-sort.json'
 import sequenceFixture from '../../../fixtures/llm/animator/sequence-request.json'
 
 beforeEach(() => {
-  window.matchMedia = vi
-    .fn()
-    .mockImplementation(() => ({
-      matches: true,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    }))
+  window.matchMedia = vi.fn().mockImplementation(() => ({
+    matches: true,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }))
 })
 afterEach(() => {
   cleanup()
@@ -49,6 +47,62 @@ const frames = buildFrames(arrayIR, arrayAnimation, {
   templates: templateRegistry,
 })
 describe('player', () => {
+  it('applies configured speed to timing and preserves manual choice until settings change', () => {
+    vi.useFakeTimers()
+    const view = (defaultSpeed: number) => (
+      <Player
+        frames={frames}
+        defaultSpeed={defaultSpeed}
+        renderFrame={(f) => <p data-testid="frame">{f.step}</p>}
+      />
+    )
+    const { rerender } = render(view(2))
+    expect(
+      (screen.getByLabelText('Playback speed') as HTMLSelectElement).value,
+    ).toBe('2')
+    fireEvent.click(screen.getByText('Play'))
+    act(() => vi.advanceTimersByTime(749))
+    expect(screen.getByTestId('frame').textContent).toBe('0')
+    act(() => vi.advanceTimersByTime(1))
+    expect(screen.getByTestId('frame').textContent).toBe('1')
+    fireEvent.click(screen.getByText('Pause'))
+    fireEvent.change(screen.getByLabelText('Playback speed'), {
+      target: { value: '1.5' },
+    })
+    rerender(view(2))
+    expect(
+      (screen.getByLabelText('Playback speed') as HTMLSelectElement).value,
+    ).toBe('1.5')
+    rerender(view(0.5))
+    expect(
+      (screen.getByLabelText('Playback speed') as HTMLSelectElement).value,
+    ).toBe('0.5')
+    rerender(view(0))
+    expect(
+      (screen.getByLabelText('Playback speed') as HTMLSelectElement).value,
+    ).toBe('1')
+  })
+  it('explicit reduced-motion overrides can enable or disable the OS preference', () => {
+    const view = (reducedMotion?: boolean) => (
+      <Player
+        frames={frames}
+        renderFrame={(f) => <p>{f.step}</p>}
+        reducedMotion={reducedMotion}
+      />
+    )
+    const { rerender } = render(view(false))
+    expect(screen.getByRole('region').getAttribute('data-reduced-motion')).toBe(
+      'false',
+    )
+    rerender(view(true))
+    expect(screen.getByRole('region').getAttribute('data-reduced-motion')).toBe(
+      'true',
+    )
+    rerender(view())
+    expect(screen.getByRole('region').getAttribute('data-reduced-motion')).toBe(
+      'true',
+    )
+  })
   it('steps scrubs restarts and links narration evidence', () => {
     const step = vi.fn(),
       click = vi.fn()
@@ -142,18 +196,16 @@ describe('every-frame validation', () => {
     const bad = {
       ...arrayAnimation,
       initialHidden: [],
-      steps: arrayAnimation.steps
-        .slice(0, 2)
-        .map((s) => ({
-          ...s,
-          actions: [
-            {
-              op: 'swap' as const,
-              a: 'node:h0' as const,
-              b: 'node:h1' as const,
-            },
-          ],
-        })),
+      steps: arrayAnimation.steps.slice(0, 2).map((s) => ({
+        ...s,
+        actions: [
+          {
+            op: 'swap' as const,
+            a: 'node:h0' as const,
+            b: 'node:h1' as const,
+          },
+        ],
+      })),
     }
     expect(() => buildFrames(ir, bad, { templates: templateRegistry })).toThrow(
       /heap order/,
@@ -169,14 +221,12 @@ describe('every-frame validation', () => {
     }
     const bad = {
       ...arrayAnimation,
-      steps: arrayAnimation.steps
-        .slice(0, 2)
-        .map((s) => ({
-          ...s,
-          actions: [
-            { op: 'push' as const, container: 'stack', id: 'b', value: 2 },
-          ],
-        })),
+      steps: arrayAnimation.steps.slice(0, 2).map((s) => ({
+        ...s,
+        actions: [
+          { op: 'push' as const, container: 'stack', id: 'b', value: 2 },
+        ],
+      })),
     }
     expect(() => buildFrames(ir, bad, { templates: templateRegistry })).toThrow(
       /capacity/,

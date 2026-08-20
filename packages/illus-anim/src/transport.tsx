@@ -129,15 +129,22 @@ export function usePlayback({
   index,
   onIndex,
   delayMs = 1500,
+  initialSpeed = 1,
 }: {
   count: number
   index: number
   onIndex: (index: number) => void
   delayMs?: number
+  initialSpeed?: number
 }) {
   const [playing, setPlaying] = useState(false)
-  const [speed, setSpeed] = useState(1)
+  const validSpeed = (value: number) =>
+    [0.5, 1, 1.5, 2].includes(value) ? value : 1
+  const [speed, setSpeed] = useState(() => validSpeed(initialSpeed))
   const [loop, setLoop] = useState(false)
+  useEffect(() => {
+    setSpeed(validSpeed(initialSpeed))
+  }, [initialSpeed])
   useEffect(() => {
     if (!playing || count < 2) return
     if (index >= count - 1 && !loop) {
