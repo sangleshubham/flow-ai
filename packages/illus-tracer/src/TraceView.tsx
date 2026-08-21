@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ComponentType } from 'react'
+import { PlaybackControls, usePlayback } from '@illus/anim'
+import type { PlaybackControlsProps } from '@illus/anim'
 import {
   getTemplate,
   ILLUS_CSS,
@@ -12,18 +14,7 @@ import type { BundledLanguage, SpecialLanguage } from 'shiki'
 import type { Flags, TraceRecord, TraceStep, ValueRef } from '@illus/core'
 import { projectHint } from './projection.ts'
 
-/** Same controlled transport contract as W6 PlaybackControls; inject it after W6 merges. */
-export interface TracePlaybackControlsProps {
-  count: number
-  index: number
-  onIndex(index: number): void
-  playing: boolean
-  onPlaying(playing: boolean): void
-  speed: number
-  onSpeed(speed: number): void
-  loop: boolean
-  onLoop(loop: boolean): void
-}
+export type TracePlaybackControlsProps = PlaybackControlsProps
 export interface TraceViewProps {
   record: TraceRecord
   originalCode: string
@@ -36,68 +27,8 @@ type Token = { content: string; color?: string }
 const show = (v?: ValueRef) =>
   !v ? '—' : 'prim' in v ? JSON.stringify(v.prim) : `@${v.ref}`
 
-function Controls(p: TracePlaybackControlsProps) {
-  return (
-    <div className="trace-controls" role="group" aria-label="Trace playback">
-      <button onClick={() => p.onPlaying(!p.playing)}>
-        {p.playing ? 'Pause' : 'Play'}
-      </button>
-      <button
-        aria-label="Previous step"
-        disabled={p.index === 0}
-        onClick={() => p.onIndex(p.index - 1)}
-      >
-        Previous
-      </button>
-      <button
-        aria-label="Next step"
-        disabled={p.index >= p.count - 1}
-        onClick={() => p.onIndex(p.index + 1)}
-      >
-        Next
-      </button>
-      <button
-        onClick={() => {
-          p.onPlaying(false)
-          p.onIndex(0)
-        }}
-      >
-        Restart
-      </button>
-      <input
-        aria-label="Animation step"
-        type="range"
-        min={0}
-        max={Math.max(0, p.count - 1)}
-        value={p.index}
-        onChange={(e) => p.onIndex(Number(e.target.value))}
-      />
-      <label>
-        Speed{' '}
-        <select
-          aria-label="Playback speed"
-          value={p.speed}
-          onChange={(e) => p.onSpeed(Number(e.target.value))}
-        >
-          {[0.25, 0.5, 1, 2, 4].map((s) => (
-            <option key={s} value={s}>
-              {s}×
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          checked={p.loop}
-          onChange={(e) => p.onLoop(e.target.checked)}
-        />
-        Loop
-      </label>
-    </div>
-  )
-}
 function language(code: string, hint?: string) {
+  hint = hint?.trim().toLowerCase()
   if (hint)
     return (
       (
@@ -107,10 +38,16 @@ function language(code: string, hint?: string) {
           js: 'javascript',
           ts: 'typescript',
           py: 'python',
+          'c#': 'csharp',
         } as Record<string, string>
       )[hint] ?? hint
     )
   if (/\bfunc\s+\w+|package\s+\w+/.test(code)) return 'go'
+  if (/\bfn\s+\w+|\blet\s+mut\s/.test(code)) return 'rust'
+  if (/\bpublic\s+(static\s+)?(class|void|int)\b/.test(code)) return 'java'
+  if (/\binterface\s+\w+|\btype\s+\w+\s*=/.test(code)) return 'typescript'
+  if (/\bfunction\s+\w+|\bconst\s+\w+\s*=|=>/.test(code)) return 'javascript'
+  if (/std::|#include\s*<iostream>/.test(code)) return 'cpp'
   if (/#include|\bstruct\s+\w+/.test(code)) return 'c'
   if (/\bdef\s+\w+/.test(code)) return 'python'
   return 'text'
@@ -120,21 +57,24 @@ export function TraceView({
   originalCode,
   langHint,
   flags,
-  controls: Transport = Controls,
+  controls: Transport = PlaybackControls,
   onStep,
 }: TraceViewProps) {
   const [scenario, setScenario] = useState(0),
     [index, setIndex] = useState(0),
     [python, setPython] = useState(false)
-  const [playing, setPlaying] = useState(false),
-    [speed, setSpeed] = useState(1),
-    [loop, setLoop] = useState(false)
   const [tokens, setTokens] = useState<Token[][]>([])
   const [theme, setTheme] = useState(() => tokensFromFlowVars(() => '', true))
   const trace = record.scenarios[scenario]?.trace,
     steps = trace?.steps ?? [],
     step = steps[index],
     previous = steps[index - 1]
+  const { playing, setPlaying, speed, setSpeed, loop, setLoop } = usePlayback({
+    count: steps.length,
+    index,
+    onIndex: setIndex,
+    delayMs: 800,
+  })
   const code = python
     ? trace?.python ?? record.translation.python
     : originalCode
@@ -167,15 +107,6 @@ export function TraceView({
       active = false
     }
   }, [code, langHint, python, theme.dark])
-  useEffect(() => {
-    if (!playing || !steps.length) return
-    const timer = setTimeout(() => {
-      if (index < steps.length - 1) setIndex(index + 1)
-      else if (loop) setIndex(0)
-      else setPlaying(false)
-    }, 800 / speed)
-    return () => clearTimeout(timer)
-  }, [playing, index, steps.length, speed, loop])
   useEffect(() => {
     if (step && flags.tracer) onStep?.(step)
   }, [step, onStep, flags.tracer])
