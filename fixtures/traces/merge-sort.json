@@ -1,0 +1,7 @@
+{
+  "source": "handwritten",
+  "python": "def merge_sort(a):\n    if len(a) <= 1:\n        return a\n    mid = len(a)//2\n    left = merge_sort(a[:mid])\n    right = merge_sort(a[mid:])\n    out = []\n    i, j = 0, 0\n    while i < len(left) and j < len(right):\n        if left[i] <= right[j]:\n            out.append(left[i])\n            i += 1\n        else:\n            out.append(right[j])\n            j += 1\n    return out + left[i:] + right[j:]",
+  "entry": "merge_sort([5,2,4,1,3])",
+  "focusFunctions": ["merge_sort"],
+  "expected": [1, 2, 3, 4, 5]
+}
