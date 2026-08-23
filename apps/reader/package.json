@@ -17,6 +17,7 @@
     "@github/mini-throttle": "2.1.0",
     "@illus/core": "workspace:*",
     "@illus/llm": "workspace:*",
+    "@illus/render": "workspace:*",
     "@literal-ui/core": "0.0.13",
     "@literal-ui/hooks": "0.0.8",
     "@literal-ui/next": "0.0.3",

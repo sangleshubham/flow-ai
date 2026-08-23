@@ -19,6 +19,7 @@ const withTM = require('next-transpile-modules')([
   '@material/material-color-utilities',
   '@illus/core',
   '@illus/llm',
+  '@illus/render',
 ])
 
 
