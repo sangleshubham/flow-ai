@@ -53,33 +53,44 @@ for (const kind of ['array', 'sequence']) {
     ).toBe(0)
   })
 }
-test('token follows real graph edge paths and expires on next step', async ({
-  page,
-}) => {
-  const errors: string[] = []
-  page.on('pageerror', (e) => errors.push(e.message))
-  await page.goto('/?kind=graph')
-  await expect(page.locator('[data-target="edge:e"]')).toBeVisible()
-  await page.getByLabel('Next step').click()
-  const token = page.locator('[data-token-id="t"]')
-  await expect(token).toBeVisible()
-  const initial = await token.evaluate((el) =>
-    parseFloat((el as HTMLElement).style.left),
-  )
-  await expect
-    .poll(() =>
-      token.evaluate((el) => parseFloat((el as HTMLElement).style.left)),
+for (const setting of ['system', 'off']) {
+  test(`token follows real graph edge paths and expires (${setting} motion setting)`, async ({
+    page,
+  }) => {
+    const errors: string[] = []
+    page.on('pageerror', (e) => errors.push(e.message))
+    if (setting === 'off') await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto(`/?kind=graph&motion=${setting}`)
+    await expect(page.getByRole('region')).toHaveAttribute(
+      'data-reduced-motion',
+      'false',
     )
-    .toBeGreaterThan(initial + 10)
-  await page.getByLabel('Next step').click()
-  await expect(token).toHaveCount(0)
-  expect(errors).toEqual([])
-})
-test('reduced-motion token goes immediately to the path endpoint', async ({
+    await expect(page.locator('[data-target="edge:e"]')).toBeVisible()
+    await page.getByLabel('Next step').click()
+    const token = page.locator('[data-token-id="t"]')
+    await expect(token).toBeVisible()
+    const initial = await token.evaluate((el) =>
+      parseFloat((el as HTMLElement).style.left),
+    )
+    await expect
+      .poll(() =>
+        token.evaluate((el) => parseFloat((el as HTMLElement).style.left)),
+      )
+      .toBeGreaterThan(initial + 10)
+    await page.getByLabel('Next step').click()
+    await expect(token).toHaveCount(0)
+    expect(errors).toEqual([])
+  })
+}
+test('configured reduced motion overrides OS and token goes immediately to endpoint', async ({
   page,
 }) => {
-  await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.goto('/?kind=graph')
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/?kind=graph&motion=on')
+  await expect(page.getByRole('region')).toHaveAttribute(
+    'data-reduced-motion',
+    'true',
+  )
   await expect(page.locator('[data-target="edge:e"]')).toBeVisible()
   await page.getByLabel('Next step').click()
   await expect(page.locator('[data-token-id="t"]')).toBeVisible()
