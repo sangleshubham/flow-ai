@@ -1,0 +1,39 @@
+{
+  "key": "a4ab51420ee8666a54d5160b72d96cc38e868465fb3177eb278a8fcf121c0e1c",
+  "source": "handwritten",
+  "role": "extractor.template",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "TemplateIR",
+  "templateId": "array",
+  "data": {
+    "type": "template",
+    "templateId": "array",
+    "props": {
+      "label": "Log",
+      "values": [
+        "entry",
+        "entry",
+        "entry",
+        "entry",
+        "entry"
+      ]
+    },
+    "evidence": [
+      {
+        "path": "values",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-2-figures:2#b1",
+          "quote": "Figure 2.2 A log with five entries"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input": 984,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: extractor.template for 2.2 Figures id=\"p1\". Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}
