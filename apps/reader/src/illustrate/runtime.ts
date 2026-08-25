@@ -1,7 +1,7 @@
 import { buildLexicalIndex, indexBookStructure } from '@illus/book-index'
 import { createConceptPass, estimateIndexUsage } from '@illus/concepts'
 import type { ConceptPass } from '@illus/concepts'
-import { IR, makeBookId, resolveFlags, VisualKind } from '@illus/core'
+import { IR, makeBookId, resolveFlags, validateAnimation, VisualKind } from '@illus/core'
 import type { Block, IllusRepos, ReaderLocation, SectionNode, VisualRecord } from '@illus/core'
 import { createLlmClient, createPromptRegistry, DEFAULT_MODELS, httpTransport } from '@illus/llm'
 import { createPipeline } from '@illus/pipeline'
@@ -102,7 +102,11 @@ export async function activate(tab: BookTabLike) {
       if (own === generation) pane.progress = `${p.indexed} of ${p.total} sections understood`
     } })
     const pipeline = createPipeline({ repos, llm, prompts, models: DEFAULT_MODELS, concepts,
-      flags: () => pane.preferences.flags, lexical: buildLexicalIndex(blocks, sections), templates: templateRegistry })
+      flags: () => pane.preferences.flags, lexical: buildLexicalIndex(blocks, sections), templates: templateRegistry,
+      validateAnimation: (ir, animation, context) => {
+        const parsed = IR.safeParse(ir)
+        return parsed.success ? validateAnimation(parsed.data, animation, { templates: templateRegistry, grounding: { blocks: context.blocks } }).issues : [{ layer: 'animation', severity: 'error', code: 'animation-base-ir', message: 'Invalid base visual.' }]
+      } })
     active = { bridge, pipeline, concepts, sections, blocks, book, bookId }
     pane.indexingApproved = (await repos.books.get(bookId))?.indexStatus === 'complete' || await repos.settings.get<boolean>(`indexingApproved:${bookId}`) === true
     const indexed = new Set((await repos.sectionIndex.listByBook(bookId)).map((s) => s.sectionId))
@@ -177,18 +181,18 @@ export function networkChanged() {
   else if (pane.status === 'offline') requestVisual()
 }
 export function currentBridge() { return active?.bridge }
-export async function highlightEvidence(event: EvidenceEvent | null, click = false) {
+export async function highlightEvidence(event: EvidenceEvent | null, click = false, kind: 'evidence' | 'step' = 'evidence') {
   const seq = ++evidenceGeneration
   const runtime = active
   if (!runtime) return
-  runtime.bridge.clearHighlights('evidence')
+  runtime.bridge.clearHighlights(kind)
   if (!event || (!click && !pane.preferences.autoHighlight)) return
   const block = runtime.blocks.find((b) => b.blockId === event.evidence.blockId)
   if (!block) { pane.announcement = 'Open the book for this pinned visual to show its evidence.'; return }
   let cfi = await runtime.bridge.quoteToCfi(block.blockId, event.evidence.quote)
   if (!cfi && click) { await runtime.bridge.scrollTo(block.cfiRange); cfi = await runtime.bridge.quoteToCfi(block.blockId, event.evidence.quote) }
   if (seq !== evidenceGeneration || active !== runtime) return
-  if (cfi) runtime.bridge.highlight(cfi, 'evidence')
+  if (cfi) runtime.bridge.highlight(cfi, kind)
   pane.announcement = `${event.label}. Evidence: ${event.evidence.quote}${cfi ? '' : ' (passage unavailable in this view)'}`
 }
 export async function updateRecord(record: VisualRecord) {

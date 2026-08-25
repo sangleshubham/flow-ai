@@ -1,4 +1,5 @@
 const path = require('path')
+const TerserPlugin = require('terser-webpack-plugin')
 
 const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
@@ -20,6 +21,7 @@ const withTM = require('next-transpile-modules')([
   '@illus/core',
   '@illus/llm',
   '@illus/book-index',
+  '@illus/anim',
   '@illus/concepts',
   '@illus/context',
   '@illus/pipeline',
@@ -33,8 +35,6 @@ const withTM = require('next-transpile-modules')([
  * @type {import('next').NextConfig}
  **/
 const config = {
-  // Modern renderer dependencies use class static blocks unsupported by Next 12's legacy Terser.
-  swcMinify: true,
   pageExtensions: ['ts', 'tsx'],
   poweredByHeader: false,
   // Flow does not use next/image; this also keeps the image optimiser and its advisories off (ADR 0005).
@@ -42,7 +42,15 @@ const config = {
   async headers() {
     return securityHeaders({ dev: IS_DEV })
   },
-  webpack(config) {
+  webpack(config, { dev, isServer }) {
+    if (!dev && !isServer) {
+      // Replace only JS minification. Keep Next's CSS minimizer and all security behavior.
+      // Bundled Terser cannot parse current renderer syntax; bundled SWC miscompiles Zod nullish expressions.
+      config.optimization.minimizer = [new TerserPlugin({
+        parallel: true,
+        terserOptions: { ecma: 2020, compress: true, mangle: true },
+      }), ...config.optimization.minimizer.slice(1)]
+    }
     // docs/prompts/<role>.md imported as raw text at build time (spec §9, W2).
     config.module.rules.push({
       test: /[\\/]docs[\\/]prompts[\\/][^\\/]+\.md$/,

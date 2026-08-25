@@ -1,5 +1,5 @@
-import { join } from 'node:path'
 import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 import { expect, test } from '@playwright/test'
 
@@ -11,7 +11,7 @@ test('open book → navigate → visual → evidence highlights the quoted passa
   const requests: unknown[] = []
   page.on('request', (request) => { if (request.url().endsWith('/api/llm') && request.method() === 'POST') requests.push(request.postDataJSON()) })
   const errors: string[] = []
-  page.on('pageerror', (error) => { errors.push(error.message); console.log('Browser error:', error.message) })
+  page.on('pageerror', (error) => { errors.push(error.message); console.log('Browser error:', error.stack) })
   page.on('console', (message) => { if (message.type() === 'error') console.log('Browser console:', message.text()) })
   await context.addCookies([{ name: 'illus_session', value: sessionValue(E2E_ENV.ILLUS_ALLOWED_ACCOUNT_ID), url: `http://127.0.0.1:${E2E_PORT}` }])
   try {
@@ -37,6 +37,7 @@ test('open book → navigate → visual → evidence highlights the quoted passa
     expect(errors).toEqual([])
   } finally {
     writeFileSync(testInfo.outputPath('synthetic-replay-requests.json'), JSON.stringify(requests, null, 2))
+    if (process.env.ILLUS_CAPTURE_PATH) writeFileSync(process.env.ILLUS_CAPTURE_PATH, JSON.stringify(requests, null, 2))
     writeFileSync(testInfo.outputPath('page-errors.json'), JSON.stringify(errors))
     await testInfo.attach('synthetic-replay-requests', { body: JSON.stringify(requests, null, 2), contentType: 'application/json' })
     await testInfo.attach('page-errors', { body: JSON.stringify(errors), contentType: 'application/json' })
