@@ -1,5 +1,6 @@
 import { Overlay } from '@literal-ui/core'
 import clsx from 'clsx'
+import dynamic from 'next/dynamic'
 import { ComponentProps, useEffect, useState } from 'react'
 import { useMemo } from 'react'
 import { IconType } from 'react-icons'
@@ -38,6 +39,11 @@ import { TimelineView } from './viewlets/TimelineView'
 import { TocView } from './viewlets/TocView'
 import { TypographyView } from './viewlets/TypographyView'
 
+const IllustratePane = dynamic(() => import('../illustrate/IllustratePane').then((m) => m.IllustratePane), {
+  ssr: false,
+  loading: ({ error }) => error ? <p role="alert">Illustrate could not load: {error.message}</p> : null,
+})
+
 export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
   useColorScheme()
 
@@ -58,6 +64,7 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
         {mobile === true && <NavigationBar />}
         {ready && <SideBar />}
         {ready && <Reader>{children}</Reader>}
+        {ready && <IllustratePane />}
       </SplitView>
     </div>
   )
