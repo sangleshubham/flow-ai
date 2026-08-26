@@ -5,7 +5,8 @@
   "type": "module",
   "description": "React renderers (ELK graph worker, Mermaid, Vega-Lite, KaTeX, timeline, HTML sandbox), shared chrome, theme tokens, export, template library.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./templates": "./templates.ts"
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
