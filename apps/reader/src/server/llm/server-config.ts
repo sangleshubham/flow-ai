@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path'
 import { llmModeFrom } from '@illus/llm'
 import { createIllusServer } from '@illus/llm/server'
 import type { IllusServer, IllusServerOptions } from '@illus/llm/server'
+import { templateRegistry } from '@illus/render/templates'
 
 /** Keep repository layout knowledge in the app, not in the reusable LLM package. */
 export function resolveReaderFixturesDir(
@@ -29,10 +30,16 @@ export async function createReaderIllusServer(
   env: Record<string, string | undefined>,
   options: IllusServerOptions,
 ): Promise<IllusServer> {
-  if (llmModeFrom(env.ILLUS_LLM_MODE) === 'live' || options.fixtures)
-    return createIllusServer(env, options)
+  // Static schema capability (ADR 0040). The browser's templates flag gates generation;
+  // the gateway selects props only after validating the role/schema/templateId request.
+  const serverOptions = {
+    ...options,
+    templates: options.templates ?? templateRegistry,
+  }
+  if (llmModeFrom(env.ILLUS_LLM_MODE) === 'live' || serverOptions.fixtures)
+    return createIllusServer(env, serverOptions)
   return createIllusServer(
     { ...env, ILLUS_FIXTURES_DIR: resolveReaderFixturesDir(env) },
-    options,
+    serverOptions,
   )
 }
