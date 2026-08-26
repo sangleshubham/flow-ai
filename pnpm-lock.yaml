@@ -121,6 +121,9 @@ importers:
       '@illus/store':
         specifier: workspace:*
         version: link:../../packages/illus-store
+      '@illus/tracer':
+        specifier: workspace:*
+        version: link:../../packages/illus-tracer
       '@literal-ui/core':
         specifier: 0.0.13
         version: 0.0.13(react-dom@18.0.0(react@18.0.0))(react-icons@4.3.1(react@18.0.0))(react@18.0.0)
@@ -10537,7 +10540,7 @@ snapshots:
       '@babel/traverse': 7.26.5
       '@babel/types': 7.26.5
       convert-source-map: 2.0.0
-      debug: 4.4.0(supports-color@6.1.0)
+      debug: 4.4.0(supports-color@9.4.0)
       gensync: 1.0.0-beta.2
       json5: 2.2.3
       semver: 6.3.1
@@ -15071,7 +15074,7 @@ snapshots:
       ajv: 6.12.6
       chalk: 4.1.2
       cross-spawn: 7.0.6
-      debug: 4.4.0(supports-color@6.1.0)
+      debug: 4.4.0(supports-color@9.4.0)
       doctrine: 3.0.0
       escape-string-regexp: 4.0.0
       eslint-scope: 7.2.2
@@ -20455,7 +20458,7 @@ snapshots:
       bundle-require: 3.1.2(esbuild@0.14.54)
       cac: 6.7.14
       chokidar: 3.6.0
-      debug: 4.4.0(supports-color@6.1.0)
+      debug: 4.4.0(supports-color@9.4.0)
       esbuild: 0.14.54
       execa: 5.1.1
       globby: 11.1.0

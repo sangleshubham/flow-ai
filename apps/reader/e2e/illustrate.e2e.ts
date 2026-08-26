@@ -9,7 +9,12 @@ const BOOK = join(__dirname, '../../../fixtures/books/synthetic.epub')
 test('open book → navigate → visual → evidence highlights the quoted passage; keyboard pane controls', async ({ context, page }, testInfo) => {
   test.setTimeout(120_000)
   const requests: unknown[] = []
-  page.on('request', (request) => { if (request.url().endsWith('/api/llm') && request.method() === 'POST') requests.push(request.postDataJSON()) })
+  page.on('request', (request) => {
+    if (request.url().endsWith('/api/llm') && request.method() === 'POST') {
+      requests.push(request.postDataJSON())
+      if (process.env.ILLUS_CAPTURE_PATH) writeFileSync(process.env.ILLUS_CAPTURE_PATH, JSON.stringify(requests, null, 2))
+    }
+  })
   const errors: string[] = []
   page.on('pageerror', (error) => { errors.push(error.message); console.log('Browser error:', error.stack) })
   page.on('console', (message) => { if (message.type() === 'error') console.log('Browser console:', message.text()) })

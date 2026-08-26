@@ -2,6 +2,8 @@
   "name": "@flow/reader",
   "private": true,
   "scripts": {
+    "predev": "pnpm --filter @illus/tracer build:assets",
+    "prebuild": "pnpm --filter @illus/tracer build:assets",
     "dev": "cross-env RECOIL_DUPLICATE_ATOM_KEY_CHECKING_ENABLED=false next dev -p 7127",
     "build": "next build",
     "analyze": "cross-env ANALYZE=true next build",
@@ -14,6 +16,7 @@
   "dependencies": {
     "@illus/book-index": "workspace:*",
     "@illus/anim": "workspace:*",
+    "@illus/tracer": "workspace:*",
     "@illus/concepts": "workspace:*",
     "@illus/context": "workspace:*",
     "@illus/pipeline": "workspace:*",

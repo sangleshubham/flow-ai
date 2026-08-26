@@ -1,14 +1,51 @@
-import { Player } from '@illus/anim'
+import { Player, PlaybackControls } from '@illus/anim'
 import { buildFrames, IR } from '@illus/core'
-import type { Block, FrameState, ThemeTokens, VisualKind, VisualRecord } from '@illus/core'
+import type { Block, FrameState, ThemeTokens, TraceRecord, VisualKind, VisualRecord } from '@illus/core'
 import { VisualView, irElements, readFlowTheme, templateRegistry, watchFlowTheme } from '@illus/render'
 import type { EvidenceEvent } from '@illus/render'
+import { TraceView } from '@illus/tracer'
 import React, { useEffect, useMemo, useState } from 'react'
 
 import { enabledKinds, getRepos, highlightEvidence, parsedVisual, requestVisual, updateRecord } from './runtime'
 import { pane } from './state'
 
 export function RecordView({ record }: { record: VisualRecord }) {
+  return record.kind === 'trace' ? <ExecutedTraceView record={record} /> : <StaticRecordView record={record} />
+}
+
+function ExecutedTraceView({ record }: { record: VisualRecord }) {
+  const [trace, setTrace] = useState<TraceRecord | undefined>()
+  const [code, setCode] = useState<Block | undefined>()
+  const [error, setError] = useState('')
+  const [note, setNote] = useState('')
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
+  useEffect(() => {
+    let current = true
+    void getRepos().then(async (repos) => {
+      const t = record.traceKey ? await repos.traces.get(record.traceKey) : undefined
+      const b = t ? await repos.blocks.get(t.codeBlockId) : undefined
+      if (current) { setTrace(t); setCode(b); if (!t) setError('This saved trace is unavailable. Regenerate it.') }
+    }).catch((e) => { if (current) setError(e.message) })
+    return () => { current = false }
+  }, [record.traceKey])
+  if (!pane.preferences.flags.tracer) return <p>Enable executed code traces in Illustration settings to view this trace.</p>
+  if (error) return <p role="alert">{error}</p>
+  if (!trace) return <p aria-busy="true">Loading saved trace…</p>
+  return <div><TraceView record={trace} originalCode={code?.code?.source ?? code?.text ?? ''} langHint={code?.code?.langHint}
+    flags={pane.preferences.flags} controls={PlaybackControls} onStep={(step) => { pane.announcement = `Line ${step.pyLine}: ${step.event}` }} />
+    <button onClick={() => requestVisual({ planItemId: record.planItemId })}>Regenerate trace</button>
+    <button onClick={() => { void updateRecord({ ...record, feedback: { vote: 'up' } }) }}>Helpful</button>
+    <button onClick={() => setFeedbackOpen(true)}>Not helpful</button>
+    {feedbackOpen && <form onSubmit={(event) => {
+      event.preventDefault()
+      void updateRecord({ ...record, feedback: { vote: 'down', ...(note.trim() ? { note: note.trim() } : {}) } })
+      setFeedbackOpen(false)
+    }}><label>What should improve? (optional)<textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={300} /></label>
+      <button type="submit">Send feedback</button><button type="button" onClick={() => setFeedbackOpen(false)}>Cancel</button></form>}
+  </div>
+}
+
+function StaticRecordView({ record }: { record: VisualRecord }) {
   const [theme, setTheme] = useState<ThemeTokens>(() => readFlowTheme())
   const [instruction, setInstruction] = useState('')
   const [regenerate, setRegenerate] = useState(false)
@@ -54,6 +91,7 @@ export function RecordView({ record }: { record: VisualRecord }) {
     {record.stale && <p role="status">This saved illustration is from an earlier version. Regenerate to update it.</p>}
     {simulated && <p role="status">Simulated illustration: {simulated.message}</p>}
     {pane.preferences.flags.animations && frames.length ? <Player frames={frames} renderFrame={renderFrame}
+      defaultSpeed={pane.preferences.speed} reducedMotion={pane.preferences.reducedMotion === 'system' ? undefined : pane.preferences.reducedMotion === 'on'}
       onStepChange={(index) => { pane.announcement = frames[index]?.narration ?? '' }}
       onEvidenceClick={(evidence) => { void highlightEvidence({ irId: 'step', target: 'step', label: 'Step', evidence }, true, 'step') }}
       onEvidenceHighlight={(evidence) => { void highlightEvidence(evidence ? { irId: 'step', target: 'step', label: 'Step', evidence } : null, false, 'step') }} /> : renderFrame()}
