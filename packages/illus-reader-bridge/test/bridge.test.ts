@@ -36,6 +36,13 @@ describe('ReaderBridge lifecycle', () => {
     expect(x.rendition.annotations.highlight).toHaveBeenCalledWith(cfi, {}, undefined, 'illus-evidence', expect.any(Object))
     x.bridge.dispose(); expect(x.rendition.annotations.remove).toHaveBeenCalledTimes(2)
   })
+  it('keeps a clicked evidence mark when a step highlights and clears the same passage', () => {
+    const x = setup(); const cfi = x.block.cfiRange
+    x.bridge.highlight(cfi, 'evidence'); x.bridge.highlight(cfi, 'step'); x.bridge.clearHighlights('step')
+    expect(x.rendition.annotations.highlight).toHaveBeenCalledTimes(1)
+    expect(x.rendition.annotations.remove).not.toHaveBeenCalled()
+    x.bridge.highlight(cfi, 'evidence'); expect(x.rendition.annotations.remove).toHaveBeenCalledTimes(1)
+  })
   it('reports selected indexed blocks and publishes theme changes', async () => {
     const x = setup(); const selection = vi.fn(); const theme = vi.fn(); x.bridge.onSelection(selection); x.bridge.onThemeChange(theme)
     x.emit('selected', x.block.cfiRange, x.contents)
