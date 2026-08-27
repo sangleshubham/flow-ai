@@ -169,9 +169,8 @@ describe('reader server template capability', () => {
     }
   })
 
-  // ADR 0041: W3's synthetic fixture predates W5's array schema ({name, cells, pointers} instead of
-  // {values}). The gateway must reject it. When W3 updates the fixture, flip this to expect 200.
-  it('rejects the stale repository template fixture using the selected W5 schema', async () => {
+  // ADR 0041 (resolved): W3 regenerated the synthetic fixture against W5's array schema.
+  it('replays the repository template fixture using the selected W5 schema', async () => {
     const files = await readdir(join(root, 'fixtures/llm/extractor.template'))
     const fixture = Fixture.parse(
       JSON.parse(
@@ -195,15 +194,6 @@ describe('reader server template capability', () => {
     })
     expect(
       await server.gateway.handle(request, { session: true }),
-    ).toMatchObject({
-      status: 422,
-      body: {
-        ok: false,
-        code: 'schema',
-        issues: expect.arrayContaining([
-          expect.objectContaining({ path: ['props', 'values'] }),
-        ]),
-      },
-    })
+    ).toMatchObject({ status: 200, body: { ok: true, data: fixture.data } })
   })
 })
