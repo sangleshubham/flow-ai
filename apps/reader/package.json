@@ -2,6 +2,8 @@
   "name": "@flow/reader",
   "private": true,
   "scripts": {
+    "predev": "pnpm --filter @illus/tracer build:assets",
+    "prebuild": "pnpm --filter @illus/tracer build:assets",
     "dev": "cross-env RECOIL_DUPLICATE_ATOM_KEY_CHECKING_ENABLED=false next dev -p 7127",
     "build": "next build",
     "analyze": "cross-env ANALYZE=true next build",
@@ -12,6 +14,16 @@
     "e2e": "playwright test"
   },
   "dependencies": {
+    "@illus/book-index": "workspace:*",
+    "@illus/anim": "workspace:*",
+    "@illus/tracer": "workspace:*",
+    "@illus/concepts": "workspace:*",
+    "@illus/context": "workspace:*",
+    "@illus/pipeline": "workspace:*",
+    "@illus/reader-bridge": "workspace:*",
+    "@illus/store": "workspace:*",
+    "katex": "0.18.9",
+    "zod": "4.6.5",
     "@flow/epubjs": "workspace:*",
     "@flow/internal": "workspace:*",
     "@github/mini-throttle": "2.1.0",
@@ -49,6 +61,11 @@
     "valtio": "1.6.0"
   },
   "devDependencies": {
+    "terser-webpack-plugin": "5.3.11",
+    "terser": "5.37.0",
+    "jsdom": "30.1.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/dom": "10.4.2",
     "@flow/tailwind": "workspace:*",
     "@playwright/test": "1.63.0",
     "@tailwindcss/aspect-ratio": "0.4.2",

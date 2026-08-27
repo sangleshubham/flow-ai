@@ -15,12 +15,15 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@illus/core": "workspace:*"
+    "@illus/core": "workspace:*",
+    "@illus/book-index": "workspace:*",
+    "@flow/epubjs": "workspace:*"
   },
   "devDependencies": {
     "@illus/eslint-config": "workspace:*",
     "eslint": "10.11.0",
     "typescript": "5.9.3",
-    "vitest": "4.1.11"
+    "vitest": "4.1.11",
+    "jsdom": "30.1.1"
   }
 }

@@ -1,4 +1,5 @@
 import Dexie from 'dexie'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/router'
 
 import {
@@ -12,6 +13,8 @@ import { useSettings } from '@flow/reader/state'
 import { Button } from '../Button'
 import { Checkbox, Select } from '../Form'
 import { Page } from '../Page'
+
+const IllustrateSettings = dynamic(() => import('../../illustrate/IllustrateSettings').then((m) => m.IllustrateSettings), { ssr: false })
 
 export const Settings: React.FC = () => {
   const { scheme, setScheme } = useColorScheme()
@@ -73,6 +76,7 @@ export const Settings: React.FC = () => {
             {t('cache.clear')}
           </Button>
         </Item>
+        <IllustrateSettings />
       </div>
     </Page>
   )

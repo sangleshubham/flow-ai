@@ -3,6 +3,28 @@
   "compilerOptions": {
     "experimentalDecorators": true,
     "target": "es2022",
+    "moduleResolution": "node",
+    "paths": {
+      "@illus/core/testing": ["packages/illus-core/src/testing/index.ts"],
+      "@flow/reader/locales": [
+        "apps/reader/locales"
+      ],
+      "@flow/reader/*": [
+        "apps/reader/src/*"
+      ],
+      "@flow/internal": [
+        "packages/internal/src/index.ts"
+      ],
+      "@flow/epubjs/*": [
+        "packages/epubjs/*"
+      ],
+      "react-polymorphic-types": [
+        "apps/reader/node_modules/react-polymorphic-types/index.d.ts"
+      ],
+      "vega-embed": [
+        "packages/illus-render/node_modules/vega-embed/build/embed.d.ts"
+      ]
+    },
     "allowImportingTsExtensions": true
   },
   "include": [

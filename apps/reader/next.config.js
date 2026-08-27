@@ -1,4 +1,5 @@
 const path = require('path')
+const TerserPlugin = require('terser-webpack-plugin')
 
 const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
@@ -19,7 +20,15 @@ const withTM = require('next-transpile-modules')([
   '@material/material-color-utilities',
   '@illus/core',
   '@illus/llm',
+  '@illus/book-index',
+  '@illus/anim',
+  '@illus/tracer',
+  '@illus/concepts',
+  '@illus/context',
+  '@illus/pipeline',
+  '@illus/reader-bridge',
   '@illus/render',
+  '@illus/store',
 ])
 
 
@@ -34,7 +43,15 @@ const config = {
   async headers() {
     return securityHeaders({ dev: IS_DEV })
   },
-  webpack(config) {
+  webpack(config, { dev, isServer }) {
+    if (!dev && !isServer) {
+      // Replace only JS minification. Keep Next's CSS minimizer and all security behavior.
+      // Bundled Terser cannot parse current renderer syntax; bundled SWC miscompiles Zod nullish expressions.
+      config.optimization.minimizer = [new TerserPlugin({
+        parallel: true,
+        terserOptions: { ecma: 2020, compress: true, mangle: true },
+      }), ...config.optimization.minimizer.slice(1)]
+    }
     // docs/prompts/<role>.md imported as raw text at build time (spec §9, W2).
     config.module.rules.push({
       test: /[\\/]docs[\\/]prompts[\\/][^\\/]+\.md$/,
