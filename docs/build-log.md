@@ -131,3 +131,20 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
 - W3 committed `e239243`: bounded trace repair and grounded simulated fallbacks, code-source whitelist checks and an animation validation context restricted to the packed blocks. Reported scoped gate: 20 tasks, 51 pipeline tests passed; exact browser fixture integration remains in progress.
 - W11 committed `c2c4ab6`: worker CSP, Docker asset checks and replay fixture mounts/docs. Reported 55 unit tests and 11 existing production checks passed; two tracer integration tests and Docker verification await W7 assets and W9 build wiring.
 - W6, W7 and W9 resumed from their saved edits. Wave 3 has not passed its integrated gate; no completion or live-model-quality claim is made.
+
+## Wave 3 — 2026-10-09
+- Agents: w6-animation, w7-tracer, w9-reader-ui, plus w3-pipeline (integration), w2-llm-store (template server), w4-renderers (server-safe template entry), w0-foundation (dependency notes), w11-deploy-security (tracer assets). Several runs stopped on usage limits or network errors (ENOTFOUND) and were resumed from saved work.
+- Branches merged: W6 (40cf0af, e58808e), W3 (e6dc43c, 48452fb, 0ff7f97), W7 (a28b6f4), W4 (0c718d4), W0 (1ccb5cf), W11 (0f6e4d9), W2 (93fabc8, then the ADR 0041 follow-up), W9 (reader bridge + pane, then the e2e fix).
+- Gate on merged main: lint ✓ typecheck ✓ test ✓ (44/44, forced) · e2e ✓ (5/5 tasks: reader 14/14, render 63 + 45, anim 7, tracer 2, book-index 1; replay mode) · reader production build ✓. No live model calls.
+- ADRs: 0037-w3-wave3-integration (Figure 2.2 template replay), 0038-w11-tracer-assets, 0040 (W2: no server flag for template schema checks), 0041-w2-stale-template-fixture (resolved by W3).
+- W2 touched `apps/reader/next.config.js` (transpile list only; headers untouched) and `apps/reader/tsconfig.json` (include d3-hierarchy.d.ts) so the reader builds with @illus/render.
+- W9 fixed: Mermaid IR memoization (focus loss), evidence highlight policy (`evidenceAction`), bridge keeps evidence marks over step marks on the same CFI, replay mode skips `/auth/chatgpt/status`. The e2e asserts the real highlighted range and no 5xx responses.
+- Contract-change requests: none outstanding.
+- Decision by Shubham: the old W0 branch `worktree-agent-a5e3a28ba64188701` (ADR acceptances 0010/0015/0020/0025, apps/website removal, synthetic.epub caption-less image, spec §9/§17 per ADR 0020, CI reader e2e) is ported by W0 onto main after wave 3; W1, W3 and W10 re-key afterwards. Its contracts v1.3 and templateIR pointer commits are already on main.
+- Cleanup pending (force-removing dirty worktrees was denied): stale `.worktrees/*` (w2-template-server, w3-integration, w9 hold uncommitted edits already committed on the merged agent branches) and `.claude/worktrees/agent-*` for merged agents.
+- Follow-ups:
+  - W2: `/auth/chatgpt/status` returns a 500 HTML page when sign-in is unconfigured; return JSON `{ configured: false }`.
+  - W4: MermaidView redraws on new `ir` object identity (key on content?); Mermaid edges come before nodes in tab order and straight edges have zero-size boxes.
+  - W5: add `/// <reference path="./d3-hierarchy.d.ts" />` in hierarchy.ts so the reader tsconfig include can go.
+  - W3: regenerate browser fixtures with `ILLUS_BROWSER_REQUESTS=<capture> pnpm --filter @illus/pipeline fixtures:browser` (W9's e2e writes captures via `ILLUS_CAPTURE_PATH`).
+  - Subagents with worktree isolation cannot run git in `.worktrees/*`; resume them in their own worktree.
