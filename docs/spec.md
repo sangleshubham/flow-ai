@@ -480,7 +480,7 @@ All model calls go through one server route, paid from Shubham's ChatGPT Plus pl
 ### Sign in with ChatGPT (plan usage)
 
 - **Program.** Use OpenAI's "ChatGPT plan usage in your open-source app" flow; the fork is AGPL open source. Register the client through the open-source registration flow, which issues OAuth credentials without a client secret.
-- **Flow.** OpenID Connect authorization code with PKCE, started by the server. Request `openid profile email` (identity, also the app login in section 17) plus the Responses API plan-usage scopes the registration guide lists. Callback: `${ILLUS_PUBLIC_URL}/auth/chatgpt/callback`.
+- **Flow.** OpenID Connect authorization code with PKCE, started by the server. Request `openid profile email` (identity, also the app login in section 17) plus the Responses API plan-usage scopes the registration guide lists. Callback: `${ILLUS_PUBLIC_URL}/auth/chatgpt/callback`. OpenAI accepts only `http://127.0.0.1:<port>` callbacks for open-source clients, so sign-in runs on the laptop; the VPS uses a copy of the encrypted token file (ADR 0020).
 - **Tokens.** The server exchanges the code, verifies the ID token, and stores access and refresh tokens encrypted (AES-256-GCM, `ILLUS_TOKEN_ENC_KEY`) in `ILLUS_DATA_DIR`. It refreshes before expiry. Tokens never reach the browser; sign-out revokes them.
 - **Request rules on the plan route** (preview): `store: false` and `stream: true`; send the full context in `input` on every call; put instructions in `instructions`, never as system-role items; omit `temperature`, `max_output_tokens`, `metadata`, `prompt_cache_retention` and `previous_response_id`. Image input works when the model accepts it (critic).
 - **Limits.** Calls draw on the Plus weekly allowance, a per-app weekly cap set in ChatGPT settings, and a five-hour window shared by every connected app. When any is exhausted, the API returns HTTP 429 `subscription_sharing_usage_limit_exceeded`. The reader then stops plan requests and never switches to paid billing on its own.
@@ -508,10 +508,12 @@ Verify request shapes against OpenAI's docs at implementation time: the [Sign in
 | Variable | Purpose |
 | --- | --- |
 | `ILLUS_CHATGPT_CLIENT_ID` | Client id from the open-source registration flow |
-| `ILLUS_PUBLIC_URL` | Base URL for the OAuth callback (`http://localhost:3000` or the VPS domain) |
+| `ILLUS_PUBLIC_URL` | Base URL for the OAuth callback (`http://127.0.0.1:<port>` on the laptop; the tailnet URL on the VPS) |
 | `ILLUS_ALLOWED_ACCOUNT_ID` | Shubham's ChatGPT account id; every other account is refused (section 17) |
 | `ILLUS_TOKEN_ENC_KEY` | 32-byte key encrypting stored ChatGPT tokens at rest |
 | `ILLUS_SESSION_SECRET` | Signs the app session cookie |
+| `ILLUS_LOGIN_PASSWORD` | Password for the VPS login gate (at least 16 characters); unset disables password login (section 17) |
+| `ILLUS_AUTH_GATE` | `off` disables the login gate under `next dev` only; production builds ignore it |
 | `ILLUS_MAX_REQUESTS_5H`, `ILLUS_MAX_REQUESTS_DAY` | Local soft caps protecting the shared plan window; starting values set in W2 and tuned after the M1 eval |
 | `ILLUS_DATA_DIR` | Token store and usage log (Docker volume) |
 | `ILLUS_MODELS_JSON` | Tier → model id mapping and per-role overrides |
@@ -1046,7 +1048,7 @@ The main risks are a leaked or abused API key on a self-hosted instance, and unt
 | Threat | Control | Owner |
 | --- | --- | --- |
 | Plan token exposure | OAuth tokens encrypted at rest on the server; never sent to the browser; never logged; sign-out revokes them | W2 |
-| Strangers using a VPS deployment | ChatGPT login limited to one allowed account; HTTPS; rate limit on `/api/llm` | W11 |
+| Strangers using a VPS deployment | Tailscale-only access; login gate admitting one allowed account; HTTPS; rate limit on `/api/llm` | W11 |
 | Draining the plan allowance | Local 5-hour and daily caps; per-app cap in ChatGPT settings; schema size limits; client concurrency limits | W2 |
 | Prompt injection from book text | Book text wrapped as data; schema-constrained outputs; no tools that act; outputs validated | W3 |
 | XSS via Mermaid or SVG | Mermaid `securityLevel: 'strict'`; DOMPurify SVG profile on all injected SVG; React for everything else | W4 |
@@ -1058,12 +1060,14 @@ The main risks are a leaked or abused API key on a self-hosted instance, and unt
 
 ### Auth gate (single user)
 
-- Login is **Continue with ChatGPT**: the same OAuth flow (section 9) that grants plan usage also signs Shubham in.
-- The server verifies the ID token and admits only `ILLUS_ALLOWED_ACCOUNT_ID`; any other ChatGPT account is refused even though OpenAI authenticated it.
-- Session: an `HttpOnly`, `Secure`, `SameSite=Lax` cookie signed with `ILLUS_SESSION_SECRET`, 30-day expiry (`Lax` because the OAuth callback is a cross-site redirect).
-- Next.js middleware checks the session on every page and API route except `/login`, `/auth/chatgpt/*` and static assets.
+Amended by ADR 0020.
+
+- On the laptop (`ILLUS_PUBLIC_URL` is `http://127.0.0.1[:port]`), login is **Continue with ChatGPT**: the same OAuth flow (section 9) that grants plan usage also signs Shubham in. The server verifies the ID token and admits only `ILLUS_ALLOWED_ACCOUNT_ID`; any other ChatGPT account is refused even though OpenAI authenticated it.
+- On the VPS, ChatGPT sign-in cannot complete, so the encrypted token file is copied from the laptop into `ILLUS_DATA_DIR`, and login is **Continue with password** (`ILLUS_LOGIN_PASSWORD`, constant-time compare, 5 attempts per minute). It issues the same session, always for `ILLUS_ALLOWED_ACCOUNT_ID`.
+- Session: an `HttpOnly`, `SameSite=Lax` cookie signed with `ILLUS_SESSION_SECRET`, 30-day expiry, bound to `ILLUS_ALLOWED_ACCOUNT_ID` (`Lax` because the OAuth callback is a cross-site redirect). `Secure` follows the scheme of `ILLUS_PUBLIC_URL`: set on `https:`, not on the laptop's `http://127.0.0.1`.
+- Next.js middleware checks the session on every page and API route except `/login`, `/auth/chatgpt/*`, `/api/login` and static assets; API routes check it again.
 - `/api/llm` rate-limits to 60 requests per minute per session (in-memory token bucket).
-- The VPS deployment sits behind Caddy with automatic HTTPS, and the registered callback must match `ILLUS_PUBLIC_URL`. Tailscale-only access is still recommended.
+- The VPS is reached only over Tailscale: the container port is published on `127.0.0.1`, and HTTPS comes from `tailscale serve` (or Caddy bound to the tailnet address). It is not exposed on the public internet.
 
 ### Content Security Policy (app)
 
