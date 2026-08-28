@@ -1,6 +1,6 @@
 # @illus/reader-bridge
 
-epub.js adapters implementing `ReaderBridge`: location → section, quote → CFI, highlights, selection, theme tokens.
+epub.js adapters implementing `ReaderBridge`: location → section, quote → CFI, highlights, selection, theme tokens. Marks are drawn by epub.js in an SVG over the chapter iframe; because epub.js keys marks by CFI, a step highlight never displaces an evidence mark on the same passage.
 
 - Owner: W9
 - Spec: §14
