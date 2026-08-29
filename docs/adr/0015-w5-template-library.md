@@ -1,6 +1,6 @@
 # 0015 — Template library: props shapes, targets, frames and edits outside W5's path
 
-- Status: proposed
+- Status: accepted (Shubham, 2026-10-09)
 - Date: 2026-10-09
 - Workstream: W5
 - Spec sections: §5, §8 stage 2, §10, §11, §16, §19
@@ -32,3 +32,7 @@ Contract-change requests:
 - **W6**: follow decisions 4–6 in the reducer (swap moves `values` entries with the contents; containers seeded from `initialFrame`).
 - **W3**: build the `extractor.template` prompt section with `templateDoc(id)`.
 - **CI**: template baselines exist for darwin only (same as W4's, ADR 0006).
+
+## Decision (Shubham, 2026-10-09)
+
+Accepted. The stack's top is its last item, and the template draws a visible "top" marker on it (W5 adds it). Hash-table resize and tree rotate: W6 first tries to express each as one animation with the existing §11 ops; only if that fails are they shown as two visuals. The contract requests are applied in contracts v1.3 ([ADR 0030](0030-w0-wave3-contracts.md)).

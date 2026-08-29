@@ -1,6 +1,6 @@
 # 0020 — Login gate for a Tailscale-only VPS, and W11's security defaults (amends §17)
 
-- Status: proposed (item 1 implements Shubham's decision after wave 1; items 2–9 are W11's conservative defaults)
+- Status: accepted (Shubham, 2026-10-09)
 - Date: 2026-10-09
 - Workstream: W11
 - Spec sections: §17, §9, §2 D6, D7
@@ -35,3 +35,7 @@ Shubham's decision (build log, wave 1): sign in with ChatGPT on the laptop, copy
 - Any E2E against a production build must set `ILLUS_SESSION_SECRET` and `ILLUS_ALLOWED_ACCOUNT_ID` and add a session cookie (`apps/reader/e2e/env.ts` shows how).
 - The rate limit and the middleware gate live in process memory and can be bypassed by the Next 12 i18n advisory; the per-route session check and W2's soft caps remain the real controls until the Next 15.5 migration (ADR 0005).
 - W2: `createSessions` takes `allowedSub`; `createIllusServer` passes `ILLUS_ALLOWED_ACCOUNT_ID`.
+
+## Decision (Shubham, 2026-10-09)
+
+Accepted. Password login (`ILLUS_LOGIN_PASSWORD`) is the VPS gate. The session cookie is not `Secure` on `http://127.0.0.1`: `Secure` follows the scheme of `ILLUS_PUBLIC_URL`, as built. Spec §9 and §17 now read as this ADR (amended when W0 ported the decisions after wave 3, [ADR 0042](0042-w0-post-wave3-port.md)).
