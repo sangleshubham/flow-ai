@@ -3,24 +3,24 @@
   "source": "handwritten",
   "blocks": [
     {
-      "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b0",
+      "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1#b0",
       "kind": "paragraph",
       "text": "The number of steps of the search in Listing 1.1 is bounded by the formula below."
     },
     {
-      "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b1",
+      "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1#b1",
       "kind": "math",
       "text": "steps = ⌊log2 n⌋ + 1"
     },
     {
-      "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b2",
+      "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1#b2",
       "kind": "paragraph",
       "text": "Here n is the number of items. A quorum needs q > n/2 votes."
     }
   ],
   "planAttempts": [
     {
-      "sectionId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1",
+      "sectionId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1",
       "needsVisual": true,
       "reason": "The section explains a structure or process.",
       "items": [
@@ -42,13 +42,13 @@
       "attempts": [
         {
           "type": "math",
-          "sourceBlockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b1",
+          "sourceBlockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1#b1",
           "terms": [
             {
               "symbol": "n",
               "meaning": "number of items",
               "evidence": {
-                "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b2",
+                "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1#b2",
                 "quote": "n is the number of items"
               }
             },
@@ -56,7 +56,7 @@
               "symbol": "steps",
               "meaning": "steps of the search",
               "evidence": {
-                "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b0",
+                "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1#b0",
                 "quote": "The number of steps of the search"
               }
             }
