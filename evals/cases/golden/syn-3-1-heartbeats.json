@@ -2,7 +2,7 @@
   "id": "syn-3-1-heartbeats",
   "category": "state",
   "bookRef": "synthetic",
-  "sectionId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings:1",
+  "sectionId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings:1",
   "title": "3.1 An Oversized Section Without Subheadings",
   "expected": {
     "needsVisual": true,
