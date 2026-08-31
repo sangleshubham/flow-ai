@@ -27,7 +27,7 @@ test('synthetic.epub: block → CFI → rendered range text equals block text', 
   document.body.append(host)
   const rendition = book.renderTo(host, { width: 600, height: 800, allowScriptedContent: false } as never)
 
-  const checked = { blocks: 0, sections: 0 }
+  const checked = { blocks: 0, sections: 0, captionless: 0 }
   const spines = [...new Set(sections.map((s) => s.spineHref))]
   for (const href of spines) {
     await rendition.display(href)
@@ -39,6 +39,13 @@ test('synthetic.epub: block → CFI → rendered range text equals block text', 
       expect(range, block.blockId).not.toBeNull()
       expect(blockTextOfRange(range, block.kind), block.blockId).toBe(block.text)
       checked.blocks++
+      // Caption-less figure (ADR 0025): empty text, and its CFI lands on the rendered <img> carrying the alt.
+      if (block.kind === 'figure' && block.text === '') {
+        const node = range.startContainer.nodeType === 1 ? (range.startContainer as Element) : range.startContainer.parentElement!
+        const img = node.localName === 'img' ? node : (node.childNodes[range.startOffset] as Element | undefined) ?? node.querySelector('img')
+        expect(img?.getAttribute('alt'), block.blockId).toBe(block.figure?.alt)
+        checked.captionless++
+      }
     }
     for (const section of sections.filter((s: SectionNode) => s.spineHref === href)) {
       const start = new EpubCFI(section.cfiStart).toRange(doc)
@@ -52,6 +59,6 @@ test('synthetic.epub: block → CFI → rendered range text equals block text', 
     const location = rendition.currentLocation() as unknown as { start: { cfi: string } }
     expect(getSectionAt(sections, location.start.cfi)?.spineHref).toBe(href)
   }
-  expect(checked).toEqual({ blocks: blocks.length, sections: sections.length })
+  expect(checked).toEqual({ blocks: blocks.length, sections: sections.length, captionless: 1 })
   rendition.destroy()
 })
