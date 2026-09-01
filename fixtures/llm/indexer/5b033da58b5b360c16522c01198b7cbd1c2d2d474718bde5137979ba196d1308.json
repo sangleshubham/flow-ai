@@ -1,5 +1,5 @@
 {
-  "key": "dcad1b004927d8e6ca82cadcd875147d3e30fb5a039ef38856377861cc05e9a5",
+  "key": "5b033da58b5b360c16522c01198b7cbd1c2d2d474718bde5137979ba196d1308",
   "source": "handwritten",
   "role": "indexer",
   "promptVersion": "1.0.0",
@@ -9,7 +9,7 @@
   "data": {
     "sections": [
       {
-        "sectionId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-3-a-tiny-section/2-3-1-straight-into-a-subheading:4",
+        "sectionId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-3-a-tiny-section/2-3-1-straight-into-a-subheading:4",
         "summary": "A test section: its empty parent heading is merged into it for generation.",
         "defines": [],
         "uses": [],
@@ -25,27 +25,27 @@
         }
       },
       {
-        "sectionId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1",
+        "sectionId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1",
         "summary": "A replicated log keeps servers in agreement about command order. The leader sends heartbeats; a follower that misses them starts an election for a new term. Terms order leaders, followers reject mismatched entries, and snapshots compact the log.",
         "defines": [
           {
             "name": "replicated log",
             "evidence": {
-              "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+              "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
               "quote": "A replicated log keeps every server in agreement about the order of commands."
             }
           },
           {
             "name": "heartbeat",
             "evidence": {
-              "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+              "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
               "quote": "The leader sends heartbeats so that followers know it is still alive."
             }
           },
           {
             "name": "snapshot",
             "evidence": {
-              "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b1",
+              "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b1",
               "quote": "Snapshots compact the log once its prefix has been applied everywhere."
             }
           }
@@ -91,7 +91,7 @@
         }
       },
       {
-        "sectionId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2",
+        "sectionId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2",
         "summary": "A replicated log keeps servers in agreement about command order. The leader sends heartbeats; a follower that misses them starts an election for a new term. Terms order leaders, followers reject mismatched entries, and snapshots compact the log.",
         "defines": [],
         "uses": [
@@ -135,7 +135,7 @@
         }
       },
       {
-        "sectionId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:3",
+        "sectionId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:3",
         "summary": "A replicated log keeps servers in agreement about command order. The leader sends heartbeats; a follower that misses them starts an election for a new term. Terms order leaders, followers reject mismatched entries, and snapshots compact the log.",
         "defines": [],
         "uses": [

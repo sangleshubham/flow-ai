@@ -1,5 +1,5 @@
 {
-  "key": "dd77bf348601e819aeb359408483c3d4780a3cbfb27c7eba110874b89d5cdc01",
+  "key": "01fc23924936d96d2abb3fe80f202ae0acbf9fb3bfcd954a2f4f15d9bc20b60c",
   "source": "handwritten",
   "role": "extractor.mermaid",
   "promptVersion": "1.0.0",
@@ -17,14 +17,14 @@
           {
             "name": "term",
             "evidence": {
-              "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+              "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
               "quote": "A log entry carries the term in which the leader received it."
             }
           }
         ],
         "methods": [],
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
           "quote": "A log entry carries the term in which the leader received it."
         }
       }

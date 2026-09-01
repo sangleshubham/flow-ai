@@ -1,5 +1,5 @@
 {
-  "key": "19ac7385d17a38d54968476fefcf38de73f4ceead7697d7409a4d343c2da613f",
+  "key": "e916afa9af71b2c6aaeaa47fe3ec6cb23caa04167afc8143739ee85e492d566c",
   "source": "handwritten",
   "role": "planner",
   "promptVersion": "1.0.0",
@@ -7,9 +7,9 @@
   "effort": "medium",
   "schemaName": "VisualPlan",
   "prefix": "<book_context>\n<title>Illustrated Reader Synthetic Fixture</title>\n</book_context>",
-  "body": "<section id=\"c911e05c7aff3525:0:preface:0\" path=\"Preface\" ordinal=\"0\">\n  <block id=\"c911e05c7aff3525:0:preface:0#b0\" kind=\"paragraph\">This synthetic book exists to test an EPUB indexer. It has no headings on this page, so its section title must come from the table of contents.</block>\n  <block id=\"c911e05c7aff3525:0:preface:0#b1\" kind=\"paragraph\">Everything in it is original text released under CC0.</block>\n</section>",
+  "body": "<section id=\"9604b90977df58f0:0:preface:0\" path=\"Preface\" ordinal=\"0\">\n  <block id=\"9604b90977df58f0:0:preface:0#b0\" kind=\"paragraph\">This synthetic book exists to test an EPUB indexer. It has no headings on this page, so its section title must come from the table of contents.</block>\n  <block id=\"9604b90977df58f0:0:preface:0#b1\" kind=\"paragraph\">Everything in it is original text released under CC0.</block>\n</section>",
   "data": {
-    "sectionId": "c911e05c7aff3525:0:preface:0",
+    "sectionId": "9604b90977df58f0:0:preface:0",
     "needsVisual": false,
     "reason": "The preface describes the test fixture and its CC0 license.",
     "items": []

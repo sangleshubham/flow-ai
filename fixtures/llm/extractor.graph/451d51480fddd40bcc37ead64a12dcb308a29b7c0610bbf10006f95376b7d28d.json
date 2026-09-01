@@ -1,5 +1,5 @@
 {
-  "key": "b6c678834df4517b523e7ba38ac887a2744a21efd11c6db962d17ce95e733026",
+  "key": "451d51480fddd40bcc37ead64a12dcb308a29b7c0610bbf10006f95376b7d28d",
   "source": "handwritten",
   "role": "extractor.graph",
   "promptVersion": "1.0.0",
@@ -16,7 +16,7 @@
         "label": "Leader",
         "shape": "box",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
           "quote": "The leader sends heartbeats so that followers know it is still alive."
         }
       },
@@ -25,7 +25,7 @@
         "label": "Follower",
         "shape": "box",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
           "quote": "The leader sends heartbeats so that followers know it is still alive."
         }
       },
@@ -34,7 +34,7 @@
         "label": "Replicated log",
         "shape": "store",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
           "quote": "A replicated log keeps every server in agreement about the order of commands."
         }
       },
@@ -43,7 +43,7 @@
         "label": "Server",
         "shape": "box",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
           "quote": "Each server applies committed commands to its state machine in log order."
         }
       },
@@ -52,7 +52,7 @@
         "label": "State machine",
         "shape": "store",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
           "quote": "Each server applies committed commands to its state machine in log order."
         }
       },
@@ -61,7 +61,7 @@
         "label": "Snapshot",
         "shape": "store",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b1",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b1",
           "quote": "Snapshots compact the log once its prefix has been applied everywhere."
         }
       }
@@ -74,7 +74,7 @@
         "label": "heartbeats",
         "style": "dashed",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
           "quote": "The leader sends heartbeats so that followers know it is still alive."
         }
       },
@@ -85,7 +85,7 @@
         "label": "order of commands",
         "style": "solid",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
           "quote": "A replicated log keeps every server in agreement about the order of commands."
         }
       },
@@ -96,7 +96,7 @@
         "label": "applies committed commands",
         "style": "solid",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
           "quote": "Each server applies committed commands to its state machine in log order."
         }
       },
@@ -107,7 +107,7 @@
         "label": "compacts",
         "style": "solid",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b1",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b1",
           "quote": "Snapshots compact the log once its prefix has been applied everywhere."
         }
       }
