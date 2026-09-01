@@ -3,14 +3,14 @@
   "source": "handwritten",
   "blocks": [
     {
-      "blockId": "c911e05c7aff3525:4:chapter-4-scripted-content:0#b0",
+      "blockId": "9604b90977df58f0:4:chapter-4-scripted-content:0#b0",
       "kind": "paragraph",
       "text": "If this sentence changes, a script inside the book ran."
     }
   ],
   "planAttempts": [
     {
-      "sectionId": "c911e05c7aff3525:4:chapter-4-scripted-content:0",
+      "sectionId": "9604b90977df58f0:4:chapter-4-scripted-content:0",
       "needsVisual": false,
       "reason": "A single test sentence with no concept.",
       "items": []

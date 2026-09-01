@@ -1,5 +1,5 @@
 {
-  "key": "07d5e2e6f6eed227d0f5d0f9808f95fbcde43e5da3bdf333f33d9739d748bd52",
+  "key": "20c280e1af1bf9ccc5e333d28c30a73df4063f55f57827a20c82b516fa3d2141",
   "source": "handwritten",
   "role": "planner",
   "promptVersion": "1.0.0",
@@ -7,7 +7,7 @@
   "effort": "medium",
   "schemaName": "VisualPlan",
   "data": {
-    "sectionId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2",
+    "sectionId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2",
     "needsVisual": true,
     "reason": "Heartbeats and rejected entries are messages between leader and followers over time.",
     "items": [

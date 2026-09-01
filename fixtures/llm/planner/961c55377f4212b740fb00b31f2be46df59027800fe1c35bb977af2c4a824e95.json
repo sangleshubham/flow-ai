@@ -1,5 +1,5 @@
 {
-  "key": "6c8299be101ab7575a6d0170a90aea02fa05aa50d36442995b23aedd75cf9761",
+  "key": "961c55377f4212b740fb00b31f2be46df59027800fe1c35bb977af2c4a824e95",
   "source": "handwritten",
   "role": "planner",
   "promptVersion": "1.0.0",
@@ -7,7 +7,7 @@
   "effort": "medium",
   "schemaName": "VisualPlan",
   "data": {
-    "sectionId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-2-figures:2",
+    "sectionId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-2-figures:2",
     "needsVisual": true,
     "reason": "Figure 2.2 explicitly describes a log with five entries.",
     "items": [
@@ -23,7 +23,7 @@
     ]
   },
   "usage": {
-    "input": 948,
+    "input": 985,
     "output": 200,
     "cachedInput": 0
   },

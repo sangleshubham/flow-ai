@@ -1,5 +1,5 @@
 {
-  "key": "cd500ff751a9b980645a36c709b9424673da33356cf7f69234440de2c8293ae2",
+  "key": "dd5fbe84453e007d2d1cc72b93e18387e3e1f73e622c7073feac5a3795cfd8c7",
   "source": "handwritten",
   "role": "planner",
   "promptVersion": "1.0.0",
@@ -7,7 +7,7 @@
   "effort": "medium",
   "schemaName": "VisualPlan",
   "data": {
-    "sectionId": "c911e05c7aff3525:1:chapter-1-basics/1-2-code:2",
+    "sectionId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2",
     "needsVisual": true,
     "reason": "Listing 1.1 is an executable binary search over a sorted range.",
     "items": [
@@ -26,7 +26,7 @@
         "conceptIds": [],
         "priority": 2,
         "animate": false,
-        "codeBlockId": "c911e05c7aff3525:1:chapter-1-basics/1-2-code:2#b2"
+        "codeBlockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b2"
       }
     ]
   },

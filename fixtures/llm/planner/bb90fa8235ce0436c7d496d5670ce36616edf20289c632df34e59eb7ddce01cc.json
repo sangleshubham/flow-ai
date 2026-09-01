@@ -1,5 +1,5 @@
 {
-  "key": "2c523a7800d0e1c48020540b312c169c37bb8ae19fff3d7f4f78c3a060b758f1",
+  "key": "bb90fa8235ce0436c7d496d5670ce36616edf20289c632df34e59eb7ddce01cc",
   "source": "handwritten",
   "role": "planner",
   "promptVersion": "1.0.0",
@@ -7,7 +7,7 @@
   "effort": "medium",
   "schemaName": "VisualPlan",
   "data": {
-    "sectionId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1",
+    "sectionId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1",
     "needsVisual": true,
     "reason": "The section describes the parts of a replicated log, the follower-to-election change and the contents of a log entry.",
     "items": [

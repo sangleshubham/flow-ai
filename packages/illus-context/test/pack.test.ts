@@ -10,7 +10,7 @@ import {
 } from '@illus/core/testing'
 import { describe, expect, test } from 'vitest'
 
-import { escapeText, estimateTokens, packContext, SLOT_CAPS } from '../src/index.ts'
+import { escapeText, estimateTokens, packContext, renderBlock, SLOT_CAPS } from '../src/index.ts'
 import type { ContextRepo, LexicalSearch } from '../src/index.ts'
 
 async function seed(reverse = false): Promise<IllusRepos> {
@@ -158,5 +158,14 @@ describe('packContext', () => {
     })
     expect(out.body).toContain('<summary section="Committing Entries">Entries commit on a majority.</summary>')
     expect(out.body.endsWith('<plan_item id="p1" kind="graph" animate="true">Show &lt;commit> rule</plan_item>')).toBe(true)
+  })
+})
+
+describe('renderBlock', () => {
+  test('a caption-less figure (empty text) shows figure.alt as an attribute, not as quotable text (ADR 0025)', () => {
+    const fig = { blockId: 'f', sectionId: 's', kind: 'figure', text: '', figure: { alt: 'A "tree" <diagram>' }, cfiRange: 'epubcfi(/6/2!/4/2)' } as Block
+    expect(renderBlock(fig)).toBe('<block id="f" kind="figure" alt="A &quot;tree&quot; &lt;diagram&gt;"></block>')
+    expect(renderBlock({ ...fig, figure: {} })).toBe('<block id="f" kind="figure"></block>')
+    expect(renderBlock({ ...fig, text: 'Figure 1 Caption' })).toBe('<block id="f" kind="figure">Figure 1 Caption</block>')
   })
 })

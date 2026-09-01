@@ -1,5 +1,5 @@
 {
-  "key": "a4ab51420ee8666a54d5160b72d96cc38e868465fb3177eb278a8fcf121c0e1c",
+  "key": "5de5e40e0e315a56cd9a471af9ba656916aef21758464ad1f03ebf87b81c2c55",
   "source": "handwritten",
   "role": "extractor.template",
   "promptVersion": "1.0.0",
@@ -24,14 +24,14 @@
       {
         "path": "values",
         "evidence": {
-          "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-2-figures:2#b1",
+          "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-2-figures:2#b1",
           "quote": "Figure 2.2 A log with five entries"
         }
       }
     ]
   },
   "usage": {
-    "input": 984,
+    "input": 1021,
     "output": 200,
     "cachedInput": 0
   },

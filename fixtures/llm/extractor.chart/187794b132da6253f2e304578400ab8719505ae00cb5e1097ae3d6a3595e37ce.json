@@ -1,5 +1,5 @@
 {
-  "key": "64c3b7747266459082355c93e5648d43ad534d0ea63856743f80b6a8ee10e62d",
+  "key": "187794b132da6253f2e304578400ab8719505ae00cb5e1097ae3d6a3595e37ce",
   "source": "handwritten",
   "role": "extractor.chart",
   "promptVersion": "1.0.0",
@@ -20,7 +20,7 @@
         "name": "steps",
         "fn": "log",
         "evidence": {
-          "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b0",
+          "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1#b0",
           "quote": "The number of steps of the search in Listing 1.1 is bounded by the formula below."
         }
       }
