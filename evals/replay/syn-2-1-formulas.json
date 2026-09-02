@@ -10,12 +10,12 @@
     {
       "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1#b1",
       "kind": "math",
-      "text": "steps = ⌊log2 n⌋ + 1"
+      "text": "steps=⌊log2n⌋+1"
     },
     {
       "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1#b2",
       "kind": "paragraph",
-      "text": "Here n is the number of items. A quorum needs q > n/2 votes."
+      "text": "Here n is the number of items. A quorum needs q>n2 votes."
     }
   ],
   "planAttempts": [

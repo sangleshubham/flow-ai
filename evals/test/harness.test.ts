@@ -97,13 +97,13 @@ describe('reports', () => {
 
   it('pnpm eval (replay) writes a dated report from the CLI', () => {
     const out = tmp()
-    const log = execFileSync(process.execPath, [join(ROOT, 'src/cli.ts'), '--out', out, '--date', '2026-10-09'], { encoding: 'utf8' })
+    const log = execFileSync(process.execPath, [join(ROOT, 'bin/run.mjs'), join(ROOT, 'src/cli.ts'), '--out', out, '--date', '2026-10-09'], { encoding: 'utf8' })
     expect(log).toMatch(/cases passed/)
     expect(readFileSync(join(out, '2026-10-09.md'), 'utf8')).toMatch(/^# Eval report 2026-10-09/)
   })
 
   it('refuses --live until the pipeline exists', () => {
-    expect(() => execFileSync(process.execPath, [join(ROOT, 'src/cli.ts'), '--live'], { stdio: 'pipe' })).toThrow()
+    expect(() => execFileSync(process.execPath, [join(ROOT, 'bin/run.mjs'), join(ROOT, 'src/cli.ts'), '--live'], { stdio: 'pipe' })).toThrow()
   })
 })
 

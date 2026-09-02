@@ -5,15 +5,15 @@
     {
       "blockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b0",
       "kind": "paragraph",
-      "text": "The search in Listing 1.1 halves the range on every step."
+      "text": "The search in Listing 1.1 halves the range on every step.1"
     },
     {
-      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b1",
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b2",
       "kind": "code",
       "text": "def binary_search(items, target):\n    lo, hi = 0, len(items) - 1\n    while lo <= hi:\n        mid = (lo + hi) // 2\n        if items[mid] == target:\n            return mid\n        if items[mid] < target:\n            lo = mid + 1\n        else:\n            hi = mid - 1\n    return -1"
     },
     {
-      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b2",
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b6",
       "kind": "aside",
       "text": "Note: the loop invariant is that the target, if present, lies between lo and hi."
     }
@@ -30,7 +30,7 @@
           "priority": 1,
           "animate": true,
           "kind": "trace",
-          "codeBlockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b1",
+          "codeBlockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b2",
           "intent": "Trace binary search halving the range"
         }
       ]
