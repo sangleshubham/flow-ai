@@ -1,0 +1,32 @@
+{
+  "key": "537cbb39ca2be046c8049717c7196c0e5ff6b7af0d1a6b8340e21e0ee614bf4b",
+  "source": "handwritten",
+  "role": "critic",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "low",
+  "schemaName": "CriticReport",
+  "prefix": "",
+  "body": "<intent>One replication round between the leader and a follower</intent>\n<ir_summary kind=\"sequence\">{\"type\":\"sequence\",\"title\":\"One replication round\",\"participants\":[{\"id\":\"leader\",\"label\":\"Leader\"},{\"id\":\"follower\",\"label\":\"Follower\"}],\"messages\":[{\"id\":\"m1\",\"from\":\"leader\",\"to\":\"follower\",\"label\":\"AppendEntries\",\"kind\":\"async\"},{\"id\":\"m2\",\"from\":\"leader\",\"to\":\"follower\",\"label\":\"success flag\",\"kind\":\"reply\"}]}</ir_summary>",
+  "data": {
+    "pass": false,
+    "scores": {
+      "legibility": 4,
+      "intentMatch": 3,
+      "clutter": 4
+    },
+    "issues": [
+      {
+        "elementId": "m2",
+        "kind": "wrong-direction",
+        "note": "The success reply points from Leader to Follower."
+      }
+    ]
+  },
+  "usage": {
+    "input": 108,
+    "output": 150,
+    "cachedInput": 0
+  },
+  "note": "evals/test/quality-prompts.test.ts: critic-reversed-reply"
+}

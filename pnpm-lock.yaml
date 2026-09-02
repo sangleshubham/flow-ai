@@ -296,6 +296,9 @@ importers:
       '@illus/core':
         specifier: workspace:*
         version: link:../packages/illus-core
+      '@illus/llm':
+        specifier: workspace:*
+        version: link:../packages/illus-llm
       '@illus/render':
         specifier: workspace:*
         version: link:../packages/illus-render

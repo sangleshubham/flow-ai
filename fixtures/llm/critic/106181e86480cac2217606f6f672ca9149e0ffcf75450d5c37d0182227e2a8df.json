@@ -1,0 +1,26 @@
+{
+  "key": "106181e86480cac2217606f6f672ca9149e0ffcf75450d5c37d0182227e2a8df",
+  "source": "handwritten",
+  "role": "critic",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "low",
+  "schemaName": "CriticReport",
+  "prefix": "",
+  "body": "<intent>How a client request reaches the log and the followers</intent>\n<ir_summary kind=\"graph\">{\"type\":\"graph\",\"title\":\"Request path\",\"direction\":\"LR\",\"nodes\":[{\"id\":\"leader\",\"label\":\"Leader\",\"shape\":\"box\"},{\"id\":\"log\",\"label\":\"Log\",\"shape\":\"store\"},{\"id\":\"followers\",\"label\":\"Followers\",\"shape\":\"box\"}],\"edges\":[{\"id\":\"e1\",\"from\":\"leader\",\"to\":\"log\",\"label\":\"append\",\"style\":\"solid\"},{\"id\":\"e2\",\"from\":\"leader\",\"to\":\"followers\",\"label\":\"AppendEntries\",\"style\":\"solid\"}],\"groups\":[]}</ir_summary>",
+  "data": {
+    "pass": true,
+    "scores": {
+      "legibility": 5,
+      "intentMatch": 5,
+      "clutter": 5
+    },
+    "issues": []
+  },
+  "usage": {
+    "input": 125,
+    "output": 150,
+    "cachedInput": 0
+  },
+  "note": "evals/test/quality-prompts.test.ts: critic-clean-graph"
+}
