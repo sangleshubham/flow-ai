@@ -36,7 +36,7 @@ if (values.live) {
 const mode = values.live ? 'live' : 'replay'
 
 const prefixes = values.cases?.split(',').filter(Boolean)
-const cases = loadCases([join(ROOT, 'cases/golden'), join(ROOT, 'cases/private'), join(ROOT, 'regressions')]).filter(
+const cases = loadCases([join(ROOT, 'cases/golden'), join(ROOT, 'cases/private'), join(ROOT, 'regressions'), join(ROOT, 'regressions/private')]).filter(
   (c) => !prefixes || prefixes.some((p) => c.id.startsWith(p)),
 )
 if (!cases.length) throw new Error('no cases selected')
