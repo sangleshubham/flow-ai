@@ -293,12 +293,18 @@ importers:
       '@illus/book-index':
         specifier: workspace:*
         version: link:../packages/illus-book-index
+      '@illus/concepts':
+        specifier: workspace:*
+        version: link:../packages/illus-concepts
       '@illus/core':
         specifier: workspace:*
         version: link:../packages/illus-core
       '@illus/llm':
         specifier: workspace:*
         version: link:../packages/illus-llm
+      '@illus/pipeline':
+        specifier: workspace:*
+        version: link:../packages/illus-pipeline
       '@illus/render':
         specifier: workspace:*
         version: link:../packages/illus-render

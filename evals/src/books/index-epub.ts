@@ -21,7 +21,7 @@ export interface IndexedBook {
 /** epub.js needs a DOM. Under vitest's jsdom environment one exists; in the CLI we install jsdom's globals. */
 function ensureDom(): void {
   if (typeof document === 'undefined') {
-    const { window } = new JSDOM('')
+    const { window } = new JSDOM('', { url: 'http://localhost/' })
     const g = globalThis as Record<string, unknown>
     for (const key of Object.getOwnPropertyNames(window)) if (!(key in g)) g[key] = (window as unknown as Record<string, unknown>)[key]
     g.window = window
@@ -31,12 +31,13 @@ function ensureDom(): void {
   URL.createObjectURL = () => 'blob:eval'
 }
 
-export async function indexEpub(file: string): Promise<IndexedBook> {
+/** `bookId` overrides the content hash (eval-mini's cases use a fixed id, like W0's check of that book). */
+export async function indexEpub(file: string, opts: { bookId?: string } = {}): Promise<IndexedBook> {
   ensureDom()
   const bytes = new Uint8Array(readFileSync(file))
   const book = ePub({ replacements: 'none' } as never)
   await book.open(bytes.buffer as ArrayBuffer)
-  const bookId = await makeBookId(bytes)
+  const bookId = opts.bookId ?? (await makeBookId(bytes))
   const repos = createMemoryRepos()
   const scheduler = (run: (d: { timeRemaining(): number }) => void) => run({ timeRemaining: () => Infinity })
   for await (const _ of indexBookStructure(book, repos, { bookId, scheduler, now: () => 1 }));

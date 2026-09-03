@@ -102,8 +102,9 @@ describe('reports', () => {
     expect(readFileSync(join(out, '2026-10-09.md'), 'utf8')).toMatch(/^# Eval report 2026-10-09/)
   })
 
-  it('refuses --live until the pipeline exists', () => {
-    expect(() => execFileSync(process.execPath, [join(ROOT, 'bin/run.mjs'), join(ROOT, 'src/cli.ts'), '--live'], { stdio: 'pipe' })).toThrow()
+  it('--live refuses to start without the reader’s server settings', () => {
+    const args = [join(ROOT, 'bin/run.mjs'), join(ROOT, 'src/cli.ts'), '--live', '--env', join(tmp(), 'missing.env')]
+    expect(() => execFileSync(process.execPath, args, { stdio: 'pipe' })).toThrow()
   })
 })
 

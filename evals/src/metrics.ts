@@ -145,7 +145,7 @@ export function scoreCase(c: EvalCase, run: CaseRun | null): CaseResult {
         if (Translation.safeParse(v.attempts[0]).success) r.schema.firstValid++
       }
       const want = c.expected.trace?.expectedReturn
-      if (want !== undefined) {
+      if (want !== undefined && !run.unsupported?.includes('trace')) {
         r.trace.ok = v.trace?.mode === 'executed' && v.trace.returnValue === want
         r.trace.detail = `${v.trace?.mode ?? 'no trace'}, returned ${v.trace?.returnValue ?? 'nothing'}; expected ${want}`
         if (!r.trace.ok) r.reasons.push(`trace: ${r.trace.detail}`)
@@ -171,7 +171,8 @@ export function scoreCase(c: EvalCase, run: CaseRun | null): CaseResult {
     }
     if (v.displacementPx !== undefined) r.displacement.push(v.displacementPx)
   }
-  if (c.expected.trace && r.trace.ok === null) {
+  if (c.expected.trace && run.unsupported?.includes('trace')) r.trace.detail = 'not measured by this runner'
+  else if (c.expected.trace && r.trace.ok === null) {
     r.trace.ok = false
     r.reasons.push('trace: no trace visual')
   }

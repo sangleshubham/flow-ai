@@ -79,5 +79,7 @@ export const CaseRun = z.object({
   /** Latency path (§15): `no-visual`, `static`, `animated`, `trace`, `cache-hit`. */
   path: z.string().min(1),
   latencyMs: z.number().nonnegative(),
+  /** What this runner cannot measure (the Node live runner has no Pyodide worker and no renderer). */
+  unsupported: z.array(z.enum(['trace', 'critic'])).optional(),
 })
 export type CaseRun = z.infer<typeof CaseRun>
