@@ -35,7 +35,7 @@ the browser `templates` flag still gates template generation and rendering.
 | `VisualSpec` | `{ ir, title?, groundingScore?, newIds?, mathBlock?, layout? }`. The renderer derives engine input from the validated IR. |
 | `EvidenceEvent`, `onEvidenceHover`, `onEvidenceClick` | `{ irId, target, label, evidence }` for the element under the pointer, focused (keyboard) or clicked. Hover sends `null` on leave. |
 | `RenderTemplate`, `TemplateViewProps` | The interface W5's templates implement (`TemplateSpec` + `layout(props)` + `Component`). Pass a registry as `templates`. |
-| `layoutGraph(input, { signal })` | `LayoutGraphFn`: elkjs in a dedicated worker via Comlink, §10 options, results cached in memory. `hints` switch ELK to interactive mode (W8, §11 relayout). |
+| `layoutGraph(input, { signal })` | `LayoutGraphFn`: elkjs in a dedicated worker via Comlink, §10 options, results cached in memory. `hints` switch ELK to interactive mode (semi-interactive sweep by `elk.position`, applied to the root and every group so compound graphs work; W8, §11 relayout). |
 | `runElkLayout(elk, input)`, `graphLayoutInput`, `nodeSize`, `wrapLabel`, `canvasMeasure` | The worker body and the measuring step, reusable (W5 `graph-ds` uses `algorithm: 'stress'`). |
 | `readFlowTheme()`, `watchFlowTheme(cb)`, `useFlowTheme()`, `tokensFromFlowVars()`, `themeVars()` | The ten `--illus-*` tokens from Flow's Material variables and `dark` class, updated on theme change. |
 | `irElements(ir)`, `evidenceIndex(ir)`, `elementFrame(frame, target)` | The element/target scheme below and how a `FrameState` applies to one element. |
