@@ -1,0 +1,546 @@
+{
+  "caseId": "syn-3-1-architecture",
+  "source": "handwritten",
+  "blocks": [
+    {
+      "blockId": "9604b90977df58f0:0:preface:0#b0",
+      "kind": "paragraph",
+      "text": "This synthetic book exists to test an EPUB indexer. It has no headings on this page, so its section title must come from the table of contents."
+    },
+    {
+      "blockId": "9604b90977df58f0:0:preface:0#b1",
+      "kind": "paragraph",
+      "text": "Everything in it is original text released under CC0."
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics:0#b0",
+      "kind": "paragraph",
+      "text": "This chapter introduces the “basic” building blocks. It uses soft hyphens, the ﬁrst ligature and the ﬂow ligature on purpose."
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b0",
+      "kind": "paragraph",
+      "text": "A server can be in three states:"
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b1",
+      "kind": "list",
+      "text": "follower candidate leader"
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b2",
+      "kind": "list",
+      "text": "Receive a request. Append it to the log. Replicate it."
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b3",
+      "kind": "list",
+      "text": "Term A monotonically increasing election number."
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b4",
+      "kind": "paragraph",
+      "text": "Table 1.1 Message types"
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b5",
+      "kind": "table",
+      "text": "Message Sender Purpose RequestVote candidate ask for a vote AppendEntries leader replicate entries and send heartbeats"
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b0",
+      "kind": "paragraph",
+      "text": "The search in Listing 1.1 halves the range on every step.1"
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b1",
+      "kind": "paragraph",
+      "text": "Listing 1.1 Binary search"
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b2",
+      "kind": "code",
+      "text": "def binary_search(items, target):\n    lo, hi = 0, len(items) - 1\n    while lo <= hi:\n        mid = (lo + hi) // 2\n        if items[mid] == target:\n            return mid\n        if items[mid] < target:\n            lo = mid + 1\n        else:\n            hi = mid - 1\n    return -1"
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b3",
+      "kind": "code",
+      "text": "func add(a, b int) int {\n\treturn a + b\n}"
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b4",
+      "kind": "paragraph",
+      "text": "Run the program from a shell:"
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b5",
+      "kind": "code",
+      "text": "python search.py"
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b6",
+      "kind": "aside",
+      "text": "Note: the loop invariant is that the target, if present, lies between lo and hi."
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b7",
+      "kind": "aside",
+      "text": "Simplicity is a prerequisite for reliability."
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b8",
+      "kind": "aside",
+      "text": "Warning: integer overflow is not an issue in Python."
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b9",
+      "kind": "aside",
+      "text": "Halving gives a logarithmic number of steps."
+    },
+    {
+      "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures:0#b0",
+      "kind": "paragraph",
+      "text": "As we saw in Chapter 1, the search halves its range; see Section 1.2 and Listing 1.1."
+    },
+    {
+      "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1#b0",
+      "kind": "paragraph",
+      "text": "The number of steps of the search in Listing 1.1 is bounded by the formula below."
+    },
+    {
+      "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1#b1",
+      "kind": "math",
+      "text": "steps=⌊log2n⌋+1"
+    },
+    {
+      "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1#b2",
+      "kind": "paragraph",
+      "text": "Here n is the number of items. A quorum needs q>n2 votes."
+    },
+    {
+      "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-2-figures:2#b0",
+      "kind": "figure",
+      "text": "Figure 2.1 A cluster of three servers"
+    },
+    {
+      "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-2-figures:2#b1",
+      "kind": "figure",
+      "text": "Figure 2.2 A log with five entries"
+    },
+    {
+      "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-2-figures:2#b2",
+      "kind": "paragraph",
+      "text": "Figure 2.1 shows the cluster and Table 1.1 lists its messages. Figure 9.9 does not exist and must stay unresolved."
+    },
+    {
+      "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-2-figures:2#b3",
+      "kind": "paragraph",
+      "text": "The formulas section and the message table are internal links."
+    },
+    {
+      "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-2-figures:2#b4",
+      "kind": "paragraph",
+      "text": "This paragraph follows an empty heading."
+    },
+    {
+      "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-2-figures:2#b5",
+      "kind": "paragraph",
+      "text": "This paragraph follows a heading that contains only an anchor."
+    },
+    {
+      "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-2-figures:2#b6",
+      "kind": "figure",
+      "text": ""
+    },
+    {
+      "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-3-a-tiny-section/2-3-1-straight-into-a-subheading:4#b0",
+      "kind": "paragraph",
+      "text": "The parent heading above has no text of its own, so it should be merged into this subsection for generation."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+      "kind": "paragraph",
+      "text": "A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order. The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term. Terms act as a logical clock that orders leaders over time. A log entry carries the term in which the leader received it."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b1",
+      "kind": "paragraph",
+      "text": "Followers reject entries that do not match the previous index and term. Snapshots compact the log once its prefix has been applied everywhere. A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order. The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b2",
+      "kind": "paragraph",
+      "text": "Terms act as a logical clock that orders leaders over time. A log entry carries the term in which the leader received it. Followers reject entries that do not match the previous index and term. Snapshots compact the log once its prefix has been applied everywhere. A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b3",
+      "kind": "paragraph",
+      "text": "The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term. Terms act as a logical clock that orders leaders over time. A log entry carries the term in which the leader received it. Followers reject entries that do not match the previous index and term. Snapshots compact the log once its prefix has been applied everywhere."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b4",
+      "kind": "paragraph",
+      "text": "A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order. The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term. Terms act as a logical clock that orders leaders over time. A log entry carries the term in which the leader received it."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b5",
+      "kind": "paragraph",
+      "text": "Followers reject entries that do not match the previous index and term. Snapshots compact the log once its prefix has been applied everywhere. A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order. The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b6",
+      "kind": "paragraph",
+      "text": "Terms act as a logical clock that orders leaders over time. A log entry carries the term in which the leader received it. Followers reject entries that do not match the previous index and term. Snapshots compact the log once its prefix has been applied everywhere. A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b7",
+      "kind": "paragraph",
+      "text": "The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term. Terms act as a logical clock that orders leaders over time. A log entry carries the term in which the leader received it. Followers reject entries that do not match the previous index and term. Snapshots compact the log once its prefix has been applied everywhere."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b8",
+      "kind": "paragraph",
+      "text": "A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order. The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term. Terms act as a logical clock that orders leaders over time. A log entry carries the term in which the leader received it."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b9",
+      "kind": "paragraph",
+      "text": "Followers reject entries that do not match the previous index and term. Snapshots compact the log once its prefix has been applied everywhere. A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order. The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b10",
+      "kind": "paragraph",
+      "text": "Terms act as a logical clock that orders leaders over time. A log entry carries the term in which the leader received it. Followers reject entries that do not match the previous index and term. Snapshots compact the log once its prefix has been applied everywhere. A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b11",
+      "kind": "paragraph",
+      "text": "The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term. Terms act as a logical clock that orders leaders over time. A log entry carries the term in which the leader received it. Followers reject entries that do not match the previous index and term. Snapshots compact the log once its prefix has been applied everywhere."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b12",
+      "kind": "paragraph",
+      "text": "A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order. The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term. Terms act as a logical clock that orders leaders over time. A log entry carries the term in which the leader received it."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b13",
+      "kind": "paragraph",
+      "text": "Followers reject entries that do not match the previous index and term. Snapshots compact the log once its prefix has been applied everywhere. A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order. The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b14",
+      "kind": "paragraph",
+      "text": "Terms act as a logical clock that orders leaders over time. A log entry carries the term in which the leader received it. Followers reject entries that do not match the previous index and term. Snapshots compact the log once its prefix has been applied everywhere. A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b15",
+      "kind": "paragraph",
+      "text": "The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term. Terms act as a logical clock that orders leaders over time. A log entry carries the term in which the leader received it. Followers reject entries that do not match the previous index and term. Snapshots compact the log once its prefix has been applied everywhere."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b16",
+      "kind": "paragraph",
+      "text": "A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order. The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term. Terms act as a logical clock that orders leaders over time. A log entry carries the term in which the leader received it."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b17",
+      "kind": "paragraph",
+      "text": "Followers reject entries that do not match the previous index and term. Snapshots compact the log once its prefix has been applied everywhere. A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order. The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b18",
+      "kind": "paragraph",
+      "text": "Terms act as a logical clock that orders leaders over time. A log entry carries the term in which the leader received it. Followers reject entries that do not match the previous index and term. Snapshots compact the log once its prefix has been applied everywhere. A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b19",
+      "kind": "paragraph",
+      "text": "The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term. Terms act as a logical clock that orders leaders over time. A log entry carries the term in which the leader received it. Followers reject entries that do not match the previous index and term. Snapshots compact the log once its prefix has been applied everywhere."
+    },
+    {
+      "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b20",
+      "kind": "paragraph",
+      "text": "A replicated log keeps every server in agreement about the order of commands. Each server applies committed commands to its state machine in log order. The leader sends heartbeats so that followers know it is still alive. When a follower misses heartbeats it starts an election for a new term. Terms act as a logical clock that orders leaders over time. A log entry carries the term in which the leader received it."
+    }
+  ],
+  "aliases": {
+    "EPUB indexer": [],
+    "AppendEntries": [],
+    "candidate": [],
+    "follower": [],
+    "leader": [],
+    "replicated log": [
+      "log"
+    ],
+    "RequestVote": [],
+    "server": [],
+    "term": [],
+    "binary search": [],
+    "loop invariant": [],
+    "search": [],
+    "quorum": [],
+    "cluster": [],
+    "election": [],
+    "heartbeat": [],
+    "snapshot": [],
+    "state machine": []
+  },
+  "planAttempts": [
+    {
+      "sectionId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1",
+      "needsVisual": true,
+      "reason": "The section describes the parts of a replicated log, the follower-to-election change and the contents of a log entry.",
+      "items": [
+        {
+          "planItemId": "p1",
+          "kind": "graph",
+          "intent": "How the leader, followers, replicated log, state machine and snapshots relate",
+          "conceptIds": [],
+          "priority": 1,
+          "animate": false
+        },
+        {
+          "planItemId": "p2",
+          "kind": "state",
+          "intent": "A follower that misses heartbeats starts an election",
+          "conceptIds": [],
+          "priority": 2,
+          "animate": false
+        },
+        {
+          "planItemId": "p3",
+          "kind": "class",
+          "intent": "What a log entry carries",
+          "conceptIds": [],
+          "priority": 3,
+          "animate": false
+        }
+      ]
+    }
+  ],
+  "visuals": [
+    {
+      "planItemId": "p1",
+      "kind": "graph",
+      "attempts": [
+        {
+          "type": "graph",
+          "title": "A replicated log",
+          "direction": "LR",
+          "nodes": [
+            {
+              "id": "leader",
+              "label": "Leader",
+              "shape": "box",
+              "evidence": {
+                "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+                "quote": "The leader sends heartbeats so that followers know it is still alive."
+              }
+            },
+            {
+              "id": "follower",
+              "label": "Follower",
+              "shape": "box",
+              "evidence": {
+                "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+                "quote": "The leader sends heartbeats so that followers know it is still alive."
+              }
+            },
+            {
+              "id": "log",
+              "label": "Replicated log",
+              "shape": "store",
+              "evidence": {
+                "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+                "quote": "A replicated log keeps every server in agreement about the order of commands."
+              }
+            },
+            {
+              "id": "server",
+              "label": "Server",
+              "shape": "box",
+              "evidence": {
+                "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+                "quote": "Each server applies committed commands to its state machine in log order."
+              }
+            },
+            {
+              "id": "sm",
+              "label": "State machine",
+              "shape": "store",
+              "evidence": {
+                "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+                "quote": "Each server applies committed commands to its state machine in log order."
+              }
+            },
+            {
+              "id": "snapshot",
+              "label": "Snapshot",
+              "shape": "store",
+              "evidence": {
+                "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b1",
+                "quote": "Snapshots compact the log once its prefix has been applied everywhere."
+              }
+            }
+          ],
+          "edges": [
+            {
+              "id": "e1",
+              "from": "leader",
+              "to": "follower",
+              "label": "heartbeats",
+              "style": "dashed",
+              "evidence": {
+                "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+                "quote": "The leader sends heartbeats so that followers know it is still alive."
+              }
+            },
+            {
+              "id": "e2",
+              "from": "log",
+              "to": "server",
+              "label": "order of commands",
+              "style": "solid",
+              "evidence": {
+                "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+                "quote": "A replicated log keeps every server in agreement about the order of commands."
+              }
+            },
+            {
+              "id": "e3",
+              "from": "server",
+              "to": "sm",
+              "label": "applies committed commands",
+              "style": "solid",
+              "evidence": {
+                "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+                "quote": "Each server applies committed commands to its state machine in log order."
+              }
+            },
+            {
+              "id": "e4",
+              "from": "snapshot",
+              "to": "log",
+              "label": "compacts",
+              "style": "solid",
+              "evidence": {
+                "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b1",
+                "quote": "Snapshots compact the log once its prefix has been applied everywhere."
+              }
+            }
+          ],
+          "groups": []
+        }
+      ]
+    },
+    {
+      "planItemId": "p2",
+      "kind": "state",
+      "attempts": [
+        {
+          "type": "state",
+          "title": "Follower and election",
+          "initial": "follower",
+          "final": [],
+          "states": [
+            {
+              "id": "follower",
+              "label": "Follower",
+              "evidence": {
+                "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+                "quote": "When a follower misses heartbeats it starts an election for a new term."
+              }
+            },
+            {
+              "id": "election",
+              "label": "Election",
+              "evidence": {
+                "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+                "quote": "it starts an election for a new term."
+              }
+            }
+          ],
+          "transitions": [
+            {
+              "id": "t1",
+              "from": "follower",
+              "to": "election",
+              "event": "misses heartbeats",
+              "evidence": {
+                "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+                "quote": "When a follower misses heartbeats it starts an election for a new term."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "planItemId": "p3",
+      "kind": "class",
+      "attempts": [
+        {
+          "type": "class",
+          "title": "Log entry",
+          "classes": [
+            {
+              "id": "entry",
+              "label": "Log entry",
+              "fields": [
+                {
+                  "name": "term",
+                  "evidence": {
+                    "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+                    "quote": "A log entry carries the term in which the leader received it."
+                  }
+                }
+              ],
+              "methods": [],
+              "evidence": {
+                "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+                "quote": "A log entry carries the term in which the leader received it."
+              }
+            }
+          ],
+          "relations": []
+        }
+      ]
+    }
+  ],
+  "calls": [
+    {
+      "role": "planner",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 3499,
+      "outputTokens": 200,
+      "latencyMs": 1
+    },
+    {
+      "role": "extractor.graph",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 3533,
+      "outputTokens": 200,
+      "latencyMs": 1
+    },
+    {
+      "role": "extractor.mermaid",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 3520,
+      "outputTokens": 200,
+      "latencyMs": 1
+    },
+    {
+      "role": "extractor.mermaid",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 3527,
+      "outputTokens": 200,
+      "latencyMs": 5
+    }
+  ],
+  "path": "static",
+  "latencyMs": 33
+}

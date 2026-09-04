@@ -65,7 +65,8 @@ describe('scoreCase', () => {
 describe('summarize and thresholds', () => {
   it('computes the §18 metrics over the golden replay set', async () => {
     const { summary, sources } = await runEval(cases, replayRunner(join(ROOT, 'replay')))
-    expect(sources).toEqual({ handwritten: cases.length })
+    expect(sources).toEqual({ handwritten: cases.filter((c) => !c.bookRef.startsWith('private:')).length })
+    expect(summary.cases.skipped).toBe(24)
     expect(summary.metrics.displacementPx).toBeNull()
     expect(summary.metrics.meanGrounding).toBeGreaterThan(0.9)
     expect(summary.latency['no-visual']?.n).toBe(3)

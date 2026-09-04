@@ -1,0 +1,21 @@
+{
+  "id": "syn-3-1-architecture",
+  "category": "architecture",
+  "bookRef": "synthetic",
+  "sectionId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1",
+  "title": "3.1 An Oversized Section Without Subheadings (part 1)",
+  "expected": {
+    "needsVisual": true,
+    "acceptableKinds": [
+      "graph"
+    ],
+    "mustInclude": [
+      "Leader",
+      "Follower",
+      "State machine"
+    ],
+    "mustNotInclude": []
+  },
+  "source": "golden",
+  "notes": "Replay recorded by the live runner in replay mode over W3's hand-written synthetic fixtures."
+}

@@ -1,0 +1,22 @@
+{
+  "id": "syn-3-1-part-2-messages",
+  "category": "protocol",
+  "bookRef": "synthetic",
+  "sectionId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2",
+  "title": "3.1 An Oversized Section Without Subheadings (part 2)",
+  "expected": {
+    "needsVisual": true,
+    "acceptableKinds": [
+      "sequence",
+      "timeline"
+    ],
+    "mustInclude": [
+      "Leader",
+      "Follower",
+      "heartbeat"
+    ],
+    "mustNotInclude": []
+  },
+  "source": "golden",
+  "notes": "Replay recorded by the live runner in replay mode over W3's hand-written synthetic fixtures."
+}
