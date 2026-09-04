@@ -48,6 +48,8 @@ export const RunVisual = z.object({
   critic: CriticReport.optional(),
   /** Trace visuals: how the code ran and the first scenario's final return value (Python repr). */
   trace: z.object({ mode: z.enum(['executed', 'simulated']), returnValue: z.string().nullable() }).optional(),
+  /** Why the item produced no visual (`item-failed` code and message), when it failed. */
+  failure: z.string().optional(),
   /** Concept-model visuals: mean node displacement from the previous section, in px (§13). */
   displacementPx: z.number().nonnegative().optional(),
 })
@@ -79,5 +81,7 @@ export const CaseRun = z.object({
   /** Latency path (§15): `no-visual`, `static`, `animated`, `trace`, `cache-hit`. */
   path: z.string().min(1),
   latencyMs: z.number().nonnegative(),
+  /** What this runner cannot measure (the Node live runner has no Pyodide worker and no renderer). */
+  unsupported: z.array(z.enum(['trace', 'critic'])).optional(),
 })
 export type CaseRun = z.infer<typeof CaseRun>

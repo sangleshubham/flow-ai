@@ -1,0 +1,18 @@
+{
+  "id": "private-math-1",
+  "category": "math",
+  "bookRef": "private:your-book.epub",
+  "sectionId": "fill-in",
+  "title": "A formula with three or more named terms (for example Little's law or a complexity bound)",
+  "expected": {
+    "needsVisual": true,
+    "acceptableKinds": [
+      "math",
+      "chart"
+    ],
+    "mustInclude": [],
+    "mustNotInclude": []
+  },
+  "source": "golden",
+  "notes": "Placeholder for Shubham: pick a section of one of your own books in fixtures/books/private/ that matches the title, set bookRef to private:<file name> and sectionId to its id (shown in the reader's debug panel or by the live runner's error), then fill mustInclude. Skipped until then."
+}

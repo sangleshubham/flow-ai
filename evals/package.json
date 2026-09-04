@@ -13,10 +13,19 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
-    "eval": "node src/cli.ts"
+    "eval": "node bin/run.mjs src/cli.ts",
+    "export-feedback": "node bin/run.mjs src/export-feedback.ts"
   },
   "dependencies": {
+    "@flow/epubjs": "workspace:*",
+    "@illus/book-index": "workspace:*",
+    "@illus/concepts": "workspace:*",
     "@illus/core": "workspace:*",
+    "@illus/llm": "workspace:*",
+    "@illus/pipeline": "workspace:*",
+    "@illus/render": "workspace:*",
+    "jsdom": "30.1.1",
+    "vite": "8.3.1",
     "zod": "4.6.5"
   },
   "devDependencies": {

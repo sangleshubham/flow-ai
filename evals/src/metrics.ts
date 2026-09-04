@@ -1,6 +1,8 @@
 // Per-case scoring and the §18 metrics with their v1 thresholds. Pure: no I/O.
 import { criticPasses, ground, normalizeText, Translation, validate, VisualPlan } from '@illus/core'
 import type { Block, VisualKind } from '@illus/core'
+// eslint-disable-next-line no-restricted-imports -- the published DOM-free template entry (ADR 0040); W0 is asked to allow it
+import { templateRegistry } from '@illus/render/templates'
 
 import type { CaseRun, EvalCase } from './case.ts'
 
@@ -143,7 +145,7 @@ export function scoreCase(c: EvalCase, run: CaseRun | null): CaseResult {
         if (Translation.safeParse(v.attempts[0]).success) r.schema.firstValid++
       }
       const want = c.expected.trace?.expectedReturn
-      if (want !== undefined) {
+      if (want !== undefined && !run.unsupported?.includes('trace')) {
         r.trace.ok = v.trace?.mode === 'executed' && v.trace.returnValue === want
         r.trace.detail = `${v.trace?.mode ?? 'no trace'}, returned ${v.trace?.returnValue ?? 'nothing'}; expected ${want}`
         if (!r.trace.ok) r.reasons.push(`trace: ${r.trace.detail}`)
@@ -151,13 +153,18 @@ export function scoreCase(c: EvalCase, run: CaseRun | null): CaseResult {
       if (v.trace?.returnValue) shown.push(v.trace.returnValue)
     } else if (v.attempts.length) {
       r.schema.checked++
-      const firstReport = validate(v.kind, v.attempts[0], { blocks, ground, aliases }).report
+      const firstReport = validate(v.kind, v.attempts[0], { blocks, ground, aliases, templates: templateRegistry }).report
       if (!firstReport.issues.some((i) => i.layer === 'schema')) r.schema.firstValid++
-      const { ir, report } = validate(v.kind, v.attempts.at(-1), { blocks, ground, aliases })
+      const { ir, report } = validate(v.kind, v.attempts.at(-1), { blocks, ground, aliases, templates: templateRegistry })
       if (v.kind !== 'html') r.grounding.push(report.groundingScore)
       if (report.issues.some((i) => i.layer === 'schema')) r.reasons.push(`${v.planItemId}: final ${v.kind} IR does not parse`)
-      else shown.push(...displayedText(ir))
+      else {
+        const errors = report.issues.filter((i) => i.severity === 'error').map((i) => i.code)
+        if (errors.length) r.reasons.push(`${v.planItemId}: validation errors ${[...new Set(errors)].join(', ')}`)
+        shown.push(...displayedText(ir))
+      }
     }
+    if (v.failure) r.reasons.push(`${v.planItemId}: failed (${v.failure})`)
     if (v.critic) {
       r.critic.checked++
       if (criticPasses(v.critic)) r.critic.passed++
@@ -165,7 +172,8 @@ export function scoreCase(c: EvalCase, run: CaseRun | null): CaseResult {
     }
     if (v.displacementPx !== undefined) r.displacement.push(v.displacementPx)
   }
-  if (c.expected.trace && r.trace.ok === null) {
+  if (c.expected.trace && run.unsupported?.includes('trace')) r.trace.detail = 'not measured by this runner'
+  else if (c.expected.trace && r.trace.ok === null) {
     r.trace.ok = false
     r.reasons.push('trace: no trace visual')
   }

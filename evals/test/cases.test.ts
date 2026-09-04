@@ -14,13 +14,23 @@ const cases = loadCases([join(ROOT, 'cases/golden')])
 const runOf = (id: string) => CaseRun.parse(JSON.parse(readFileSync(join(ROOT, 'replay', `${id}.json`), 'utf8')))
 
 describe('golden cases', () => {
-  it('has at least 12 cases across the §18 categories', () => {
-    expect(cases.length).toBeGreaterThanOrEqual(12)
-    expect(new Set(cases.map((c) => c.category)).size).toBeGreaterThanOrEqual(6)
+  it('has the 40-case shape of §18', () => {
+    const count = (cat: string) => cases.filter((c) => c.category === cat).length
+    expect(cases).toHaveLength(40)
+    expect(Object.fromEntries(['architecture', 'protocol', 'state', 'data-structure', 'algorithmic', 'math', 'narrative'].map((k) => [k, count(k)]))).toEqual({
+      architecture: 8, protocol: 6, state: 4, 'data-structure': 8, algorithmic: 8, math: 2, narrative: 4,
+    })
+    expect(cases.filter((c) => c.category === 'narrative').every((c) => !c.expected.needsVisual)).toBe(true)
+  })
+
+  it('open-book cases are at least a third of the set; private ones are placeholders that replay skips', () => {
+    const open = cases.filter((c) => !c.bookRef.startsWith('private:'))
+    expect(open.length).toBeGreaterThanOrEqual(14)
+    for (const c of cases.filter((x) => x.bookRef.startsWith('private:'))) expect(existsSync(join(ROOT, 'replay', `${c.id}.json`)), c.id).toBe(false)
   })
 
   it('has a handwritten replay recording for every case', () => {
-    for (const c of cases) {
+    for (const c of cases.filter((x) => !x.bookRef.startsWith('private:'))) {
       expect(existsSync(join(ROOT, 'replay', `${c.id}.json`)), c.id).toBe(true)
       expect(runOf(c.id)).toMatchObject({ caseId: c.id, source: 'handwritten' })
     }
