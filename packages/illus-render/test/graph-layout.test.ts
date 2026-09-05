@@ -105,4 +105,27 @@ describe('runElkLayout (the worker body, run under Node)', () => {
     const moved = ir.nodes.map((n) => Math.hypot(second.nodes[n.id]!.x - first.nodes[n.id]!.x, second.nodes[n.id]!.y - first.nodes[n.id]!.y))
     expect(moved.reduce((a, b) => a + b, 0) / moved.length).toBeLessThanOrEqual(40)
   })
+
+  it('lays out a grouped graph with position hints and keeps hinted nodes stable (ADR 0043)', async () => {
+    const ir = make.graphIR({
+      nodes: make.graphIR().nodes.map((n) => (n.id === 'leader' || n.id === 'log' ? { ...n, group: 'srv' } : n)),
+      groups: [{ id: 'srv', label: 'Server', evidence: Q.request }],
+    })
+    const first = await runElkLayout(elk, graphLayoutInput(ir, measure))
+    const hints = Object.fromEntries(Object.entries(first.nodes).map(([id, n]) => [id, { x: n.x, y: n.y }]))
+    const drift = (r: typeof first) => Object.keys(first.nodes).map((id) => Math.hypot(r.nodes[id]!.x - first.nodes[id]!.x, r.nodes[id]!.y - first.nodes[id]!.y))
+
+    const same = await runElkLayout(elk, { ...graphLayoutInput(ir, measure), hints })
+    expect(Math.max(...drift(same))).toBeLessThanOrEqual(20)
+
+    const grown = make.graphIR({
+      ...ir,
+      nodes: [...ir.nodes, { id: 'f2', label: 'Follower 2', shape: 'box', group: 'srv', evidence: Q.appendEntries }],
+      edges: [...ir.edges, { id: 'e5', from: 'leader', to: 'f2', style: 'solid', evidence: Q.appendEntries }],
+    })
+    const second = await runElkLayout(elk, { ...graphLayoutInput(grown, measure), hints })
+    expect(second.nodes.f2).toBeDefined()
+    const moved = drift(second)
+    expect(moved.reduce((a, b) => a + b, 0) / moved.length).toBeLessThanOrEqual(40)
+  })
 })
