@@ -156,3 +156,19 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
 - Decisions (Shubham, recorded in ADRs 0010/0015/0020/0025, now accepted; ADR 0042 records the port): W1 split titles from TOC on the first part, caption-less alt only in `figure.alt`; W5 stack top = last item with a visible "top" marker, resize/rotate tried as one animation first, darwin-only baselines; W3 ADR 0010 as built, concept models only with the flag, `indexConfirmThresholdTokens` 200,000; W11 password gate, cookie `Secure` follows `ILLUS_PUBLIC_URL`; apps/website removed, @types/react pins aligned. All wave-2 open questions are closed.
 - synthetic.epub bookId is now 9604b90977df58f0.
 - Follow-ups: W5 visible stack "top" marker; W6 try resize/rotate as one animation; W9 threshold default 200,000; W10 phase B critic/repair/animator prompts treat a block's `alt` as info, never quotable evidence; `fixtures:browser` never removes stale keys (delete the old browser fixture after a bookId change); W0: `.husky/pre-commit` is not executable.
+
+## Wave 4 — 2026-10-10
+- Agents: w8-concept-models (2 attempts), w10-quality (phase B), plus w4-renderers (ELK fix for W8). Runs were interrupted by a network error (ENOTFOUND) and the account session limit and were resumed from saved work.
+- Branches merged: W10 (1066de8), W4 (2b59cef: interactive ELK options on root and every group, semi-interactive crossing minimisation, `elk.position` hints), W8 (862335b).
+- Gate on merged main: lint ✓ typecheck ✓ test ✓ (43/43) · e2e ✓ (reader 14, render 63 + 45, anim 7, tracer 2, book-index 1; replay mode). No live model calls.
+- W8 displacement on the 5-section fixture (real ELK): per change 19.0 / 45.3 / 3.3 / 16.5 px, overall mean ≈ 19.8 px. Decision by Shubham: the ≤ 40 px target is the overall mean, so it is met.
+- ADRs opened: 0043-w10-render-checks-critic-repair, 0044-w8-concept-models. Decision by Shubham: both accepted as built (W8 conservative defaults; W10 critic PNG at natural size capped 900 px @2×, render findings are warnings, trace/critic metrics measured in the reader, thumbs-down accepts the planned kind only).
+- Replay eval report: evals/reports/2026-10-10.md (13 pass, 3 deliberate-fault fails, 24 private placeholders skipped).
+- Contract-change requests (approved by Shubham as one wiring round before the final gate):
+  1. W3: pass `createConceptModels(...).route` as `conceptModels` in `createPipeline`; replace the `critic(record)` hook with `review(record, …) => VisualRecord`; optional catch-up stage event; confirm W8's edits to illus-concepts package.json/tsconfig/README/index.ts.
+  2. W9: render concept items from the model (`sectionView`, `conceptLayoutGraph`, `withLayout`), mount toggles and `EvolutionScrubber`; wire `criticHook` behind the `critic` flag with the warning badge.
+  3. W4: add `e2e:check` to the render e2e chain; ELK fix comments cite ADR 0044 (not 0043).
+  4. W0: dependencies.md (@illus/concepts test deps, evals runtime deps); allow `@illus/render/templates` in the no-deep-imports rule; note root `illus:export-feedback` script; make `.husky/pre-commit` executable.
+  5. W2: confirm the gateway forwards `image` for the `critic` role.
+- Open questions for Shubham: the 24 private eval placeholders need books, section ids and `mustInclude` terms; whether element labels reported wrong become `mustNotInclude`.
+- Follow-ups: rerun `ILLUS_WRITE_FIXTURES=1 pnpm --filter @illus/concepts test` after context-packer or patcher prompt changes; critic/repair prompt changes need `ILLUS_WRITE_FIXTURES=1 pnpm --filter @illus/evals test quality-prompts`; `syn-2-2` eval case awaits W3's synthetic test passing the template registry.
