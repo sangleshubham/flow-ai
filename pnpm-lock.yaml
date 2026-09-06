@@ -569,12 +569,48 @@ importers:
         specifier: workspace:*
         version: link:../illus-core
     devDependencies:
+      '@illus/anim':
+        specifier: workspace:*
+        version: link:../illus-anim
       '@illus/eslint-config':
         specifier: workspace:*
         version: link:../../tooling/eslint-config
+      '@illus/llm':
+        specifier: workspace:*
+        version: link:../illus-llm
+      '@illus/render':
+        specifier: workspace:*
+        version: link:../illus-render
+      '@testing-library/dom':
+        specifier: 10.4.2
+        version: 10.4.2
+      '@testing-library/react':
+        specifier: 16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.0.0(react@18.0.0))(react@18.0.0)
+      '@types/node':
+        specifier: 24.13.6
+        version: 24.13.6
+      '@types/react':
+        specifier: 18.3.31
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: 18.3.7
+        version: 18.3.7(@types/react@18.3.31)
+      elkjs:
+        specifier: 0.12.0
+        version: 0.12.0
       eslint:
         specifier: 10.11.0
         version: 10.11.0
+      jsdom:
+        specifier: 30.1.1
+        version: 30.1.1
+      react:
+        specifier: 18.0.0
+        version: 18.0.0
+      react-dom:
+        specifier: 18.0.0
+        version: 18.0.0(react@18.0.0)
       typescript:
         specifier: 5.9.3
         version: 5.9.3

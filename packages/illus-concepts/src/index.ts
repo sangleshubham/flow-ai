@@ -14,3 +14,6 @@ export {
   takeBatch,
 } from './queue.ts'
 export type { IndexUsageEstimate } from './queue.ts'
+
+// Progressive concept models (§13). Owner: W8.
+export * from './models/index.ts'

@@ -1,0 +1,86 @@
+{
+  "key": "1cbd3496ee5105f72734443b529c2c5c1a00ea844e9678de9a013a13c9fc0342",
+  "source": "handwritten",
+  "role": "patcher",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "usedModel": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "PatchOutput",
+  "data": {
+    "ops": [
+      {
+        "op": "addNode",
+        "node": {
+          "id": "leader-log",
+          "label": "Leader log",
+          "shape": "store",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-2-log-replication:2#b0",
+            "quote": "appends each client command to its log"
+          }
+        }
+      },
+      {
+        "op": "addEdge",
+        "edge": {
+          "id": "e-append",
+          "from": "leader",
+          "to": "leader-log",
+          "label": "append",
+          "style": "solid",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-2-log-replication:2#b0",
+            "quote": "appends each client command to its log"
+          }
+        }
+      },
+      {
+        "op": "addEdge",
+        "edge": {
+          "id": "e-appendentries",
+          "from": "leader",
+          "to": "follower",
+          "label": "AppendEntries",
+          "style": "solid",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-2-log-replication:2#b1",
+            "quote": "sends AppendEntries messages to every follower"
+          }
+        }
+      },
+      {
+        "op": "addNode",
+        "node": {
+          "id": "follower-log",
+          "label": "Follower log",
+          "shape": "store",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-2-log-replication:2#b2",
+            "quote": "writes the entries to its own log"
+          }
+        }
+      },
+      {
+        "op": "addEdge",
+        "edge": {
+          "id": "e-write",
+          "from": "follower",
+          "to": "follower-log",
+          "label": "write",
+          "style": "solid",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-2-log-replication:2#b2",
+            "quote": "writes the entries to its own log"
+          }
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input": 477,
+    "output": 300,
+    "cachedInput": 0
+  },
+  "note": "W8 fixture concept \"leader\" (6 Replicated State Machines), 6.2 Log Replication. Written from packages/illus-concepts/src/models/test/raft-book.ts."
+}
