@@ -43,7 +43,9 @@ export const ALLOWED = {
 
 // Public entry points: a package is imported only through these files (no deep imports).
 // `src/server/index.ts` is `@illus/llm/server`, the Node-only half of @illus/llm (ADR 0006-w2, ADR 0008).
-const ENTRY_POINTS = '{src/index.ts,src/testing/index.ts,src/flags/index.ts,src/server/index.ts}'
+// `templates.ts` is `@illus/render/templates`, the DOM-free template entry (ADR 0040, ADR 0043).
+const ENTRY_POINTS =
+  '{src/index.ts,src/testing/index.ts,src/flags/index.ts,src/server/index.ts,templates.ts}'
 
 // DOM-free packages run under plain Node (spec §4); browser globals are banned there.
 const DOM_GLOBALS = [
@@ -66,7 +68,8 @@ const DOM_GLOBALS = [
 // Next.js 12's SWC compiles @illus sources inside apps/reader and cannot parse `satisfies` (ADR 0009).
 const NO_SATISFIES = {
   selector: 'TSSatisfiesExpression',
-  message: 'Next 12 (SWC) cannot parse `satisfies`; use a typed identity helper (ADR 0009).',
+  message:
+    'Next 12 (SWC) cannot parse `satisfies`; use a typed identity helper (ADR 0009).',
 }
 
 const elements = [
@@ -88,7 +91,12 @@ const policies = [
   {
     from: { element: { type: '*' } },
     disallow: {
-      to: { element: { type: Object.keys(PACKAGES), fileInternalPath: `!${ENTRY_POINTS}` } },
+      to: {
+        element: {
+          type: Object.keys(PACKAGES),
+          fileInternalPath: `!${ENTRY_POINTS}`,
+        },
+      },
     },
   },
   // 3. Anything inside a package may import anything else in the same package (last match wins).
@@ -99,7 +107,14 @@ const policies = [
 ]
 
 export default tseslint.config(
-  { ignores: ['**/node_modules/**', '**/dist/**', '**/.turbo/**', '**/coverage/**'] },
+  {
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.turbo/**',
+      '**/coverage/**',
+    ],
+  },
   ...tseslint.configs.recommended,
   {
     files: ['**/*.{ts,tsx,js,mjs}'],
@@ -121,15 +136,21 @@ export default tseslint.config(
         {
           patterns: [
             {
-              regex: '^@illus/(?!core/(testing|flags)$|llm/server$)[^/]+/.+',
-              message: 'No deep imports: import the package entry point (spec §4).',
+              regex:
+                '^@illus/(?!core/(testing|flags)$|llm/server$|render/templates$)[^/]+/.+',
+              message:
+                'No deep imports: import the package entry point (spec §4).',
             },
           ],
         },
       ],
       '@typescript-eslint/no-unused-vars': [
         'error',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          ignoreRestSiblings: true,
+        },
       ],
       '@typescript-eslint/consistent-type-imports': 'error',
     },
@@ -144,7 +165,10 @@ export default tseslint.config(
     rules: {
       'no-restricted-syntax': [
         'error',
-        { selector: 'ExportDefaultDeclaration', message: 'Use named exports (spec §4).' },
+        {
+          selector: 'ExportDefaultDeclaration',
+          message: 'Use named exports (spec §4).',
+        },
         NO_SATISFIES,
       ],
     },
@@ -158,7 +182,10 @@ export const domFree = [
     rules: {
       'no-restricted-globals': [
         'error',
-        ...DOM_GLOBALS.map((name) => ({ name, message: 'This package is DOM-free (spec §4).' })),
+        ...DOM_GLOBALS.map((name) => ({
+          name,
+          message: 'This package is DOM-free (spec §4).',
+        })),
       ],
     },
   },
