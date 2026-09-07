@@ -16,6 +16,8 @@ export interface MermaidViewProps {
 
 export function MermaidView({ ir, theme, onReady, onError }: MermaidViewProps) {
   const host = useRef<HTMLDivElement>(null)
+  // Redraw on content change, not object identity: parents rebuild equal IR/theme objects on every render.
+  const key = JSON.stringify([ir, theme])
   useEffect(() => {
     let live = true
     renderMermaidSvg(ir, theme).then(
@@ -31,6 +33,6 @@ export function MermaidView({ ir, theme, onReady, onError }: MermaidViewProps) {
     return () => {
       live = false
     }
-  }, [ir, theme])
+  }, [key])
   return <div ref={host} className="illus-mermaid" />
 }
