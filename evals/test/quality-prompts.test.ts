@@ -7,9 +7,10 @@ import { fileURLToPath } from 'node:url'
 
 import { criticBody, critique, ground, repairBody, repairIr, SCHEMAS } from '@illus/core'
 import type { CriticReport, GraphIR, IrKind, RepairFinding, SchemaName, SequenceIR } from '@illus/core'
-import { SECTION_LEADERS_ID as L, sb, smallBookBlocks } from '@illus/core/testing'
+import { SECTION_LEADERS_ID as L, make, sb, smallBookBlocks } from '@illus/core/testing'
 import { createLlmClient, createPromptRegistry, DEFAULT_MODELS, fixtureKey, memoryFixtures, replayTransport, resolveRoute } from '@illus/llm'
 import type { Fixture } from '@illus/llm'
+import { reviewHook } from '@illus/render'
 import { describe, expect, it } from 'vitest'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -76,6 +77,7 @@ const INTENT = 'One replication round between the leader and a follower'
 const CASES: Case[] = [
   { name: 'critic-clean-graph', role: 'critic', schemaName: 'CriticReport', prefix: '', body: criticBody({ kind: 'graph', ir: graph, intent: 'How a client request reaches the log and the followers' }), data: clean },
   { name: 'critic-reversed-reply', role: 'critic', schemaName: 'CriticReport', prefix: '', body: criticBody({ kind: 'sequence', ir: reversed, intent: INTENT }), data: wrongDirection },
+  { name: 'critic-fixed-sequence', role: 'critic', schemaName: 'CriticReport', prefix: '', body: criticBody({ kind: 'sequence', ir: sequence, intent: INTENT }), data: clean },
   { name: 'repair-endpoint', role: 'repair', schemaName: 'GraphIR', prefix: context.prefix, body: repairBody({ kind: 'graph', ir: brokenGraph, findings: [endpointIssue], context }), data: graph },
   { name: 'repair-direction', role: 'repair', schemaName: 'SequenceIR', prefix: context.prefix, body: repairBody({ kind: 'sequence', ir: reversed, findings: wrongDirection.issues, context }), data: sequence },
 ]
@@ -171,5 +173,19 @@ describe('critic and repair replay through the client', () => {
     expect(out.report.ok).toBe(true)
     expect(out.report.groundingScore).toBe(1)
     expect(JSON.parse(JSON.stringify(out.ir), (k, v: unknown) => (k === 'start' || k === 'end' ? undefined : v))).toEqual(want)
+  })
+})
+
+describe('reviewHook replays the full L5 loop', () => {
+  it('critic fails the reversed reply, repair fixes it with the packed context, the critic passes it', async () => {
+    const hook = reviewHook({ llm: await llm(), theme: {} as never, render: async () => ({ issues: [], pngBase64: 'iVBORw0KGgo=' }) })
+    const out = await hook(make.visualRecord({ kind: 'sequence', ir: reversed }), {
+      context,
+      validation: { blocks, ground },
+      planItem: { planItemId: 'p1', kind: 'sequence', intent: INTENT, conceptIds: [], priority: 1, animate: false },
+    })
+    expect(out.critic?.pass).toBe(true)
+    expect(out.validation.issues.map((i) => i.code)).toContain('repaired')
+    expect(JSON.parse(JSON.stringify(out.ir), (k, v: unknown) => (k === 'start' || k === 'end' ? undefined : v))).toEqual(sequence)
   })
 })
