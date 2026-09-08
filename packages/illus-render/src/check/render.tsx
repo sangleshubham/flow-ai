@@ -1,9 +1,9 @@
 // Browser helper for §16 L4/L5: renders an IR offscreen with <VisualView> at 900 px, waits for
-// `data-ready`, runs the render checks and exports a 2× PNG for the critic. `criticHook` adapts the
-// review loop to the pipeline's `critic(record)` hook.
+// `data-ready`, runs the render checks and exports a 2× PNG for the critic. `reviewHook` adapts the
+// review loop to the pipeline's `review(record, ctx)` hook.
 import { createRoot } from 'react-dom/client'
 
-import type { CriticReport, IR, TemplateRegistry, ThemeTokens, VisualRecord } from '@illus/core'
+import type { IR, LlmContext, PlanItem, TemplateRegistry, ThemeTokens, ValidationContext, VisualRecord } from '@illus/core'
 
 import { exportPng } from '../export.ts'
 import type { RenderTemplate } from '../types.ts'
@@ -73,22 +73,31 @@ export async function renderForReview(ir: IR, o: RenderForReviewOptions): Promis
   }
 }
 
-export interface CriticHookEnv extends Omit<ReviewEnv, 'render' | 'intent' | 'repair'>, RenderForReviewOptions {
-  /** The plan item's intent of a record (from the plan record); empty when unknown. */
-  intent?: (record: VisualRecord) => string | Promise<string>
+export interface ReviewHookEnv extends Omit<ReviewEnv, 'render' | 'intent' | 'repair' | 'signal'>, RenderForReviewOptions {
+  /** Replaces `renderForReview` (tests, Node evals). */
+  render?: ReviewEnv['render']
+}
+
+/** What the pipeline hands the hook (structurally W3's `ReviewHook` context from `@illus/pipeline`). */
+export interface ReviewHookContext {
+  context: LlmContext
+  validation: ValidationContext
+  planItem: PlanItem
+  signal?: AbortSignal
 }
 
 /**
- * For today's `PipelineDeps.critic(record) => CriticReport` hook: render checks and critic only (the
- * hook cannot return a repaired IR or the context `repair` needs; see ADR 0043 for the full hook).
+ * For `PipelineDeps.review`: the full §16 L4/L5 loop (render checks, LR↔TB flip, repair, critic,
+ * repair, critic) with the extractor's packed context, returning the reviewed record.
  */
-export function criticHook(env: CriticHookEnv): (record: VisualRecord) => Promise<CriticReport | undefined> {
-  return async (record) => {
-    const reviewed = await reviewVisual(record, {
+export function reviewHook(env: ReviewHookEnv): (record: VisualRecord, ctx: ReviewHookContext) => Promise<VisualRecord> {
+  const render = env.render ?? ((ir: IR) => renderForReview(ir, env))
+  return (record, ctx) =>
+    reviewVisual(record, {
       ...env,
-      intent: (await env.intent?.(record)) ?? '',
-      render: (ir) => renderForReview(ir, env),
+      render,
+      intent: ctx.planItem.intent,
+      repair: { context: ctx.context, validation: ctx.validation },
+      ...(ctx.signal && { signal: ctx.signal }),
     })
-    return reviewed.critic
-  }
 }

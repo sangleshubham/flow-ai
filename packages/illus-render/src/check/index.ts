@@ -4,5 +4,5 @@ export type { Box, EdgePath, LabelBox, RenderGeometry, RenderIssueCode } from '.
 export { checkRender, collectGeometry } from './dom.ts'
 export { reviewVisual } from './review.ts'
 export type { Rendered, ReviewEnv } from './review.ts'
-export { criticHook, renderForReview, REVIEW_SCALE, REVIEW_WIDTH } from './render.tsx'
-export type { CriticHookEnv, RenderForReviewOptions } from './render.tsx'
+export { renderForReview, reviewHook, REVIEW_SCALE, REVIEW_WIDTH } from './render.tsx'
+export type { RenderForReviewOptions, ReviewHookContext, ReviewHookEnv } from './render.tsx'
