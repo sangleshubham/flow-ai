@@ -71,6 +71,10 @@ Every variable:
 | `ILLUS_OPENAI_API_KEY` | no | Only with `ILLUS_LLM_PROVIDER=openai-api-key`. Paid API billing. Never used automatically. |
 | `ILLUS_LLM_PROVIDER` | no | `chatgpt-plan` (default) or `openai-api-key`. |
 | `ILLUS_CHATGPT_CLIENT_ID` | no | Overrides the saved issued client id. |
+| `ILLUS_CHATGPT_ISSUER` | no | Tests only. Leave unset (`https://auth.openai.com`). |
+| `ILLUS_FIXTURES_DIR` | no | Fixture directory for `replay` and `record`. Unset means `fixtures/llm` in the repo. Set it in Docker, where there is no repo. |
+
+The login gate's own variables (`ILLUS_LOGIN_PASSWORD`, `ILLUS_AUTH_GATE`) are in [docs/deploy.md](deploy.md).
 
 ## 3. First sign-in, which also registers the client
 
@@ -86,7 +90,7 @@ The reader is an open-source client. There's no form to fill in: your first sign
 1. Put the id from step 3.4 in `.env.local`: `ILLUS_ALLOWED_ACCOUNT_ID=<id>`.
 2. Restart `pnpm dev`.
 3. Open **http://127.0.0.1:7127/auth/chatgpt/start** again. This time the reader reuses the saved client id, and you are redirected to the reader, signed in.
-4. Check the result at **http://127.0.0.1:7127/auth/chatgpt/status**. It should show `"signedIn": true`, `"planUsage": true`, your `sub`, and `clientId` starting with `oaiapp_`.
+4. Check the result at **http://127.0.0.1:7127/auth/chatgpt/status**. It should show `"configured": true`, `"signedIn": true`, `"planUsage": true`, your `sub`, and `clientId` starting with `oaiapp_`.
    - `"planUsage": false` means plan usage was not allowed on the consent screen. Sign in again and allow it.
 5. `ILLUS_DATA_DIR` now holds `chatgpt-tokens.enc`, which is encrypted and readable only by you (mode 0600). Never copy it anywhere public.
 
@@ -126,6 +130,17 @@ What to do with the output:
   `ILLUS_MODELS_JSON={"roleOverrides":{"critic":{"models":[{"model":"gpt-6-astra","effort":"low"}]}}}` (spec §9).
 - Record what you found in the build log or an ADR. The M1 effort sweep starts from these results.
 
+## 7. Re-recording fixtures (record mode)
+
+`record` is `live` plus a saved fixture for every successful call. Use it when a role's prompt version changes and its replay fixtures no longer match (replay then says `no fixture for <role>`).
+
+1. In `.env.local` set `ILLUS_LLM_MODE=record`, restart `pnpm dev`, and open an **open-licensed book from `fixtures/books/`**.
+2. Generate the sections you need. Each answer is written to `fixtures/llm/<role>/<key>.json` (or `ILLUS_FIXTURES_DIR`). The key is the SHA-256 of `{role, promptVersion, model, prefix, body}` (spec section 9), where `model` is the role's first model even when a fallback answered.
+3. Set `ILLUS_LLM_MODE` back to `live` (or remove it for `replay`) and restart.
+4. Before committing, look at the new files under `fixtures/llm`. Fixtures never store your prompts, the critic's PNG or tokens, but the model's answer includes **verbatim evidence quotes**. Never commit fixtures recorded from a private book (CLAUDE.md rule 7); delete them instead.
+
+Record mode counts against the local caps and your plan like live mode. For the eval set use `pnpm eval --live --record` instead (see `evals/README.md`).
+
 ## Running on a VPS
 
 OpenAI only redirects to `127.0.0.1`, so a browser on your laptop can't complete sign-in against a server elsewhere. OpenAI's documented approach for remote machines:
@@ -146,4 +161,6 @@ The "Continue with ChatGPT" login page (§17) can't run on the VPS for the same 
 | `/api/llm` returns `plan-limit` "local soft cap reached" | One of your local caps was reached. Wait, or raise the cap. |
 | `/api/llm` returns `plan-limit` "see ChatGPT settings → Usage" | OpenAI's plan limit, the per-app cap or the five-hour window ran out. The reader pauses. Check usage in ChatGPT settings. |
 | `/api/llm` returns `upstream` "no prompt file" | That role's `docs/prompts/<role>.md` hasn't been written yet. |
+| `/auth/chatgpt/status` returns `{"configured": false}` | `ILLUS_TOKEN_ENC_KEY` or `ILLUS_PUBLIC_URL` is missing, or the server failed to start (bad `ILLUS_MODELS_JSON`, missing `ILLUS_SESSION_SECRET`). The reason is in the server log, not the response. Replay mode works without sign-in. |
+| The critic fails with "request too large for /api/llm" | The rendered PNG made the request bigger than the route's 4 MB limit. The visual is kept with a `critic-failed` warning. |
 | Start-up error "ILLUS_MODELS_JSON is invalid" | The message lists each bad key. Efforts must be `low`, `medium` or `high`, and every model must be on the allowlist. |

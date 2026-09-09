@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 
 import { LlmError, ROLES, RoleName } from '@illus/core'
-import type { GraphIR, LlmResponse, VisualPlan } from '@illus/core'
+import type { GraphIR, LlmRequest, LlmResponse, VisualPlan } from '@illus/core'
 import { createMemoryRepos, make } from '@illus/core/testing'
 
 import {
@@ -146,6 +146,26 @@ describe('record → replay', () => {
   })
 })
 
+describe('critic image (record → replay)', () => {
+  it('forwards the PNG live, never stores it, and replays by the §9 key (image not part of the key)', async () => {
+    const image = { mediaType: 'image/png' as const, base64: 'iVBORw0KGgoAAAANSUhEUg' }
+    const report = make.criticReport()
+    const sent: LlmRequest[] = []
+    const live: LlmTransport = async (req) => {
+      sent.push(req)
+      return { ok: true, data: report, usage: { input: 900, output: 80, cachedInput: 0 }, model: 'gpt-6.1-sol', effort: 'low', latencyMs: 5 }
+    }
+    const store = await memoryFixtures()
+    const critic = { prefix: 'RUBRIC', body: 'INTENT + IR SUMMARY' }
+    await createLlmClient({ transport: recordTransport({ live, fixtures: store, models: DEFAULT_MODELS }), prompts }).call('critic', critic, { image })
+    expect(sent[0]!.image).toEqual(image)
+    expect(JSON.stringify(store.all())).not.toContain(image.base64)
+
+    const replayed = await createLlmClient({ transport: replayTransport({ fixtures: store, models: DEFAULT_MODELS }), prompts }).call('critic', critic, { image })
+    expect(replayed.data).toEqual(report)
+  })
+})
+
 describe('httpTransport', () => {
   it('posts the request and returns the gateway body; network errors become upstream', async () => {
     const body: LlmResponse = { ok: true, data: make.visualPlan(), usage: { input: 1, output: 1, cachedInput: 0 }, model: 'm', effort: 'low', latencyMs: 1 }
@@ -156,5 +176,7 @@ describe('httpTransport', () => {
     expect(JSON.parse(String(seen[0]!.body))).toEqual(req)
     const down = httpTransport({ fetch: (async () => { throw new TypeError('fetch failed') }) as typeof fetch })
     expect(await down(req)).toMatchObject({ ok: false, code: 'upstream' })
+    const tooBig = httpTransport({ fetch: (async () => new Response('Body exceeded 4mb limit', { status: 413 })) as typeof fetch })
+    expect(await tooBig(req)).toMatchObject({ ok: false, code: 'upstream', message: expect.stringContaining('4 MB') })
   })
 })
