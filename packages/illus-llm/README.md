@@ -36,6 +36,8 @@ The typed model client (`llm.call(role, ctx, opts)`), and in `@illus/llm/server`
 
 The reusable server defaults to `<cwd>/fixtures/llm` when `ILLUS_FIXTURES_DIR` and an injected store are absent. The reader app resolves that default from its nearest workspace root in replay/record mode (including launches from `apps/reader`); it preserves explicit overrides. See [reader server README](../../apps/reader/src/server/llm/README.md) and [ADR 0031](../../docs/adr/0031-w2-replay-fixture-resolution.md). Every on-disk fixture is validated on load; invalid envelopes still fail initialization.
 
+**Critic image.** `call('critic', ctx, { image: { mediaType: 'image/png', base64 } })` sends the PNG to the gateway, which forwards it as an `input_image` data-URL part after the body text (`detail: 'auto'`). Only roles with `ROLES[role].image` may send one (400 otherwise). The `/api/llm` route accepts bodies up to 4 MB; a larger request comes back as `upstream` "request too large". The image is not part of the fixture key (§9) and is never stored in a fixture.
+
 ## Example
 
 ```ts

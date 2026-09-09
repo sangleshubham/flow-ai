@@ -2,8 +2,8 @@
 // req/res and supplies the session check. Steps:
 // 1 session → 2 tokens (+refresh) → 3 local caps → 4 route (tier → model, explicit effort, allowlist)
 // → 5 Responses API call → 6 retries/fallbacks → 7 Zod parse → 8 usage.jsonl.
-import { LlmRequest } from '@illus/core'
-import type { LlmErrorCode, LlmResponse, TemplateRegistry } from '@illus/core'
+import { LlmRequest, ROLES } from '@illus/core'
+import type { LlmErrorCode, LlmResponse, RoleSpec, TemplateRegistry } from '@illus/core'
 
 import { replayResponse } from '../client.ts'
 import { fixtureFromResponse } from '../fixtures.ts'
@@ -80,6 +80,8 @@ export function createGateway(d: GatewayDeps): Gateway {
     const parsedReq = LlmRequest.safeParse(raw)
     if (!parsedReq.success) return fail('upstream', 'invalid request', { status: 400, issues: parsedReq.error.issues })
     const req = parsedReq.data
+    // Only image roles (the critic) may send a picture; anything else is a client bug, not a model call.
+    if (req.image && !(ROLES[req.role] as RoleSpec).image) return fail('upstream', `role ${req.role} does not accept an image`, { status: 400 })
     const started = now()
     let attempts = 0
     let used: ModelRun | undefined
