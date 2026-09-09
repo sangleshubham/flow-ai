@@ -1,7 +1,13 @@
 // Per-case scoring and the §18 metrics with their v1 thresholds. Pure: no I/O.
-import { criticPasses, ground, normalizeText, Translation, validate, VisualPlan } from '@illus/core'
+import {
+  criticPasses,
+  ground,
+  normalizeText,
+  Translation,
+  validate,
+  VisualPlan,
+} from '@illus/core'
 import type { Block, VisualKind } from '@illus/core'
-// eslint-disable-next-line no-restricted-imports -- the published DOM-free template entry (ADR 0040); W0 is asked to allow it
 import { templateRegistry } from '@illus/render/templates'
 
 import type { CaseRun, EvalCase } from './case.ts'
@@ -28,15 +34,60 @@ export interface Threshold {
 
 /** §18 "Metrics and v1 thresholds". */
 export const THRESHOLDS: readonly Threshold[] = [
-  { key: 'needsVisualAccuracy', label: '`needsVisual` accuracy', op: '>=', value: 0.9, percent: true },
-  { key: 'kindAccuracy', label: 'Plan kind in acceptable set', op: '>=', value: 0.85, percent: true },
-  { key: 'schemaFirstAttempt', label: 'Schema valid on first attempt', op: '>=', value: 0.95, percent: true },
+  {
+    key: 'needsVisualAccuracy',
+    label: '`needsVisual` accuracy',
+    op: '>=',
+    value: 0.9,
+    percent: true,
+  },
+  {
+    key: 'kindAccuracy',
+    label: 'Plan kind in acceptable set',
+    op: '>=',
+    value: 0.85,
+    percent: true,
+  },
+  {
+    key: 'schemaFirstAttempt',
+    label: 'Schema valid on first attempt',
+    op: '>=',
+    value: 0.95,
+    percent: true,
+  },
   { key: 'meanGrounding', label: 'Mean grounding score', op: '>=', value: 0.9 },
-  { key: 'mustIncludeRecall', label: '`mustInclude` recall', op: '>=', value: 0.8 },
-  { key: 'mustNotIncludeViolations', label: '`mustNotInclude` violations', op: '<=', value: 0 },
-  { key: 'criticPassRate', label: 'Critic pass rate', op: '>=', value: 0.85, percent: true },
-  { key: 'traceCorrect', label: 'Trace cases executed with correct return value', op: '>=', value: 0.8, percent: true },
-  { key: 'displacementPx', label: 'Concept-model node displacement (mean px)', op: '<=', value: 40 },
+  {
+    key: 'mustIncludeRecall',
+    label: '`mustInclude` recall',
+    op: '>=',
+    value: 0.8,
+  },
+  {
+    key: 'mustNotIncludeViolations',
+    label: '`mustNotInclude` violations',
+    op: '<=',
+    value: 0,
+  },
+  {
+    key: 'criticPassRate',
+    label: 'Critic pass rate',
+    op: '>=',
+    value: 0.85,
+    percent: true,
+  },
+  {
+    key: 'traceCorrect',
+    label: 'Trace cases executed with correct return value',
+    op: '>=',
+    value: 0.8,
+    percent: true,
+  },
+  {
+    key: 'displacementPx',
+    label: 'Concept-model node displacement (mean px)',
+    op: '<=',
+    value: 40,
+  },
 ]
 
 export interface CaseResult {
@@ -61,24 +112,49 @@ export interface CaseResult {
 }
 
 const ID_KEYS = new Set([
-  'evidence', 'id', 'from', 'to', 'lane', 'group', 'parent', 'initial', 'final', 'type', 'templateId',
-  'sourceBlockId', 'path', 'shape', 'kind', 'style', 'direction', 'visibility', 'key', 'identifying', 'simulated',
+  'evidence',
+  'id',
+  'from',
+  'to',
+  'lane',
+  'group',
+  'parent',
+  'initial',
+  'final',
+  'type',
+  'templateId',
+  'sourceBlockId',
+  'path',
+  'shape',
+  'kind',
+  'style',
+  'direction',
+  'visibility',
+  'key',
+  'identifying',
+  'simulated',
 ])
 
 /** Displayed text of an IR: every string or number leaf except evidence and structural ids. */
 function displayedText(value: unknown, out: string[] = []): string[] {
-  if (typeof value === 'string' || typeof value === 'number') out.push(String(value))
+  if (typeof value === 'string' || typeof value === 'number')
+    out.push(String(value))
   else if (Array.isArray(value)) value.forEach((v) => displayedText(v, out))
   else if (value && typeof value === 'object')
-    for (const [k, v] of Object.entries(value)) if (!ID_KEYS.has(k)) displayedText(v, out)
+    for (const [k, v] of Object.entries(value))
+      if (!ID_KEYS.has(k)) displayedText(v, out)
   return out
 }
 
-const contains = (haystack: string, term: string) => haystack.includes(normalizeText(term).text)
+const contains = (haystack: string, term: string) =>
+  haystack.includes(normalizeText(term).text)
 
 function toBlocks(c: EvalCase, run: CaseRun): Map<string, Block> {
   return new Map(
-    run.blocks.map((b) => [b.blockId, { ...b, sectionId: c.sectionId, cfiRange: 'epubcfi(/0)' } as Block]),
+    run.blocks.map((b) => [
+      b.blockId,
+      { ...b, sectionId: c.sectionId, cfiRange: 'epubcfi(/0)' } as Block,
+    ]),
   )
 }
 
@@ -108,7 +184,11 @@ export function scoreCase(c: EvalCase, run: CaseRun | null): CaseResult {
   const r = empty(c)
   if (!run) {
     r.status = c.bookRef.startsWith('private:') ? 'skipped' : 'fail'
-    r.reasons.push(r.status === 'skipped' ? 'private book not available here' : 'no run (missing recording)')
+    r.reasons.push(
+      r.status === 'skipped'
+        ? 'private book not available here'
+        : 'no run (missing recording)',
+    )
     return r
   }
   r.path = run.path
@@ -125,12 +205,23 @@ export function scoreCase(c: EvalCase, run: CaseRun | null): CaseResult {
   if (!plan.success) r.reasons.push('plan does not parse')
   else {
     r.needsVisual.actual = plan.data.needsVisual
-    if (plan.data.needsVisual !== c.expected.needsVisual) r.reasons.push(`needsVisual ${plan.data.needsVisual}, expected ${c.expected.needsVisual}`)
-    const first = [...plan.data.items].sort((a, b) => a.priority - b.priority)[0]
+    if (plan.data.needsVisual !== c.expected.needsVisual)
+      r.reasons.push(
+        `needsVisual ${plan.data.needsVisual}, expected ${c.expected.needsVisual}`,
+      )
+    const first = [...plan.data.items].sort(
+      (a, b) => a.priority - b.priority,
+    )[0]
     if (c.expected.needsVisual) {
       r.kind.actual = first?.kind ?? null
-      r.kind.ok = first !== undefined && c.expected.acceptableKinds.includes(first.kind)
-      if (!r.kind.ok) r.reasons.push(`kind ${first?.kind ?? 'none'} not in [${c.expected.acceptableKinds.join(', ')}]`)
+      r.kind.ok =
+        first !== undefined && c.expected.acceptableKinds.includes(first.kind)
+      if (!r.kind.ok)
+        r.reasons.push(
+          `kind ${
+            first?.kind ?? 'none'
+          } not in [${c.expected.acceptableKinds.join(', ')}]`,
+        )
     }
   }
 
@@ -146,21 +237,43 @@ export function scoreCase(c: EvalCase, run: CaseRun | null): CaseResult {
       }
       const want = c.expected.trace?.expectedReturn
       if (want !== undefined && !run.unsupported?.includes('trace')) {
-        r.trace.ok = v.trace?.mode === 'executed' && v.trace.returnValue === want
-        r.trace.detail = `${v.trace?.mode ?? 'no trace'}, returned ${v.trace?.returnValue ?? 'nothing'}; expected ${want}`
+        r.trace.ok =
+          v.trace?.mode === 'executed' && v.trace.returnValue === want
+        r.trace.detail = `${v.trace?.mode ?? 'no trace'}, returned ${
+          v.trace?.returnValue ?? 'nothing'
+        }; expected ${want}`
         if (!r.trace.ok) r.reasons.push(`trace: ${r.trace.detail}`)
       }
       if (v.trace?.returnValue) shown.push(v.trace.returnValue)
     } else if (v.attempts.length) {
       r.schema.checked++
-      const firstReport = validate(v.kind, v.attempts[0], { blocks, ground, aliases, templates: templateRegistry }).report
-      if (!firstReport.issues.some((i) => i.layer === 'schema')) r.schema.firstValid++
-      const { ir, report } = validate(v.kind, v.attempts.at(-1), { blocks, ground, aliases, templates: templateRegistry })
+      const firstReport = validate(v.kind, v.attempts[0], {
+        blocks,
+        ground,
+        aliases,
+        templates: templateRegistry,
+      }).report
+      if (!firstReport.issues.some((i) => i.layer === 'schema'))
+        r.schema.firstValid++
+      const { ir, report } = validate(v.kind, v.attempts.at(-1), {
+        blocks,
+        ground,
+        aliases,
+        templates: templateRegistry,
+      })
       if (v.kind !== 'html') r.grounding.push(report.groundingScore)
-      if (report.issues.some((i) => i.layer === 'schema')) r.reasons.push(`${v.planItemId}: final ${v.kind} IR does not parse`)
+      if (report.issues.some((i) => i.layer === 'schema'))
+        r.reasons.push(`${v.planItemId}: final ${v.kind} IR does not parse`)
       else {
-        const errors = report.issues.filter((i) => i.severity === 'error').map((i) => i.code)
-        if (errors.length) r.reasons.push(`${v.planItemId}: validation errors ${[...new Set(errors)].join(', ')}`)
+        const errors = report.issues
+          .filter((i) => i.severity === 'error')
+          .map((i) => i.code)
+        if (errors.length)
+          r.reasons.push(
+            `${v.planItemId}: validation errors ${[...new Set(errors)].join(
+              ', ',
+            )}`,
+          )
         shown.push(...displayedText(ir))
       }
     }
@@ -172,7 +285,8 @@ export function scoreCase(c: EvalCase, run: CaseRun | null): CaseResult {
     }
     if (v.displacementPx !== undefined) r.displacement.push(v.displacementPx)
   }
-  if (c.expected.trace && run.unsupported?.includes('trace')) r.trace.detail = 'not measured by this runner'
+  if (c.expected.trace && run.unsupported?.includes('trace'))
+    r.trace.detail = 'not measured by this runner'
   else if (c.expected.trace && r.trace.ok === null) {
     r.trace.ok = false
     r.reasons.push('trace: no trace visual')
@@ -180,19 +294,26 @@ export function scoreCase(c: EvalCase, run: CaseRun | null): CaseResult {
 
   const text = normalizeText(shown.join(' • ')).text
   if (c.expected.needsVisual)
-    for (const t of c.expected.mustInclude) (contains(text, t) ? r.mustInclude.found : r.mustInclude.missing).push(t)
+    for (const t of c.expected.mustInclude)
+      (contains(text, t) ? r.mustInclude.found : r.mustInclude.missing).push(t)
   r.violations = c.expected.mustNotInclude.filter((t) => contains(text, t))
-  if (r.mustInclude.missing.length) r.reasons.push(`missing terms: ${r.mustInclude.missing.join(', ')}`)
-  if (r.violations.length) r.reasons.push(`forbidden terms: ${r.violations.join(', ')}`)
+  if (r.mustInclude.missing.length)
+    r.reasons.push(`missing terms: ${r.mustInclude.missing.join(', ')}`)
+  if (r.violations.length)
+    r.reasons.push(`forbidden terms: ${r.violations.join(', ')}`)
   const low = r.grounding.filter((g) => g < 0.9)
-  if (low.length) r.reasons.push(`grounding below 0.90: ${low.map((g) => g.toFixed(2)).join(', ')}`)
+  if (low.length)
+    r.reasons.push(
+      `grounding below 0.90: ${low.map((g) => g.toFixed(2)).join(', ')}`,
+    )
 
   r.status = r.reasons.length ? 'fail' : 'pass'
   return r
 }
 
 const ratio = (num: number, den: number) => (den === 0 ? null : num / den)
-const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null)
+const mean = (xs: number[]) =>
+  xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null
 
 /** Nearest-rank percentile of a non-empty list. */
 export function percentile(xs: readonly number[], p: number): number {
@@ -212,24 +333,53 @@ export function summarize(results: readonly CaseResult[]): Summary {
   const scored = results.filter((r) => r.status !== 'skipped')
   const visualCases = scored.filter((r) => r.needsVisual.expected)
   const traced = scored.filter((r) => r.trace.ok !== null)
-  const sum = (f: (r: CaseResult) => number) => scored.reduce((n, r) => n + f(r), 0)
+  const sum = (f: (r: CaseResult) => number) =>
+    scored.reduce((n, r) => n + f(r), 0)
 
   const latency: Summary['latency'] = {}
   const byPath = new Map<string, number[]>()
-  for (const r of scored) if (r.path && r.latencyMs !== null) byPath.set(r.path, [...(byPath.get(r.path) ?? []), r.latencyMs])
-  for (const [path, xs] of [...byPath].sort()) latency[path] = { n: xs.length, p50: percentile(xs, 50), p95: percentile(xs, 95) }
+  for (const r of scored)
+    if (r.path && r.latencyMs !== null)
+      byPath.set(r.path, [...(byPath.get(r.path) ?? []), r.latencyMs])
+  for (const [path, xs] of [...byPath].sort())
+    latency[path] = {
+      n: xs.length,
+      p50: percentile(xs, 50),
+      p95: percentile(xs, 95),
+    }
 
   return {
     metrics: {
       // A missing run or an unparseable plan counts as wrong.
-      needsVisualAccuracy: ratio(scored.filter((r) => r.needsVisual.actual === r.needsVisual.expected).length, scored.length),
-      kindAccuracy: ratio(visualCases.filter((r) => r.kind.ok).length, visualCases.length),
-      schemaFirstAttempt: ratio(sum((r) => r.schema.firstValid), sum((r) => r.schema.checked)),
+      needsVisualAccuracy: ratio(
+        scored.filter((r) => r.needsVisual.actual === r.needsVisual.expected)
+          .length,
+        scored.length,
+      ),
+      kindAccuracy: ratio(
+        visualCases.filter((r) => r.kind.ok).length,
+        visualCases.length,
+      ),
+      schemaFirstAttempt: ratio(
+        sum((r) => r.schema.firstValid),
+        sum((r) => r.schema.checked),
+      ),
       meanGrounding: mean(scored.flatMap((r) => r.grounding)),
-      mustIncludeRecall: ratio(sum((r) => r.mustInclude.found.length), sum((r) => r.mustInclude.found.length + r.mustInclude.missing.length)),
-      mustNotIncludeViolations: scored.length ? sum((r) => r.violations.length) : null,
-      criticPassRate: ratio(sum((r) => r.critic.passed), sum((r) => r.critic.checked)),
-      traceCorrect: ratio(traced.filter((r) => r.trace.ok).length, traced.length),
+      mustIncludeRecall: ratio(
+        sum((r) => r.mustInclude.found.length),
+        sum((r) => r.mustInclude.found.length + r.mustInclude.missing.length),
+      ),
+      mustNotIncludeViolations: scored.length
+        ? sum((r) => r.violations.length)
+        : null,
+      criticPassRate: ratio(
+        sum((r) => r.critic.passed),
+        sum((r) => r.critic.checked),
+      ),
+      traceCorrect: ratio(
+        traced.filter((r) => r.trace.ok).length,
+        traced.length,
+      ),
       displacementPx: mean(scored.flatMap((r) => r.displacement)),
     },
     cases: {
@@ -238,19 +388,27 @@ export function summarize(results: readonly CaseResult[]): Summary {
       failed: results.filter((r) => r.status === 'fail').length,
       skipped: results.filter((r) => r.status === 'skipped').length,
     },
-    tokens: { input: sum((r) => r.tokens.input), output: sum((r) => r.tokens.output) },
+    tokens: {
+      input: sum((r) => r.tokens.input),
+      output: sum((r) => r.tokens.output),
+    },
     latency,
   }
 }
 
 export type ThresholdStatus = 'pass' | 'fail' | 'n/a'
 
-export function thresholdStatus(t: Threshold, value: number | null): ThresholdStatus {
+export function thresholdStatus(
+  t: Threshold,
+  value: number | null,
+): ThresholdStatus {
   if (value === null) return 'n/a'
   return (t.op === '>=' ? value >= t.value : value <= t.value) ? 'pass' : 'fail'
 }
 
 /** True when every applicable metric meets its threshold. */
 export function meetsThresholds(s: Summary): boolean {
-  return THRESHOLDS.every((t) => thresholdStatus(t, s.metrics[t.key]) !== 'fail')
+  return THRESHOLDS.every(
+    (t) => thresholdStatus(t, s.metrics[t.key]) !== 'fail',
+  )
 }
