@@ -16,6 +16,7 @@ export type {
   Pipeline,
   PipelineDeps,
   RequestOptions,
+  ReviewHook,
   SectionJob,
   SectionJobEvent,
   SectionJobEvents,
