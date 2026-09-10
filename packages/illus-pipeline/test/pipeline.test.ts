@@ -4,6 +4,7 @@ import { make } from '@illus/core/testing'
 import { describe, expect, test } from 'vitest'
 
 import { createLimiter } from '../src/index.ts'
+import type { ReviewHook } from '../src/index.ts'
 import { SECTION_COMMIT_ID as C, SECTION_LEADERS_ID as L, TRACE_CODE_ID, collect, fakeLlm, pipelineWith, seededRepos, seededTraceRepos } from './helpers.ts'
 import type { Call } from './helpers.ts'
 
@@ -225,6 +226,46 @@ describe('requestSection', () => {
     expect(ready.tr).toMatchObject({ kind: 'trace', ir: null, traceKey: expect.any(String) })
     expect(await repos2.traces.get(ready.tr!.traceKey!)).toMatchObject({ mode: 'executed', codeBlockId: TRACE_CODE_ID })
     expect(on.of('plan')[0]!.plan.items.map((i) => i.planItemId)).toEqual(['g', 'tr'])
+  })
+
+  test('without a conceptModels dep, the conceptModels flag routes to W8\'s createConceptModels (patcher)', async () => {
+    const repos = await seededRepos()
+    const llm = fakeLlm(byRole({
+      planner: () => plan({ items: [make.planItem({ newConceptModel: 'c1' })] }),
+      patcher: () => { throw new LlmError('upstream', 'patcher reached') },
+    }))
+    const r = await collect(pipelineWith(repos, llm, { flags: resolveFlags({ conceptModels: true }) }).requestSection(L))
+    expect(llm.calls.map((c) => c.role)).toEqual(['planner', 'patcher'])
+    expect(r.of('item-failed')[0]).toMatchObject({ planItemId: 'p1', code: 'upstream' })
+    expect(r.of('item-progress').map((p) => p.stage)).toContain('patching')
+  })
+
+  test('review gets the extractor context, permitted blocks and plan item; its record is stored', async () => {
+    const repos = await seededRepos()
+    const llm = fakeLlm(byRole({ planner: () => plan(), 'extractor.graph': () => make.graphIR() }))
+    const seen: Parameters<ReviewHook>[1][] = []
+    const finding = { layer: 'render' as const, severity: 'warning' as const, code: 'label-overlap', message: 'two labels overlap' }
+    const review: ReviewHook = async (record, ctx) => {
+      seen.push(ctx)
+      return { ...record, validation: { ...record.validation, issues: [...record.validation.issues, finding] } }
+    }
+    const r = await collect(pipelineWith(repos, llm, { review }).requestSection(L))
+    const record = r.of('item-ready')[0]!.record
+    expect(record.validation.issues).toContainEqual(finding)
+    expect(await repos.visuals.get(record.cacheKey)).toEqual(record)
+    expect(seen[0]!.context).toEqual(llm.calls[1]!.ctx)
+    expect([...seen[0]!.validation.blocks.keys()].length).toBeGreaterThan(0)
+    expect(seen[0]!.planItem.planItemId).toBe('p1')
+    expect(seen[0]!.signal).toBeInstanceOf(AbortSignal)
+    expect(r.of('item-progress').map((p) => p.stage)).toEqual(['queued', 'extracting', 'storing', 'critic'])
+
+    // A failing review stores the unreviewed record; a cache hit is not reviewed again.
+    const repos2 = await seededRepos()
+    const failed = await collect(pipelineWith(repos2, llm, { review: async () => { throw new Error('render failed') } }).requestSection(L))
+    expect(failed.of('item-ready')[0]!.record.validation.issues).not.toContainEqual(finding)
+    const cached = await collect(pipelineWith(repos, llm, { review }).requestSection(L))
+    expect(cached.of('item-ready')[0]!.fromCache).toBe(true)
+    expect(seen).toHaveLength(1)
   })
 
   test('illustrate selection builds a synthetic section with the parent as path context', async () => {

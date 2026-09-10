@@ -26,6 +26,7 @@
     "@flow/epubjs": "workspace:*",
     "@illus/book-index": "workspace:*",
     "@illus/eslint-config": "workspace:*",
+    "@illus/render": "workspace:*",
     "@types/node": "24.13.6",
     "eslint": "10.11.0",
     "jsdom": "30.1.1",
