@@ -5,6 +5,7 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
 <!-- entries below -->
 
 ## Wave 0 — 2026-10-09
+
 - Agents: w0-foundation
 - Branches merged: worktree-agent-ab31651c7da8fa34c (8 W0 commits, head 733898c)
 - Gate: lint ✓ typecheck ✓ test ✓ (37/37 turbo tasks) e2e n.a. (`pnpm e2e` exits 0 with no tasks)
@@ -18,7 +19,7 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
   5. Remove Flow's production Sentry config (reports to upstream author's project)?
   6. Approve W0 edits outside its ownership list (ADR 0004): root tsconfig `paths` fix, epubjs `test` renamed to `test:karma` (Flow's karma tests leave the gate), root package.json pins/scripts, pnpm-workspace `minimumReleaseAge` + audit baseline of 112 inherited advisories
 - Follow-ups for later waves:
-  - W9: disable `allowScriptedContent` (apps/reader/src/models/reader.ts:366); use `@flow/epubjs`; pane as fifth SplitView child; Valtio store; raise root TS to 5.9.3 + fix 3 Flow errors + `allowImportingTsExtensions` before importing @illus/* (audit §11)
+  - W9: disable `allowScriptedContent` (apps/reader/src/models/reader.ts:366); use `@flow/epubjs`; pane as fifth SplitView child; Valtio store; raise root TS to 5.9.3 + fix 3 Flow errors + `allowImportingTsExtensions` before importing @illus/\* (audit §11)
   - W2: separate Dexie 4.4.6 db `illus`; rewrite `/auth/chatgpt/*` → `/api/auth/chatgpt/*` with `locale: false`; strict-mode JSON Schema adaptation still to do (ADR 0003)
   - W11: Docker build fails (unpinned turbo 2.x), never copies `public/`; `.env.local` leaks into build context; next-pwa caches `/auth/chatgpt/callback`; move two inline scripts in `_document.tsx`
   - W4: render Vega via `vega-interpreter` once approved
@@ -26,10 +27,12 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
   - `.claude/worktrees/` is not gitignored (W0 to add on next amend)
 
 ## Checkpoint after wave 0 — 2026-10-09
+
 - Approved by Shubham: contracts v1.0 frozen (incl. ADR 0003); ADR 0001 CSP exceptions; `vega-interpreter` 2.3.2 added to §19; tooling deps (`typedoc-plugin-markdown`, jsdom, `@testing-library/dom`, `@types/node`); ADR 0004 out-of-ownership edits and audit baseline.
 - Deferred to before wave 2: Dropbox sync / remote-URL import, Next.js 12 advisories (ADR 0005), Flow's Sentry config.
 
 ## Wave 1 — 2026-10-09
+
 - Agents: w1-book-index, w2-llm-store, w4-renderers, w10-quality (phase A). All four hit the account session rate limit mid-run and were resumed from their transcripts.
 - Branches merged: W1 (6ff8026), W10 phase A (59cf92d), W2 (701e8e8; reported partial, merged in full by Shubham's decision), W4 (ab1e9f2). Lockfile regenerated after W2 and W4 conflicts.
 - Gate: lint ✓ typecheck ✓ test ✓ (40/40 turbo tasks) e2e n.a. (package-level e2e reported green by W1 and W4: 1 + 63 Playwright tests, not in the gate yet)
@@ -64,6 +67,7 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
   - All: `pnpm e2e` needs `pnpm exec playwright install chromium` once.
 
 ## W0 amend (between waves 1 and 2) — 2026-10-09
+
 - Agents: w0-foundation ("amend contracts", plus two follow-ups).
 - Branches merged: W0 amend (9fb4e78, then d614740).
 - Gate: lint ✓ typecheck ✓ test ✓ (43/43, fresh install) · `pnpm --filter @flow/reader build` ✓ · e2e n.a.
@@ -80,6 +84,7 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
 - Follow-ups: W1 implements v1.2 code-block whitespace, bumps INDEX_VERSION, reverts `erasableSyntaxOnly: false`, tightens `fixtures/scripts/test/eval-mini.test.ts`. W11: CI now runs `next build`; Sentry's `withSentryConfig` is still in place until W11 removes it.
 
 ## Wave 2 — 2026-10-09
+
 - Agents: w3-pipeline, w5-templates, w11-deploy-security, plus w1-book-index (v1.2 follow-ups) and w0-foundation (eval-mini test). All four wave agents hit the account session limit once and were resumed.
 - Branches merged: W1 (3603510) with W0 (9cde423) in the same step; W5 (60217ec); W3 (0b403b0), gate red on synthetic.e2e after W1's index change, W3 re-keyed 8 replay fixtures (a917fc5, answers and assertions unchanged); W11 (b2bff5d).
 - Gate: lint ✓ typecheck ✓ test ✓ (44/44) · `pnpm --filter @flow/reader build` ✓ · e2e n.a. (package-level e2e reported green: book-index 1/1, render templates 45/45 + W4 63/63, reader security 11/11 against `next start` and the Docker image)
@@ -103,7 +108,7 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
   - Still open from the W0 amend: `apps/website` type errors (remove or fix?); align `@types/react` pins in packages/internal and apps/website.
   - Untracked `.agents/`, `.codex/` and a modified `AGENTS.md` appeared in the working tree, not from any agent; left uncommitted.
 - Follow-ups for later waves:
-  - W9: pass `templateRegistry` to VisualView, `validate` and `createIllusServer` only with the `templates` flag; subscribe right after `requestSection`; pass the concept pass and `buildLexicalIndex(...)`; `estimateIndexUsage` for the pre-index prompt; figure `cfiRange` may be a node CFI; use `blockTextOfRange(range, block.kind)`; expect small conflicts in Reader.tsx, index.tsx, settings.tsx, _app.tsx, _document.tsx; production-build e2e needs a session cookie (`apps/reader/e2e/env.ts`), dev uses `ILLUS_AUTH_GATE=off`.
+  - W9: pass `templateRegistry` to VisualView, `validate` and `createIllusServer` only with the `templates` flag; subscribe right after `requestSection`; pass the concept pass and `buildLexicalIndex(...)`; `estimateIndexUsage` for the pre-index prompt; figure `cfiRange` may be a node CFI; use `blockTextOfRange(range, block.kind)`; expect small conflicts in Reader.tsx, index.tsx, settings.tsx, \_app.tsx, \_document.tsx; production-build e2e needs a session cookie (`apps/reader/e2e/env.ts`), dev uses `ILLUS_AUTH_GATE=off`.
   - W6: `validateAnimation(ir, animation)` for the pipeline; seed frames from `initialFrame`, targets from `targets`; containers `stack`/`queue`/`frames`/`order`; swap moves position contents.
   - W7: provide `traceRunner`; trace-fixer and simulated fallback not wired; Pyodide assets in `apps/reader/public/pyodide` (CSP already allows wasm).
   - W8: implement `ConceptModelRoute` and `conceptModelState` for packContext slot 7.
@@ -113,6 +118,7 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
   - Flow's unused sync/remote-import i18n strings remain in locale files.
 
 ## Wave 3 prerequisites — 2026-10-09
+
 - Approved by Shubham: commit the existing Codex agent setup, fix replay prerequisites and shared template contracts, then resume the build from wave 3.
 - Setup: `4f845ee`; Node 24.20.0 selected from the existing local installation; pnpm 10.34.5. Added `.worktrees/` and generated `.pnpm-store/` ignores; existing Claude worktrees remain untouched.
 - Agents: w0_foundation (amend contracts), w2_llm_store, w4_renderers, w10_quality (phase A test compatibility).
@@ -126,6 +132,7 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
 - Follow-ups: standalone Docker replay/record requires mounted fixtures and `ILLUS_FIXTURES_DIR` (image excludes workspace manifests/fixtures). Vendored epub.js still masks its inherited lint errors; no lint rules or assertions were weakened.
 
 ## Wave 3 interrupted and resumed — 2026-10-09
+
 - Account usage limit interrupted W3 integration, W7 tracer and W9 reader work; Shubham explicitly requested continuation after the reported reset time. Worktrees and uncommitted edits were preserved.
 - Main remains at the completed prerequisite baseline (`86b4a9a` before this log entry). Feature work is isolated on `ws/w6-wave3`, `ws/w7-wave3`, `ws/w9-wave3`, `ws/w3-integration-wave3` and `ws/w11-assets-wave3`.
 - W3 committed `e239243`: bounded trace repair and grounded simulated fallbacks, code-source whitelist checks and an animation validation context restricted to the packed blocks. Reported scoped gate: 20 tasks, 51 pipeline tests passed; exact browser fixture integration remains in progress.
@@ -133,6 +140,7 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
 - W6, W7 and W9 resumed from their saved edits. Wave 3 has not passed its integrated gate; no completion or live-model-quality claim is made.
 
 ## Wave 3 — 2026-10-09
+
 - Agents: w6-animation, w7-tracer, w9-reader-ui, plus w3-pipeline (integration), w2-llm-store (template server), w4-renderers (server-safe template entry), w0-foundation (dependency notes), w11-deploy-security (tracer assets). Several runs stopped on usage limits or network errors (ENOTFOUND) and were resumed from saved work.
 - Branches merged: W6 (40cf0af, e58808e), W3 (e6dc43c, 48452fb, 0ff7f97), W7 (a28b6f4), W4 (0c718d4), W0 (1ccb5cf), W11 (0f6e4d9), W2 (93fabc8, then the ADR 0041 follow-up), W9 (reader bridge + pane, then the e2e fix).
 - Gate on merged main: lint ✓ typecheck ✓ test ✓ (44/44, forced) · e2e ✓ (5/5 tasks: reader 14/14, render 63 + 45, anim 7, tracer 2, book-index 1; replay mode) · reader production build ✓. No live model calls.
@@ -150,6 +158,7 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
   - Subagents with worktree isolation cannot run git in `.worktrees/*`; resume them in their own worktree.
 
 ## W0 port + synthetic.epub re-key (between waves 3 and 4) — 2026-10-09
+
 - Agents: w0-foundation (port of the old W0 branch, per Shubham), then w1-book-index and w10-quality (phase A) in parallel, then w3-pipeline.
 - Branches merged: W0 up to 9cd59cc (54bc4a5); then one merge carrying W0 41ec261 (epub), W1 98a2916 (snapshot + browser check for the caption-less figure), W10 2d517b2 (evals bookId) and W3 0e43080 (alt attribute in packed context, 20 synthetic + 1 browser fixture re-keyed).
 - Gate: lint ✓ typecheck ✓ test ✓ (43/43 forced; apps/website removed) · e2e ✓ (reader 14/14, render 63 + 45, anim 7, tracer 2, book-index 1) · reader build ✓.
@@ -158,6 +167,7 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
 - Follow-ups: W5 visible stack "top" marker; W6 try resize/rotate as one animation; W9 threshold default 200,000; W10 phase B critic/repair/animator prompts treat a block's `alt` as info, never quotable evidence; `fixtures:browser` never removes stale keys (delete the old browser fixture after a bookId change); W0: `.husky/pre-commit` is not executable.
 
 ## Wave 4 — 2026-10-10
+
 - Agents: w8-concept-models (2 attempts), w10-quality (phase B), plus w4-renderers (ELK fix for W8). Runs were interrupted by a network error (ENOTFOUND) and the account session limit and were resumed from saved work.
 - Branches merged: W10 (1066de8), W4 (2b59cef: interactive ELK options on root and every group, semi-interactive crossing minimisation, `elk.position` hints), W8 (862335b).
 - Gate on merged main: lint ✓ typecheck ✓ test ✓ (43/43) · e2e ✓ (reader 14, render 63 + 45, anim 7, tracer 2, book-index 1; replay mode). No live model calls.
@@ -172,3 +182,33 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
   5. W2: confirm the gateway forwards `image` for the `critic` role.
 - Open questions for Shubham: the 24 private eval placeholders need books, section ids and `mustInclude` terms; whether element labels reported wrong become `mustNotInclude`.
 - Follow-ups: rerun `ILLUS_WRITE_FIXTURES=1 pnpm --filter @illus/concepts test` after context-packer or patcher prompt changes; critic/repair prompt changes need `ILLUS_WRITE_FIXTURES=1 pnpm --filter @illus/evals test quality-prompts`; `syn-2-2` eval case awaits W3's synthetic test passing the template registry.
+
+## Wave 4 wiring round + final gate — 2026-10-10
+
+- Agents: w0-foundation, w2-llm-store, w3-pipeline, w4-renderers, w10-quality, w9-reader-ui (contract-change requests 1–5 from wave 4). W9 was interrupted twice (usage limit, then ENOTFOUND) and resumed from saved work.
+- Branches merged: W4 (5e9f0d8), W0 (6fa8639), W10 (d0e8d96, 30be5b5), W2 (02795ae), W3 (e1dbde5), W9 (d2f5749: concept-model view with toggles and EvolutionScrubber, `reviewHook` as `PipelineDeps.review` behind the `critic` flag, warning badge, catch-up progress, "sign-in not configured" state, 200,000-token index confirm threshold).
+- Final gate on merged main: lint ✓ typecheck ✓ test ✓ (43/43, forced) · e2e ✓ (reader 14, render 63 + 45 + 3 check, anim 7, tracer 2, book-index 1; replay mode). No live model calls.
+- §18 acceptance, replay mode:
+  - CI green (lint, typecheck, unit, property, component, visual, integration, E2E): ✓
+  - G2 `data-ir-id` + evidence click highlights the book: ✓ (reader e2e, render e2e)
+  - G4 play/pause/step/scrub, reduced motion: ✓ on fixtures (anim e2e, Player tests); golden animated cases need a live eval.
+  - G5 original-line highlight matches the line map: ✓ (tracer e2e); "≥ 80% of code cases execute for real" needs a live eval (replay report: 100% of 3).
+  - G6 growing model, highlighted additions, out-of-order visits, displacement: ✓ (W8 tests; ≈ 19.8 px mean on the 5-section fixture).
+  - G7 local caps and plan-limit 429 stop calls and show the plan-limit state: ✓ (gateway tests, reader e2e). Cache hit < 150 ms p50 in E2E timing: **not covered** — no e2e timing assertion exists.
+  - G1, G3: need the live eval on the 40 golden sections (24 are private placeholders).
+- ADRs opened: none.
+- Contract-change requests: none outstanding.
+- Open questions for Shubham:
+  - W9: should §16 L4 render checks run on every visual, with the `critic` flag gating only L5? Today the whole review hook is behind `critic` (one-line change in W9's `state.ts`).
+  - W9: the reader e2e seeds a concept model and critic report into IndexedDB because the synthetic book has no patcher/critic replay fixtures. Want hand-written ones (W8, W10) for a true end-to-end path?
+  - Still open: books, section ids and `mustInclude` terms for the 24 private eval placeholders.
+- Follow-ups: W9 add a cache-hit timing assertion (G7, < 150 ms p50) to the reader e2e; W4's wave-2 property tests and Vega-Lite schema check sit uncommitted in an old worktree (`agent-a3da9f440b4ee7afc`) and never reached main; one lint warning in @illus/pipeline.
+
+## Hand-off — 2026-10-10
+
+Only Shubham can do these:
+
+1. Register the client for Sign in with ChatGPT and fill `.env.local` (`docs/setup-chatgpt-signin.md`).
+2. Record live LLM fixtures with `ILLUS_LLM_MODE=record`.
+3. Run `pnpm eval` live plus the effort sweep (§9 rules, §18 thresholds); add the private golden books first.
+4. Deploy with `docs/deploy.md`.
