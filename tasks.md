@@ -56,7 +56,7 @@ The orchestrator sets Status to `done` once a task is merged into `main` and gat
 
 The openai SDK's `timeout` (180 s) only covers the time until response headers arrive. The `for await (const event of stream)` loop can then hang forever on a stalled stream.
 
-- Export `STREAM_IDLE_MS = 60_000`, and add an optional `idleTimeoutMs` to `OpenAiProviderOptions`.
+- Export `STREAM_IDLE_MS = 180_000` (reasoning is silent, so not tighter than the per-attempt timeout), and add an optional `idleTimeoutMs` to `OpenAiProviderOptions`.
 - Create a local `AbortController`, and pass `AbortSignal.any([req.signal, idle.signal].filter(Boolean))` to `client.responses.create`.
 - Start a timer before the request and reset it on every stream event. On expiry, abort and throw `ProviderError('timeout', 'no stream event for Ns')`. Check that `'timeout'` is a valid kind in `ProviderError` and that the gateway retries it.
 - Clear the timer in `finally`.
@@ -197,7 +197,7 @@ Plan output gains `overview` and per-item `caption` (T2).
 - the `subsections` slot
 - `overview`/`caption`
 - the `templates`/`animations` defaults on
-- the 60 s stream idle timeout
+- the 180 s stream idle timeout
 - earlier summary/glossary thresholds
 
 Status: accepted (decided by Shubham, 2026-10-10).
