@@ -39,9 +39,9 @@ The orchestrator sets Status to `done` once a task is merged into `main` and gat
 
 | ID  | Agent               | Owner prefix | Model / effort  | Depends    | Status |
 | --- | ------------------- | ------------ | --------------- | ---------- | ------ |
-| T1  | `fix-llm-stream`    | W2           | sonnet / medium | —          | todo   |
+| T1  | `fix-llm-stream`    | W2           | sonnet / medium | —          | done   |
 | T2  | `fix-contracts`     | W0           | sonnet / medium | —          | todo   |
-| T3  | `fix-anim-targets`  | W6           | sonnet / low    | —          | todo   |
+| T3  | `fix-anim-targets`  | W6           | sonnet / low    | —          | done   |
 | T4  | `fix-context-pack`  | W3           | opus / high     | —          | todo   |
 | T5  | `fix-prompts`       | W3           | opus / high     | —          | todo   |
 | T6  | `fix-pipeline`      | W3           | opus / high     | T2, T3, T4 | todo   |
