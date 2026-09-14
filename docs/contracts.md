@@ -37,284 +37,627 @@ Additive; every v1.0 producer and consumer stays valid.
 
 Initial freeze.
 
+**Amendment (T2):** `VisualPlan.overview?` (max 120 words) and `PlanItem.caption?` (max 60 words) are optional, so old cached plans still parse. `PlanKeyInput.kinds?: string` (sorted, comma-joined enabled flag-gated kinds) is appended to the `planKey` parts only when non-empty; without it the key is unchanged. `DEFAULT_FLAGS.templates` and `.animations` are now `true`; the other flags stay `false`.
+
 ## 1. Data types
 
 ### `src/flags/index.ts`
 
 ```ts
-type FlagName = "critic" | "templates" | "animations" | "tracer" | "conceptModels" | "htmlFallback"
+type FlagName =
+  | 'critic'
+  | 'templates'
+  | 'animations'
+  | 'tracer'
+  | 'conceptModels'
+  | 'htmlFallback'
 
 type Flags = {
-    readonly critic: boolean;
-    readonly templates: boolean;
-    readonly animations: boolean;
-    readonly tracer: boolean;
-    readonly conceptModels: boolean;
-    readonly htmlFallback: boolean;
+  readonly critic: boolean
+  readonly templates: boolean
+  readonly animations: boolean
+  readonly tracer: boolean
+  readonly conceptModels: boolean
+  readonly htmlFallback: boolean
 }
 
 /** Partial overrides as stored in the `settings` store under key `flags`; unknown keys are ignored. */
 type FlagOverrides = {
-    critic?: boolean | undefined;
-    templates?: boolean | undefined;
-    animations?: boolean | undefined;
-    tracer?: boolean | undefined;
-    conceptModels?: boolean | undefined;
-    htmlFallback?: boolean | undefined;
+  critic?: boolean | undefined
+  templates?: boolean | undefined
+  animations?: boolean | undefined
+  tracer?: boolean | undefined
+  conceptModels?: boolean | undefined
+  htmlFallback?: boolean | undefined
 }
 ```
 
 ### `src/repos/index.ts`
 
 ```ts
-type StoreName = "sections" | "conceptModels" | "books" | "blocks" | "crossRefs" | "sectionIndex" | "concepts" | "plans" | "visuals" | "traces" | "llmLog" | "settings"
+type StoreName =
+  | 'sections'
+  | 'conceptModels'
+  | 'books'
+  | 'blocks'
+  | 'crossRefs'
+  | 'sectionIndex'
+  | 'concepts'
+  | 'plans'
+  | 'visuals'
+  | 'traces'
+  | 'llmLog'
+  | 'settings'
 ```
 
 ### `src/schemas/animation.ts`
 
 ```ts
 /** An addressable element of a validated IR or template instance (§11). */
-type Target = `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`
+type Target =
+  | `node:${string}`
+  | `edge:${string}`
+  | `group:${string}`
+  | `msg:${string}`
+  | `cell:${string}[${number}]`
+  | `item:${string}`
 
-type HighlightTone = "success" | "focus" | "warning" | "muted"
+type HighlightTone = 'success' | 'focus' | 'warning' | 'muted'
 
 /** One animation action (§11). Unknown targets or unsupported actions fail at frame-build time. */
-type Action = {
-    op: "highlight";
-    target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-    tone: "success" | "focus" | "warning" | "muted";
-} | {
-    op: "unhighlight";
-    target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}` | "all";
-} | {
-    op: "reveal";
-    target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-} | {
-    op: "hide";
-    target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-} | {
-    op: "set";
-    target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-    value: string | number;
-} | {
-    op: "swap";
-    a: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-    b: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-} | {
-    op: "pointer";
-    name: string;
-    target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}` | null;
-} | {
-    op: "push" | "enqueue";
-    container: string;
-    id: string;
-    value: string | number;
-} | {
-    op: "pop" | "dequeue";
-    container: string;
-} | {
-    op: "add";
-    element: {
-        id: string;
-        label: string;
-    };
-    parent?: string | undefined;
-} | {
-    op: "remove";
-    target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-} | {
-    op: "token";
-    id: string;
-    path: string[];
-    label?: string | undefined;
-} | {
-    op: "annotate";
-    target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-    text: string;
-} | {
-    op: "focus";
-    target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}` | "all";
-}
+type Action =
+  | {
+      op: 'highlight'
+      target:
+        | `node:${string}`
+        | `edge:${string}`
+        | `group:${string}`
+        | `msg:${string}`
+        | `cell:${string}[${number}]`
+        | `item:${string}`
+      tone: 'success' | 'focus' | 'warning' | 'muted'
+    }
+  | {
+      op: 'unhighlight'
+      target:
+        | `node:${string}`
+        | `edge:${string}`
+        | `group:${string}`
+        | `msg:${string}`
+        | `cell:${string}[${number}]`
+        | `item:${string}`
+        | 'all'
+    }
+  | {
+      op: 'reveal'
+      target:
+        | `node:${string}`
+        | `edge:${string}`
+        | `group:${string}`
+        | `msg:${string}`
+        | `cell:${string}[${number}]`
+        | `item:${string}`
+    }
+  | {
+      op: 'hide'
+      target:
+        | `node:${string}`
+        | `edge:${string}`
+        | `group:${string}`
+        | `msg:${string}`
+        | `cell:${string}[${number}]`
+        | `item:${string}`
+    }
+  | {
+      op: 'set'
+      target:
+        | `node:${string}`
+        | `edge:${string}`
+        | `group:${string}`
+        | `msg:${string}`
+        | `cell:${string}[${number}]`
+        | `item:${string}`
+      value: string | number
+    }
+  | {
+      op: 'swap'
+      a:
+        | `node:${string}`
+        | `edge:${string}`
+        | `group:${string}`
+        | `msg:${string}`
+        | `cell:${string}[${number}]`
+        | `item:${string}`
+      b:
+        | `node:${string}`
+        | `edge:${string}`
+        | `group:${string}`
+        | `msg:${string}`
+        | `cell:${string}[${number}]`
+        | `item:${string}`
+    }
+  | {
+      op: 'pointer'
+      name: string
+      target:
+        | `node:${string}`
+        | `edge:${string}`
+        | `group:${string}`
+        | `msg:${string}`
+        | `cell:${string}[${number}]`
+        | `item:${string}`
+        | null
+    }
+  | {
+      op: 'push' | 'enqueue'
+      container: string
+      id: string
+      value: string | number
+    }
+  | {
+      op: 'pop' | 'dequeue'
+      container: string
+    }
+  | {
+      op: 'add'
+      element: {
+        id: string
+        label: string
+      }
+      parent?: string | undefined
+    }
+  | {
+      op: 'remove'
+      target:
+        | `node:${string}`
+        | `edge:${string}`
+        | `group:${string}`
+        | `msg:${string}`
+        | `cell:${string}[${number}]`
+        | `item:${string}`
+    }
+  | {
+      op: 'token'
+      id: string
+      path: string[]
+      label?: string | undefined
+    }
+  | {
+      op: 'annotate'
+      target:
+        | `node:${string}`
+        | `edge:${string}`
+        | `group:${string}`
+        | `msg:${string}`
+        | `cell:${string}[${number}]`
+        | `item:${string}`
+      text: string
+    }
+  | {
+      op: 'focus'
+      target:
+        | `node:${string}`
+        | `edge:${string}`
+        | `group:${string}`
+        | `msg:${string}`
+        | `cell:${string}[${number}]`
+        | `item:${string}`
+        | 'all'
+    }
 
-type ActionOp = "set" | "focus" | "highlight" | "unhighlight" | "reveal" | "hide" | "swap" | "pointer" | "push" | "enqueue" | "pop" | "dequeue" | "add" | "remove" | "token" | "annotate"
+type ActionOp =
+  | 'set'
+  | 'focus'
+  | 'highlight'
+  | 'unhighlight'
+  | 'reveal'
+  | 'hide'
+  | 'swap'
+  | 'pointer'
+  | 'push'
+  | 'enqueue'
+  | 'pop'
+  | 'dequeue'
+  | 'add'
+  | 'remove'
+  | 'token'
+  | 'annotate'
 
 /** One step: narration ≤ 140 characters, grounded, ≤ 6 actions (§11). */
 type Step = {
-    id: string;
-    narration: string;
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
-    actions: ({
-        op: "highlight";
-        target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-        tone: "success" | "focus" | "warning" | "muted";
-    } | {
-        op: "unhighlight";
-        target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}` | "all";
-    } | {
-        op: "reveal";
-        target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-    } | {
-        op: "hide";
-        target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-    } | {
-        op: "set";
-        target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-        value: string | number;
-    } | {
-        op: "swap";
-        a: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-        b: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-    } | {
-        op: "pointer";
-        name: string;
-        target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}` | null;
-    } | {
-        op: "push" | "enqueue";
-        container: string;
-        id: string;
-        value: string | number;
-    } | {
-        op: "pop" | "dequeue";
-        container: string;
-    } | {
-        op: "add";
+  id: string
+  narration: string
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
+  actions: (
+    | {
+        op: 'highlight'
+        target:
+          | `node:${string}`
+          | `edge:${string}`
+          | `group:${string}`
+          | `msg:${string}`
+          | `cell:${string}[${number}]`
+          | `item:${string}`
+        tone: 'success' | 'focus' | 'warning' | 'muted'
+      }
+    | {
+        op: 'unhighlight'
+        target:
+          | `node:${string}`
+          | `edge:${string}`
+          | `group:${string}`
+          | `msg:${string}`
+          | `cell:${string}[${number}]`
+          | `item:${string}`
+          | 'all'
+      }
+    | {
+        op: 'reveal'
+        target:
+          | `node:${string}`
+          | `edge:${string}`
+          | `group:${string}`
+          | `msg:${string}`
+          | `cell:${string}[${number}]`
+          | `item:${string}`
+      }
+    | {
+        op: 'hide'
+        target:
+          | `node:${string}`
+          | `edge:${string}`
+          | `group:${string}`
+          | `msg:${string}`
+          | `cell:${string}[${number}]`
+          | `item:${string}`
+      }
+    | {
+        op: 'set'
+        target:
+          | `node:${string}`
+          | `edge:${string}`
+          | `group:${string}`
+          | `msg:${string}`
+          | `cell:${string}[${number}]`
+          | `item:${string}`
+        value: string | number
+      }
+    | {
+        op: 'swap'
+        a:
+          | `node:${string}`
+          | `edge:${string}`
+          | `group:${string}`
+          | `msg:${string}`
+          | `cell:${string}[${number}]`
+          | `item:${string}`
+        b:
+          | `node:${string}`
+          | `edge:${string}`
+          | `group:${string}`
+          | `msg:${string}`
+          | `cell:${string}[${number}]`
+          | `item:${string}`
+      }
+    | {
+        op: 'pointer'
+        name: string
+        target:
+          | `node:${string}`
+          | `edge:${string}`
+          | `group:${string}`
+          | `msg:${string}`
+          | `cell:${string}[${number}]`
+          | `item:${string}`
+          | null
+      }
+    | {
+        op: 'push' | 'enqueue'
+        container: string
+        id: string
+        value: string | number
+      }
+    | {
+        op: 'pop' | 'dequeue'
+        container: string
+      }
+    | {
+        op: 'add'
         element: {
-            id: string;
-            label: string;
-        };
-        parent?: string | undefined;
-    } | {
-        op: "remove";
-        target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-    } | {
-        op: "token";
-        id: string;
-        path: string[];
-        label?: string | undefined;
-    } | {
-        op: "annotate";
-        target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-        text: string;
-    } | {
-        op: "focus";
-        target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}` | "all";
-    })[];
+          id: string
+          label: string
+        }
+        parent?: string | undefined
+      }
+    | {
+        op: 'remove'
+        target:
+          | `node:${string}`
+          | `edge:${string}`
+          | `group:${string}`
+          | `msg:${string}`
+          | `cell:${string}[${number}]`
+          | `item:${string}`
+      }
+    | {
+        op: 'token'
+        id: string
+        path: string[]
+        label?: string | undefined
+      }
+    | {
+        op: 'annotate'
+        target:
+          | `node:${string}`
+          | `edge:${string}`
+          | `group:${string}`
+          | `msg:${string}`
+          | `cell:${string}[${number}]`
+          | `item:${string}`
+        text: string
+      }
+    | {
+        op: 'focus'
+        target:
+          | `node:${string}`
+          | `edge:${string}`
+          | `group:${string}`
+          | `msg:${string}`
+          | `cell:${string}[${number}]`
+          | `item:${string}`
+          | 'all'
+      }
+  )[]
 }
 
 /** Output of the `animator` role (§11): 2–40 steps over an already-validated IR. */
 type AnimationIR = {
-    planItemId: string;
-    initialHidden: (`node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`)[];
-    steps: {
-        id: string;
-        narration: string;
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        actions: ({
-            op: "highlight";
-            target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-            tone: "success" | "focus" | "warning" | "muted";
-        } | {
-            op: "unhighlight";
-            target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}` | "all";
-        } | {
-            op: "reveal";
-            target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-        } | {
-            op: "hide";
-            target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-        } | {
-            op: "set";
-            target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-            value: string | number;
-        } | {
-            op: "swap";
-            a: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-            b: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-        } | {
-            op: "pointer";
-            name: string;
-            target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}` | null;
-        } | {
-            op: "push" | "enqueue";
-            container: string;
-            id: string;
-            value: string | number;
-        } | {
-            op: "pop" | "dequeue";
-            container: string;
-        } | {
-            op: "add";
-            element: {
-                id: string;
-                label: string;
-            };
-            parent?: string | undefined;
-        } | {
-            op: "remove";
-            target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-        } | {
-            op: "token";
-            id: string;
-            path: string[];
-            label?: string | undefined;
-        } | {
-            op: "annotate";
-            target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-            text: string;
-        } | {
-            op: "focus";
-            target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}` | "all";
-        })[];
-    }[];
+  planItemId: string
+  initialHidden: (
+    | `node:${string}`
+    | `edge:${string}`
+    | `group:${string}`
+    | `msg:${string}`
+    | `cell:${string}[${number}]`
+    | `item:${string}`
+  )[]
+  steps: {
+    id: string
+    narration: string
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+    actions: (
+      | {
+          op: 'highlight'
+          target:
+            | `node:${string}`
+            | `edge:${string}`
+            | `group:${string}`
+            | `msg:${string}`
+            | `cell:${string}[${number}]`
+            | `item:${string}`
+          tone: 'success' | 'focus' | 'warning' | 'muted'
+        }
+      | {
+          op: 'unhighlight'
+          target:
+            | `node:${string}`
+            | `edge:${string}`
+            | `group:${string}`
+            | `msg:${string}`
+            | `cell:${string}[${number}]`
+            | `item:${string}`
+            | 'all'
+        }
+      | {
+          op: 'reveal'
+          target:
+            | `node:${string}`
+            | `edge:${string}`
+            | `group:${string}`
+            | `msg:${string}`
+            | `cell:${string}[${number}]`
+            | `item:${string}`
+        }
+      | {
+          op: 'hide'
+          target:
+            | `node:${string}`
+            | `edge:${string}`
+            | `group:${string}`
+            | `msg:${string}`
+            | `cell:${string}[${number}]`
+            | `item:${string}`
+        }
+      | {
+          op: 'set'
+          target:
+            | `node:${string}`
+            | `edge:${string}`
+            | `group:${string}`
+            | `msg:${string}`
+            | `cell:${string}[${number}]`
+            | `item:${string}`
+          value: string | number
+        }
+      | {
+          op: 'swap'
+          a:
+            | `node:${string}`
+            | `edge:${string}`
+            | `group:${string}`
+            | `msg:${string}`
+            | `cell:${string}[${number}]`
+            | `item:${string}`
+          b:
+            | `node:${string}`
+            | `edge:${string}`
+            | `group:${string}`
+            | `msg:${string}`
+            | `cell:${string}[${number}]`
+            | `item:${string}`
+        }
+      | {
+          op: 'pointer'
+          name: string
+          target:
+            | `node:${string}`
+            | `edge:${string}`
+            | `group:${string}`
+            | `msg:${string}`
+            | `cell:${string}[${number}]`
+            | `item:${string}`
+            | null
+        }
+      | {
+          op: 'push' | 'enqueue'
+          container: string
+          id: string
+          value: string | number
+        }
+      | {
+          op: 'pop' | 'dequeue'
+          container: string
+        }
+      | {
+          op: 'add'
+          element: {
+            id: string
+            label: string
+          }
+          parent?: string | undefined
+        }
+      | {
+          op: 'remove'
+          target:
+            | `node:${string}`
+            | `edge:${string}`
+            | `group:${string}`
+            | `msg:${string}`
+            | `cell:${string}[${number}]`
+            | `item:${string}`
+        }
+      | {
+          op: 'token'
+          id: string
+          path: string[]
+          label?: string | undefined
+        }
+      | {
+          op: 'annotate'
+          target:
+            | `node:${string}`
+            | `edge:${string}`
+            | `group:${string}`
+            | `msg:${string}`
+            | `cell:${string}[${number}]`
+            | `item:${string}`
+          text: string
+        }
+      | {
+          op: 'focus'
+          target:
+            | `node:${string}`
+            | `edge:${string}`
+            | `group:${string}`
+            | `msg:${string}`
+            | `cell:${string}[${number}]`
+            | `item:${string}`
+            | 'all'
+        }
+    )[]
+  }[]
 }
 
 /** Precomputed state of one animation frame (§11 reducer). `frames[0]` is the base spec with `initialHidden` applied (`step: 0`); `frames[i]` has `steps[0..i-1]` applied (`step: i`).  Persistence follows §11: highlights persist until `unhighlight`; pointers persist until moved or set to `null` (then the key is removed); `annotations` and `tokens` hold only the current step's. Records are keyed by `Target` string (or pointer name / container id) so frames stay JSON-serialisable. */
 type FrameState = {
-    step: number;
-    hidden: (`node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`)[];
-    removed: (`node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`)[];
-    highlights: Record<string, "success" | "focus" | "warning" | "muted">;
-    pointers: Record<string, `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`>;
-    values: Record<string, string | number>;
-    slots: Record<string, `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`>;
-    containers: Record<string, {
-        id: string;
-        value: string | number;
-    }[]>;
-    added: {
-        id: string;
-        label: string;
-        parent?: string | undefined;
-    }[];
-    annotations: Record<string, string>;
-    tokens: {
-        id: string;
-        path: string[];
-        label?: string | undefined;
-    }[];
-    focus: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}` | "all" | null;
-    relayout: boolean;
-    stepId?: string | undefined;
-    narration?: string | undefined;
-    evidence?: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    } | undefined;
+  step: number
+  hidden: (
+    | `node:${string}`
+    | `edge:${string}`
+    | `group:${string}`
+    | `msg:${string}`
+    | `cell:${string}[${number}]`
+    | `item:${string}`
+  )[]
+  removed: (
+    | `node:${string}`
+    | `edge:${string}`
+    | `group:${string}`
+    | `msg:${string}`
+    | `cell:${string}[${number}]`
+    | `item:${string}`
+  )[]
+  highlights: Record<string, 'success' | 'focus' | 'warning' | 'muted'>
+  pointers: Record<
+    string,
+    | `node:${string}`
+    | `edge:${string}`
+    | `group:${string}`
+    | `msg:${string}`
+    | `cell:${string}[${number}]`
+    | `item:${string}`
+  >
+  values: Record<string, string | number>
+  slots: Record<
+    string,
+    | `node:${string}`
+    | `edge:${string}`
+    | `group:${string}`
+    | `msg:${string}`
+    | `cell:${string}[${number}]`
+    | `item:${string}`
+  >
+  containers: Record<
+    string,
+    {
+      id: string
+      value: string | number
+    }[]
+  >
+  added: {
+    id: string
+    label: string
+    parent?: string | undefined
+  }[]
+  annotations: Record<string, string>
+  tokens: {
+    id: string
+    path: string[]
+    label?: string | undefined
+  }[]
+  focus:
+    | `node:${string}`
+    | `edge:${string}`
+    | `group:${string}`
+    | `msg:${string}`
+    | `cell:${string}[${number}]`
+    | `item:${string}`
+    | 'all'
+    | null
+  relayout: boolean
+  stepId?: string | undefined
+  narration?: string | undefined
+  evidence?:
+    | {
+        blockId: string
+        quote: string
+        start?: number | undefined
+        end?: number | undefined
+        fuzzy?: boolean | undefined
+      }
+    | undefined
 }
 ```
 
@@ -322,33 +665,57 @@ type FrameState = {
 
 ```ts
 /** Typed piece of a section (§5, classification rules in §6 step 6). */
-type BlockKind = "quote" | "paragraph" | "code" | "figure" | "table" | "math" | "list" | "aside"
+type BlockKind =
+  | 'quote'
+  | 'paragraph'
+  | 'code'
+  | 'figure'
+  | 'table'
+  | 'math'
+  | 'list'
+  | 'aside'
 
 /** One block of book text. `text` is normalised plain text: NFC, soft hyphens removed, whitespace collapsed (§6 step 9). Exception since v1.2 (ADR 0008): for `kind: 'code'` it keeps line breaks and indentation (tabs included); only trailing whitespace on each line and blank lines at the start and end are trimmed. Grounding stays whitespace-insensitive: §16 collapses whitespace in quote and block before matching. */
 type Block = {
-    blockId: string;
-    sectionId: string;
-    kind: "quote" | "paragraph" | "code" | "figure" | "table" | "math" | "list" | "aside";
-    text: string;
-    cfiRange: string;
-    label?: string | undefined;
-    code?: {
-        source: string;
-        langHint?: string | undefined;
-    } | undefined;
-    figure?: {
-        caption?: string | undefined;
-        alt?: string | undefined;
-        imgHref?: string | undefined;
-    } | undefined;
-    table?: {
-        html: string;
-        rows: string[][];
-    } | undefined;
-    math?: {
-        mathml?: string | undefined;
-        tex?: string | undefined;
-    } | undefined;
+  blockId: string
+  sectionId: string
+  kind:
+    | 'quote'
+    | 'paragraph'
+    | 'code'
+    | 'figure'
+    | 'table'
+    | 'math'
+    | 'list'
+    | 'aside'
+  text: string
+  cfiRange: string
+  label?: string | undefined
+  code?:
+    | {
+        source: string
+        langHint?: string | undefined
+      }
+    | undefined
+  figure?:
+    | {
+        caption?: string | undefined
+        alt?: string | undefined
+        imgHref?: string | undefined
+      }
+    | undefined
+  table?:
+    | {
+        html: string
+        rows: string[][]
+      }
+    | undefined
+  math?:
+    | {
+        mathml?: string | undefined
+        tex?: string | undefined
+      }
+    | undefined
 }
 
 /** Heading level that starts a section (h1–h4, §6 step 4). */
@@ -356,58 +723,60 @@ type SectionLevel = 1 | 3 | 4 | 2
 
 /** A heading-delimited unit inside a spine item; the unit of generation (§5). */
 type SectionNode = {
-    sectionId: string;
-    bookId: string;
-    spineIndex: number;
-    spineHref: string;
-    ordinal: number;
-    level: 1 | 3 | 4 | 2;
-    title: string;
-    headingPath: string[];
-    childIds: string[];
-    blockIds: string[];
-    cfiStart: string;
-    cfiEnd: string;
-    contentHash: string;
-    tokenEstimate: number;
-    number?: string | undefined;
-    parentId?: string | undefined;
-    mergedInto?: string | undefined;
+  sectionId: string
+  bookId: string
+  spineIndex: number
+  spineHref: string
+  ordinal: number
+  level: 1 | 3 | 4 | 2
+  title: string
+  headingPath: string[]
+  childIds: string[]
+  blockIds: string[]
+  cfiStart: string
+  cfiEnd: string
+  contentHash: string
+  tokenEstimate: number
+  number?: string | undefined
+  parentId?: string | undefined
+  mergedInto?: string | undefined
 }
 
 /** A link or textual reference from a block to a section or block (§5, §6 step 13). */
 type CrossRef = {
-    fromBlockId: string;
-    kind: "link" | "textual";
-    resolved: boolean;
-    id?: number | undefined;
-    label?: string | undefined;
-    targetSectionId?: string | undefined;
-    targetBlockId?: string | undefined;
+  fromBlockId: string
+  kind: 'link' | 'textual'
+  resolved: boolean
+  id?: number | undefined
+  label?: string | undefined
+  targetSectionId?: string | undefined
+  targetBlockId?: string | undefined
 }
 
 /** Indexing progress of a book (§6): `structural` after phase A, `complete` after phase B. */
-type IndexStatus = "none" | "structural" | "complete"
+type IndexStatus = 'none' | 'structural' | 'complete'
 
 /** 150-word book summary plus naming conventions, the cached prompt prefix (§6 phase B step 6). */
 type BookSummary = {
-    summary: string;
-    conventions: string[];
+  summary: string
+  conventions: string[]
 }
 
 /** Record of the `books` store (§5). `bookId` = first 16 hex of SHA-256 of the EPUB bytes. */
 type BookMeta = {
-    bookId: string;
-    title: string;
-    indexStatus: "none" | "structural" | "complete";
-    indexVersion: number;
-    createdAt: number;
-    updatedAt: number;
-    sectionCount?: number | undefined;
-    summary?: {
-        summary: string;
-        conventions: string[];
-    } | undefined;
+  bookId: string
+  title: string
+  indexStatus: 'none' | 'structural' | 'complete'
+  indexVersion: number
+  createdAt: number
+  updatedAt: number
+  sectionCount?: number | undefined
+  summary?:
+    | {
+        summary: string
+        conventions: string[]
+      }
+    | undefined
 }
 ```
 
@@ -428,23 +797,23 @@ type Timestamp = number
 
 /** Evidence: a verbatim quote of at most 30 words from one block, justifying one IR element (§5, §16). `start`/`end` are filled by the grounding matcher (offsets into the block's text); `fuzzy` is set when the match needed the Levenshtein fallback (§16 step 4). */
 type Evidence = {
-    blockId: string;
-    quote: string;
-    start?: number | undefined;
-    end?: number | undefined;
-    fuzzy?: boolean | undefined;
+  blockId: string
+  quote: string
+  start?: number | undefined
+  end?: number | undefined
+  fuzzy?: boolean | undefined
 }
 
 /** Reasoning effort sent on every model call. v1 allows only these three (§9). */
-type ReasoningEffort = "low" | "medium" | "high"
+type ReasoningEffort = 'low' | 'medium' | 'high'
 
 /** Model tier a role runs on (§9). */
-type Tier = "fast" | "standard" | "deep"
+type Tier = 'fast' | 'standard' | 'deep'
 
 /** Which model and prompt version produced a record (`indexedWith`, `createdWith`, §5). */
 type ProducedWith = {
-    model: string;
-    promptVersion: string;
+  model: string
+  promptVersion: string
 }
 ```
 
@@ -452,601 +821,649 @@ type ProducedWith = {
 
 ```ts
 /** One patch operation (§13). The spec's `item: unknown` add-ops are typed per kind here. */
-type PatchOp = {
-    op: "addNode";
-    node: {
-        id: string;
-        label: string;
-        shape: "queue" | "box" | "store" | "actor" | "decision" | "note";
+type PatchOp =
+  | {
+      op: 'addNode'
+      node: {
+        id: string
+        label: string
+        shape: 'queue' | 'box' | 'store' | 'actor' | 'decision' | 'note'
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        sublabel?: string | undefined;
-        group?: string | undefined;
-    };
-} | {
-    op: "addEdge";
-    edge: {
-        id: string;
-        from: string;
-        to: string;
-        style: "solid" | "dashed";
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+        sublabel?: string | undefined
+        group?: string | undefined
+      }
+    }
+  | {
+      op: 'addEdge'
+      edge: {
+        id: string
+        from: string
+        to: string
+        style: 'solid' | 'dashed'
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        label?: string | undefined;
-    };
-} | {
-    op: "addGroup";
-    group: {
-        id: string;
-        label: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+        label?: string | undefined
+      }
+    }
+  | {
+      op: 'addGroup'
+      group: {
+        id: string
+        label: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        parent?: string | undefined;
-    };
-} | {
-    op: "addParticipant";
-    item: {
-        id: string;
-        label: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+        parent?: string | undefined
+      }
+    }
+  | {
+      op: 'addParticipant'
+      item: {
+        id: string
+        label: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    };
-} | {
-    op: "addMessage";
-    item: {
-        id: string;
-        from: string;
-        to: string;
-        label: string;
-        kind: "sync" | "async" | "reply";
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+      }
+    }
+  | {
+      op: 'addMessage'
+      item: {
+        id: string
+        from: string
+        to: string
+        label: string
+        kind: 'sync' | 'async' | 'reply'
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    };
-} | {
-    op: "addState";
-    item: {
-        id: string;
-        label: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+      }
+    }
+  | {
+      op: 'addState'
+      item: {
+        id: string
+        label: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    };
-} | {
-    op: "addTransition";
-    item: {
-        id: string;
-        from: string;
-        to: string;
-        event: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+      }
+    }
+  | {
+      op: 'addTransition'
+      item: {
+        id: string
+        from: string
+        to: string
+        event: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        guard?: string | undefined;
-    };
-} | {
-    op: "update";
-    id: string;
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
-    label?: string | undefined;
-    sublabel?: string | undefined;
-    group?: string | undefined;
-} | {
-    op: "remove";
-    id: string;
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
-} | {
-    op: "annotate";
-    id: string;
-    text: string;
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
-}
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+        guard?: string | undefined
+      }
+    }
+  | {
+      op: 'update'
+      id: string
+      evidence: {
+        blockId: string
+        quote: string
+        start?: number | undefined
+        end?: number | undefined
+        fuzzy?: boolean | undefined
+      }
+      label?: string | undefined
+      sublabel?: string | undefined
+      group?: string | undefined
+    }
+  | {
+      op: 'remove'
+      id: string
+      evidence: {
+        blockId: string
+        quote: string
+        start?: number | undefined
+        end?: number | undefined
+        fuzzy?: boolean | undefined
+      }
+    }
+  | {
+      op: 'annotate'
+      id: string
+      text: string
+      evidence: {
+        blockId: string
+        quote: string
+        start?: number | undefined
+        end?: number | undefined
+        fuzzy?: boolean | undefined
+      }
+    }
 
 /** Output of the `patcher` role: at most 8 ops for one section (§13). */
 type PatchOutput = {
-    ops: ({
-        op: "addNode";
+  ops: (
+    | {
+        op: 'addNode'
         node: {
-            id: string;
-            label: string;
-            shape: "queue" | "box" | "store" | "actor" | "decision" | "note";
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-            sublabel?: string | undefined;
-            group?: string | undefined;
-        };
-    } | {
-        op: "addEdge";
+          id: string
+          label: string
+          shape: 'queue' | 'box' | 'store' | 'actor' | 'decision' | 'note'
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+          sublabel?: string | undefined
+          group?: string | undefined
+        }
+      }
+    | {
+        op: 'addEdge'
         edge: {
-            id: string;
-            from: string;
-            to: string;
-            style: "solid" | "dashed";
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-            label?: string | undefined;
-        };
-    } | {
-        op: "addGroup";
+          id: string
+          from: string
+          to: string
+          style: 'solid' | 'dashed'
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+          label?: string | undefined
+        }
+      }
+    | {
+        op: 'addGroup'
         group: {
-            id: string;
-            label: string;
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-            parent?: string | undefined;
-        };
-    } | {
-        op: "addParticipant";
+          id: string
+          label: string
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+          parent?: string | undefined
+        }
+      }
+    | {
+        op: 'addParticipant'
         item: {
-            id: string;
-            label: string;
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-        };
-    } | {
-        op: "addMessage";
+          id: string
+          label: string
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+        }
+      }
+    | {
+        op: 'addMessage'
         item: {
-            id: string;
-            from: string;
-            to: string;
-            label: string;
-            kind: "sync" | "async" | "reply";
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-        };
-    } | {
-        op: "addState";
+          id: string
+          from: string
+          to: string
+          label: string
+          kind: 'sync' | 'async' | 'reply'
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+        }
+      }
+    | {
+        op: 'addState'
         item: {
-            id: string;
-            label: string;
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-        };
-    } | {
-        op: "addTransition";
+          id: string
+          label: string
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+        }
+      }
+    | {
+        op: 'addTransition'
         item: {
-            id: string;
-            from: string;
-            to: string;
-            event: string;
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-            guard?: string | undefined;
-        };
-    } | {
-        op: "update";
-        id: string;
+          id: string
+          from: string
+          to: string
+          event: string
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+          guard?: string | undefined
+        }
+      }
+    | {
+        op: 'update'
+        id: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        label?: string | undefined;
-        sublabel?: string | undefined;
-        group?: string | undefined;
-    } | {
-        op: "remove";
-        id: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+        label?: string | undefined
+        sublabel?: string | undefined
+        group?: string | undefined
+      }
+    | {
+        op: 'remove'
+        id: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    } | {
-        op: "annotate";
-        id: string;
-        text: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+      }
+    | {
+        op: 'annotate'
+        id: string
+        text: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    })[];
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+      }
+  )[]
 }
 
 /** A stored patch (§5). Patch 0 of a model is its base. */
 type Patch = {
-    patchId: string;
-    sectionId: string;
-    sectionOrdinal: number;
-    ops: ({
-        op: "addNode";
+  patchId: string
+  sectionId: string
+  sectionOrdinal: number
+  ops: (
+    | {
+        op: 'addNode'
         node: {
-            id: string;
-            label: string;
-            shape: "queue" | "box" | "store" | "actor" | "decision" | "note";
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-            sublabel?: string | undefined;
-            group?: string | undefined;
-        };
-    } | {
-        op: "addEdge";
+          id: string
+          label: string
+          shape: 'queue' | 'box' | 'store' | 'actor' | 'decision' | 'note'
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+          sublabel?: string | undefined
+          group?: string | undefined
+        }
+      }
+    | {
+        op: 'addEdge'
         edge: {
-            id: string;
-            from: string;
-            to: string;
-            style: "solid" | "dashed";
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-            label?: string | undefined;
-        };
-    } | {
-        op: "addGroup";
+          id: string
+          from: string
+          to: string
+          style: 'solid' | 'dashed'
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+          label?: string | undefined
+        }
+      }
+    | {
+        op: 'addGroup'
         group: {
-            id: string;
-            label: string;
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-            parent?: string | undefined;
-        };
-    } | {
-        op: "addParticipant";
+          id: string
+          label: string
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+          parent?: string | undefined
+        }
+      }
+    | {
+        op: 'addParticipant'
         item: {
-            id: string;
-            label: string;
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-        };
-    } | {
-        op: "addMessage";
+          id: string
+          label: string
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+        }
+      }
+    | {
+        op: 'addMessage'
         item: {
-            id: string;
-            from: string;
-            to: string;
-            label: string;
-            kind: "sync" | "async" | "reply";
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-        };
-    } | {
-        op: "addState";
+          id: string
+          from: string
+          to: string
+          label: string
+          kind: 'sync' | 'async' | 'reply'
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+        }
+      }
+    | {
+        op: 'addState'
         item: {
-            id: string;
-            label: string;
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-        };
-    } | {
-        op: "addTransition";
+          id: string
+          label: string
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+        }
+      }
+    | {
+        op: 'addTransition'
         item: {
-            id: string;
-            from: string;
-            to: string;
-            event: string;
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-            guard?: string | undefined;
-        };
-    } | {
-        op: "update";
-        id: string;
+          id: string
+          from: string
+          to: string
+          event: string
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+          guard?: string | undefined
+        }
+      }
+    | {
+        op: 'update'
+        id: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        label?: string | undefined;
-        sublabel?: string | undefined;
-        group?: string | undefined;
-    } | {
-        op: "remove";
-        id: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+        label?: string | undefined
+        sublabel?: string | undefined
+        group?: string | undefined
+      }
+    | {
+        op: 'remove'
+        id: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    } | {
-        op: "annotate";
-        id: string;
-        text: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+      }
+    | {
+        op: 'annotate'
+        id: string
+        text: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    })[];
-    createdWith: {
-        model: string;
-        promptVersion: string;
-    };
-    rebased?: boolean | undefined;
-    stale?: boolean | undefined;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+      }
+  )[]
+  createdWith: {
+    model: string
+    promptVersion: string
+  }
+  rebased?: boolean | undefined
+  stale?: boolean | undefined
 }
 
 /** Record of the `conceptModels` store (§5). Patches are sorted by `sectionOrdinal`. */
 type ConceptModel = {
-    conceptModelId: string;
-    conceptId: string;
-    bookId: string;
-    kind: "graph" | "sequence" | "state";
-    patches: {
-        patchId: string;
-        sectionId: string;
-        sectionOrdinal: number;
-        ops: ({
-            op: "addNode";
-            node: {
-                id: string;
-                label: string;
-                shape: "queue" | "box" | "store" | "actor" | "decision" | "note";
-                evidence: {
-                    blockId: string;
-                    quote: string;
-                    start?: number | undefined;
-                    end?: number | undefined;
-                    fuzzy?: boolean | undefined;
-                };
-                sublabel?: string | undefined;
-                group?: string | undefined;
-            };
-        } | {
-            op: "addEdge";
-            edge: {
-                id: string;
-                from: string;
-                to: string;
-                style: "solid" | "dashed";
-                evidence: {
-                    blockId: string;
-                    quote: string;
-                    start?: number | undefined;
-                    end?: number | undefined;
-                    fuzzy?: boolean | undefined;
-                };
-                label?: string | undefined;
-            };
-        } | {
-            op: "addGroup";
-            group: {
-                id: string;
-                label: string;
-                evidence: {
-                    blockId: string;
-                    quote: string;
-                    start?: number | undefined;
-                    end?: number | undefined;
-                    fuzzy?: boolean | undefined;
-                };
-                parent?: string | undefined;
-            };
-        } | {
-            op: "addParticipant";
-            item: {
-                id: string;
-                label: string;
-                evidence: {
-                    blockId: string;
-                    quote: string;
-                    start?: number | undefined;
-                    end?: number | undefined;
-                    fuzzy?: boolean | undefined;
-                };
-            };
-        } | {
-            op: "addMessage";
-            item: {
-                id: string;
-                from: string;
-                to: string;
-                label: string;
-                kind: "sync" | "async" | "reply";
-                evidence: {
-                    blockId: string;
-                    quote: string;
-                    start?: number | undefined;
-                    end?: number | undefined;
-                    fuzzy?: boolean | undefined;
-                };
-            };
-        } | {
-            op: "addState";
-            item: {
-                id: string;
-                label: string;
-                evidence: {
-                    blockId: string;
-                    quote: string;
-                    start?: number | undefined;
-                    end?: number | undefined;
-                    fuzzy?: boolean | undefined;
-                };
-            };
-        } | {
-            op: "addTransition";
-            item: {
-                id: string;
-                from: string;
-                to: string;
-                event: string;
-                evidence: {
-                    blockId: string;
-                    quote: string;
-                    start?: number | undefined;
-                    end?: number | undefined;
-                    fuzzy?: boolean | undefined;
-                };
-                guard?: string | undefined;
-            };
-        } | {
-            op: "update";
-            id: string;
+  conceptModelId: string
+  conceptId: string
+  bookId: string
+  kind: 'graph' | 'sequence' | 'state'
+  patches: {
+    patchId: string
+    sectionId: string
+    sectionOrdinal: number
+    ops: (
+      | {
+          op: 'addNode'
+          node: {
+            id: string
+            label: string
+            shape: 'queue' | 'box' | 'store' | 'actor' | 'decision' | 'note'
             evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-            label?: string | undefined;
-            sublabel?: string | undefined;
-            group?: string | undefined;
-        } | {
-            op: "remove";
-            id: string;
+              blockId: string
+              quote: string
+              start?: number | undefined
+              end?: number | undefined
+              fuzzy?: boolean | undefined
+            }
+            sublabel?: string | undefined
+            group?: string | undefined
+          }
+        }
+      | {
+          op: 'addEdge'
+          edge: {
+            id: string
+            from: string
+            to: string
+            style: 'solid' | 'dashed'
             evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-        } | {
-            op: "annotate";
-            id: string;
-            text: string;
+              blockId: string
+              quote: string
+              start?: number | undefined
+              end?: number | undefined
+              fuzzy?: boolean | undefined
+            }
+            label?: string | undefined
+          }
+        }
+      | {
+          op: 'addGroup'
+          group: {
+            id: string
+            label: string
             evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-        })[];
-        createdWith: {
-            model: string;
-            promptVersion: string;
-        };
-        rebased?: boolean | undefined;
-        stale?: boolean | undefined;
-    }[];
-    layout?: Record<string, {
-        x: number;
-        y: number;
-    }> | undefined;
+              blockId: string
+              quote: string
+              start?: number | undefined
+              end?: number | undefined
+              fuzzy?: boolean | undefined
+            }
+            parent?: string | undefined
+          }
+        }
+      | {
+          op: 'addParticipant'
+          item: {
+            id: string
+            label: string
+            evidence: {
+              blockId: string
+              quote: string
+              start?: number | undefined
+              end?: number | undefined
+              fuzzy?: boolean | undefined
+            }
+          }
+        }
+      | {
+          op: 'addMessage'
+          item: {
+            id: string
+            from: string
+            to: string
+            label: string
+            kind: 'sync' | 'async' | 'reply'
+            evidence: {
+              blockId: string
+              quote: string
+              start?: number | undefined
+              end?: number | undefined
+              fuzzy?: boolean | undefined
+            }
+          }
+        }
+      | {
+          op: 'addState'
+          item: {
+            id: string
+            label: string
+            evidence: {
+              blockId: string
+              quote: string
+              start?: number | undefined
+              end?: number | undefined
+              fuzzy?: boolean | undefined
+            }
+          }
+        }
+      | {
+          op: 'addTransition'
+          item: {
+            id: string
+            from: string
+            to: string
+            event: string
+            evidence: {
+              blockId: string
+              quote: string
+              start?: number | undefined
+              end?: number | undefined
+              fuzzy?: boolean | undefined
+            }
+            guard?: string | undefined
+          }
+        }
+      | {
+          op: 'update'
+          id: string
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+          label?: string | undefined
+          sublabel?: string | undefined
+          group?: string | undefined
+        }
+      | {
+          op: 'remove'
+          id: string
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+        }
+      | {
+          op: 'annotate'
+          id: string
+          text: string
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+        }
+    )[]
+    createdWith: {
+      model: string
+      promptVersion: string
+    }
+    rebased?: boolean | undefined
+    stale?: boolean | undefined
+  }[]
+  layout?:
+    | Record<
+        string,
+        {
+          x: number
+          y: number
+        }
+      >
+    | undefined
 }
 ```
 
@@ -1055,1208 +1472,1559 @@ type ConceptModel = {
 ```ts
 /** Content flags the indexer sets per section (§5). */
 type SectionFlags = {
-    algorithm: boolean;
-    protocol: boolean;
-    architecture: boolean;
-    dataStructure: boolean;
-    stateMachine: boolean;
-    math: boolean;
-    codeHeavy: boolean;
-    narrative: boolean;
+  algorithm: boolean
+  protocol: boolean
+  architecture: boolean
+  dataStructure: boolean
+  stateMachine: boolean
+  math: boolean
+  codeHeavy: boolean
+  narrative: boolean
 }
 
 /** What the `indexer` model returns for one section; the client adds `indexedWith`. */
 type SectionIndexOutput = {
-    sectionId: string;
-    summary: string;
-    defines: {
-        name: string;
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    }[];
-    uses: {
-        name: string;
-    }[];
-    flags: {
-        algorithm: boolean;
-        protocol: boolean;
-        architecture: boolean;
-        dataStructure: boolean;
-        stateMachine: boolean;
-        math: boolean;
-        codeHeavy: boolean;
-        narrative: boolean;
-    };
+  sectionId: string
+  summary: string
+  defines: {
+    name: string
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+  }[]
+  uses: {
+    name: string
+  }[]
+  flags: {
+    algorithm: boolean
+    protocol: boolean
+    architecture: boolean
+    dataStructure: boolean
+    stateMachine: boolean
+    math: boolean
+    codeHeavy: boolean
+    narrative: boolean
+  }
 }
 
 /** Per-section concept index (§5). */
 type SectionIndex = {
-    sectionId: string;
-    summary: string;
-    defines: {
-        name: string;
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    }[];
-    uses: {
-        name: string;
-    }[];
-    flags: {
-        algorithm: boolean;
-        protocol: boolean;
-        architecture: boolean;
-        dataStructure: boolean;
-        stateMachine: boolean;
-        math: boolean;
-        codeHeavy: boolean;
-        narrative: boolean;
-    };
-    indexedWith: {
-        model: string;
-        promptVersion: string;
-    };
+  sectionId: string
+  summary: string
+  defines: {
+    name: string
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+  }[]
+  uses: {
+    name: string
+  }[]
+  flags: {
+    algorithm: boolean
+    protocol: boolean
+    architecture: boolean
+    dataStructure: boolean
+    stateMachine: boolean
+    math: boolean
+    codeHeavy: boolean
+    narrative: boolean
+  }
+  indexedWith: {
+    model: string
+    promptVersion: string
+  }
 }
 
 /** Record of the `sectionIndex` store: a `SectionIndex` plus its `bookId` (store index, §5). */
 type SectionIndexRecord = {
-    sectionId: string;
-    summary: string;
-    defines: {
-        name: string;
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    }[];
-    uses: {
-        name: string;
-    }[];
-    flags: {
-        algorithm: boolean;
-        protocol: boolean;
-        architecture: boolean;
-        dataStructure: boolean;
-        stateMachine: boolean;
-        math: boolean;
-        codeHeavy: boolean;
-        narrative: boolean;
-    };
-    indexedWith: {
-        model: string;
-        promptVersion: string;
-    };
-    bookId: string;
+  sectionId: string
+  summary: string
+  defines: {
+    name: string
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+  }[]
+  uses: {
+    name: string
+  }[]
+  flags: {
+    algorithm: boolean
+    protocol: boolean
+    architecture: boolean
+    dataStructure: boolean
+    stateMachine: boolean
+    math: boolean
+    codeHeavy: boolean
+    narrative: boolean
+  }
+  indexedWith: {
+    model: string
+    promptVersion: string
+  }
+  bookId: string
 }
 
 /** Output of the `indexer` role: one entry per section in the batch (≤ 8 sections, §6 phase B step 3). Wrapped in an object because structured outputs need an object at the root (ADR 0003). */
 type IndexerOutput = {
-    sections: {
-        sectionId: string;
-        summary: string;
-        defines: {
-            name: string;
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-        }[];
-        uses: {
-            name: string;
-        }[];
-        flags: {
-            algorithm: boolean;
-            protocol: boolean;
-            architecture: boolean;
-            dataStructure: boolean;
-            stateMachine: boolean;
-            math: boolean;
-            codeHeavy: boolean;
-            narrative: boolean;
-        };
-    }[];
+  sections: {
+    sectionId: string
+    summary: string
+    defines: {
+      name: string
+      evidence: {
+        blockId: string
+        quote: string
+        start?: number | undefined
+        end?: number | undefined
+        fuzzy?: boolean | undefined
+      }
+    }[]
+    uses: {
+      name: string
+    }[]
+    flags: {
+      algorithm: boolean
+      protocol: boolean
+      architecture: boolean
+      dataStructure: boolean
+      stateMachine: boolean
+      math: boolean
+      codeHeavy: boolean
+      narrative: boolean
+    }
+  }[]
 }
 
 /** A concept in the book-wide registry (§5). */
 type Concept = {
-    conceptId: string;
-    bookId: string;
-    canonical: string;
-    aliases: string[];
-    firstOrdinal: number;
-    usedInSectionIds: string[];
-    spanning: boolean;
-    definedInSectionId?: string | undefined;
-    definition?: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    } | undefined;
+  conceptId: string
+  bookId: string
+  canonical: string
+  aliases: string[]
+  firstOrdinal: number
+  usedInSectionIds: string[]
+  spanning: boolean
+  definedInSectionId?: string | undefined
+  definition?:
+    | {
+        blockId: string
+        quote: string
+        start?: number | undefined
+        end?: number | undefined
+        fuzzy?: boolean | undefined
+      }
+    | undefined
 }
 
 /** One merged cluster from the `glossary` role: a canonical name and its aliases (§6 phase B step 5). */
 type ConceptMerge = {
-    canonical: string;
-    aliases: string[];
+  canonical: string
+  aliases: string[]
 }
 
 /** Output of the `glossary` role (`ConceptMerge[]` wrapped in an object, ADR 0003). */
 type GlossaryOutput = {
-    merges: {
-        canonical: string;
-        aliases: string[];
-    }[];
+  merges: {
+    canonical: string
+    aliases: string[]
+  }[]
 }
 ```
 
 ### `src/schemas/ir.ts`
 
 ```ts
-type GraphNodeShape = "queue" | "box" | "store" | "actor" | "decision" | "note"
+type GraphNodeShape = 'queue' | 'box' | 'store' | 'actor' | 'decision' | 'note'
 
 type GraphNode = {
-    id: string;
-    label: string;
-    shape: "queue" | "box" | "store" | "actor" | "decision" | "note";
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
-    sublabel?: string | undefined;
-    group?: string | undefined;
+  id: string
+  label: string
+  shape: 'queue' | 'box' | 'store' | 'actor' | 'decision' | 'note'
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
+  sublabel?: string | undefined
+  group?: string | undefined
 }
 
 type GraphEdge = {
-    id: string;
-    from: string;
-    to: string;
-    style: "solid" | "dashed";
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
-    label?: string | undefined;
+  id: string
+  from: string
+  to: string
+  style: 'solid' | 'dashed'
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
+  label?: string | undefined
 }
 
 type GraphGroup = {
-    id: string;
-    label: string;
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
-    parent?: string | undefined;
+  id: string
+  label: string
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
+  parent?: string | undefined
 }
 
 /** Components and what calls what; layered with ELK (§8, §10). ≤ 12 nodes, ≤ 18 edges. */
 type GraphIR = {
-    type: "graph";
-    title: string;
-    direction: "LR" | "TB";
-    nodes: {
-        id: string;
-        label: string;
-        shape: "queue" | "box" | "store" | "actor" | "decision" | "note";
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        sublabel?: string | undefined;
-        group?: string | undefined;
-    }[];
-    edges: {
-        id: string;
-        from: string;
-        to: string;
-        style: "solid" | "dashed";
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        label?: string | undefined;
-    }[];
-    groups: {
-        id: string;
-        label: string;
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        parent?: string | undefined;
-    }[];
+  type: 'graph'
+  title: string
+  direction: 'LR' | 'TB'
+  nodes: {
+    id: string
+    label: string
+    shape: 'queue' | 'box' | 'store' | 'actor' | 'decision' | 'note'
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+    sublabel?: string | undefined
+    group?: string | undefined
+  }[]
+  edges: {
+    id: string
+    from: string
+    to: string
+    style: 'solid' | 'dashed'
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+    label?: string | undefined
+  }[]
+  groups: {
+    id: string
+    label: string
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+    parent?: string | undefined
+  }[]
 }
 
 type SequenceParticipant = {
-    id: string;
-    label: string;
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
+  id: string
+  label: string
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
 }
 
 type SequenceMessage = {
-    id: string;
-    from: string;
-    to: string;
-    label: string;
-    kind: "sync" | "async" | "reply";
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
+  id: string
+  from: string
+  to: string
+  label: string
+  kind: 'sync' | 'async' | 'reply'
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
 }
 
 /** Messages between parties over time; Mermaid (§8). ≤ 6 participants, ≤ 20 messages. */
 type SequenceIR = {
-    type: "sequence";
-    title: string;
-    participants: {
-        id: string;
-        label: string;
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    }[];
-    messages: {
-        id: string;
-        from: string;
-        to: string;
-        label: string;
-        kind: "sync" | "async" | "reply";
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    }[];
+  type: 'sequence'
+  title: string
+  participants: {
+    id: string
+    label: string
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+  }[]
+  messages: {
+    id: string
+    from: string
+    to: string
+    label: string
+    kind: 'sync' | 'async' | 'reply'
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+  }[]
 }
 
 type StateNode = {
-    id: string;
-    label: string;
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
+  id: string
+  label: string
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
 }
 
 type StateTransition = {
-    id: string;
-    from: string;
-    to: string;
-    event: string;
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
-    guard?: string | undefined;
+  id: string
+  from: string
+  to: string
+  event: string
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
+  guard?: string | undefined
 }
 
 /** Modes, lifecycles, transitions on events; Mermaid (§8). ≤ 10 states. */
 type StateIR = {
-    type: "state";
-    title: string;
-    initial: string;
-    final: string[];
-    states: {
-        id: string;
-        label: string;
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    }[];
-    transitions: {
-        id: string;
-        from: string;
-        to: string;
-        event: string;
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        guard?: string | undefined;
-    }[];
+  type: 'state'
+  title: string
+  initial: string
+  final: string[]
+  states: {
+    id: string
+    label: string
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+  }[]
+  transitions: {
+    id: string
+    from: string
+    to: string
+    event: string
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+    guard?: string | undefined
+  }[]
 }
 
 /** UML visibility marker as Mermaid writes it: + public, - private, # protected, ~ package. */
-type Visibility = "+" | "-" | "#" | "~"
+type Visibility = '+' | '-' | '#' | '~'
 
 type ClassField = {
-    name: string;
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
-    type?: string | undefined;
-    visibility?: "+" | "-" | "#" | "~" | undefined;
-    isStatic?: boolean | undefined;
+  name: string
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
+  type?: string | undefined
+  visibility?: '+' | '-' | '#' | '~' | undefined
+  isStatic?: boolean | undefined
 }
 
 type ClassMethod = {
-    name: string;
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
-    params?: string | undefined;
-    returns?: string | undefined;
-    visibility?: "+" | "-" | "#" | "~" | undefined;
-    isStatic?: boolean | undefined;
-    isAbstract?: boolean | undefined;
+  name: string
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
+  params?: string | undefined
+  returns?: string | undefined
+  visibility?: '+' | '-' | '#' | '~' | undefined
+  isStatic?: boolean | undefined
+  isAbstract?: boolean | undefined
 }
 
 type ClassNode = {
-    id: string;
-    label: string;
-    fields: {
-        name: string;
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        type?: string | undefined;
-        visibility?: "+" | "-" | "#" | "~" | undefined;
-        isStatic?: boolean | undefined;
-    }[];
-    methods: {
-        name: string;
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        params?: string | undefined;
-        returns?: string | undefined;
-        visibility?: "+" | "-" | "#" | "~" | undefined;
-        isStatic?: boolean | undefined;
-        isAbstract?: boolean | undefined;
-    }[];
+  id: string
+  label: string
+  fields: {
+    name: string
     evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
-    stereotype?: "interface" | "abstract" | "enumeration" | "service" | undefined;
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+    type?: string | undefined
+    visibility?: '+' | '-' | '#' | '~' | undefined
+    isStatic?: boolean | undefined
+  }[]
+  methods: {
+    name: string
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+    params?: string | undefined
+    returns?: string | undefined
+    visibility?: '+' | '-' | '#' | '~' | undefined
+    isStatic?: boolean | undefined
+    isAbstract?: boolean | undefined
+  }[]
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
+  stereotype?: 'interface' | 'abstract' | 'enumeration' | 'service' | undefined
 }
 
 /** Multiplicity at one end of a class relation (the allowed set of §16 "Class / ER"). */
-type ClassCardinality = "1" | "0..1" | "0..*" | "1..*" | "*" | "n"
+type ClassCardinality = '1' | '0..1' | '0..*' | '1..*' | '*' | 'n'
 
 type ClassRelation = {
-    id: string;
-    from: string;
-    to: string;
-    kind: "inheritance" | "realization" | "composition" | "aggregation" | "association" | "dependency";
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
-    label?: string | undefined;
-    fromCardinality?: "1" | "0..1" | "0..*" | "1..*" | "*" | "n" | undefined;
-    toCardinality?: "1" | "0..1" | "0..*" | "1..*" | "*" | "n" | undefined;
+  id: string
+  from: string
+  to: string
+  kind:
+    | 'inheritance'
+    | 'realization'
+    | 'composition'
+    | 'aggregation'
+    | 'association'
+    | 'dependency'
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
+  label?: string | undefined
+  fromCardinality?: '1' | '0..1' | '0..*' | '1..*' | '*' | 'n' | undefined
+  toCardinality?: '1' | '0..1' | '0..*' | '1..*' | '*' | 'n' | undefined
 }
 
 /** Types, inheritance, composition; Mermaid classDiagram (§8). ≤ 12 classes, ≤ 18 relations (ADR 0003). */
 type ClassIR = {
-    type: "class";
-    title: string;
-    classes: {
-        id: string;
-        label: string;
-        fields: {
-            name: string;
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-            type?: string | undefined;
-            visibility?: "+" | "-" | "#" | "~" | undefined;
-            isStatic?: boolean | undefined;
-        }[];
-        methods: {
-            name: string;
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-            params?: string | undefined;
-            returns?: string | undefined;
-            visibility?: "+" | "-" | "#" | "~" | undefined;
-            isStatic?: boolean | undefined;
-            isAbstract?: boolean | undefined;
-        }[];
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        stereotype?: "interface" | "abstract" | "enumeration" | "service" | undefined;
-    }[];
-    relations: {
-        id: string;
-        from: string;
-        to: string;
-        kind: "inheritance" | "realization" | "composition" | "aggregation" | "association" | "dependency";
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        label?: string | undefined;
-        fromCardinality?: "1" | "0..1" | "0..*" | "1..*" | "*" | "n" | undefined;
-        toCardinality?: "1" | "0..1" | "0..*" | "1..*" | "*" | "n" | undefined;
-    }[];
+  type: 'class'
+  title: string
+  classes: {
+    id: string
+    label: string
+    fields: {
+      name: string
+      evidence: {
+        blockId: string
+        quote: string
+        start?: number | undefined
+        end?: number | undefined
+        fuzzy?: boolean | undefined
+      }
+      type?: string | undefined
+      visibility?: '+' | '-' | '#' | '~' | undefined
+      isStatic?: boolean | undefined
+    }[]
+    methods: {
+      name: string
+      evidence: {
+        blockId: string
+        quote: string
+        start?: number | undefined
+        end?: number | undefined
+        fuzzy?: boolean | undefined
+      }
+      params?: string | undefined
+      returns?: string | undefined
+      visibility?: '+' | '-' | '#' | '~' | undefined
+      isStatic?: boolean | undefined
+      isAbstract?: boolean | undefined
+    }[]
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+    stereotype?:
+      | 'interface'
+      | 'abstract'
+      | 'enumeration'
+      | 'service'
+      | undefined
+  }[]
+  relations: {
+    id: string
+    from: string
+    to: string
+    kind:
+      | 'inheritance'
+      | 'realization'
+      | 'composition'
+      | 'aggregation'
+      | 'association'
+      | 'dependency'
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+    label?: string | undefined
+    fromCardinality?: '1' | '0..1' | '0..*' | '1..*' | '*' | 'n' | undefined
+    toCardinality?: '1' | '0..1' | '0..*' | '1..*' | '*' | 'n' | undefined
+  }[]
 }
 
 type ErAttribute = {
-    name: string;
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
-    type?: string | undefined;
-    key?: "PK" | "FK" | "UK" | undefined;
+  name: string
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
+  type?: string | undefined
+  key?: 'PK' | 'FK' | 'UK' | undefined
 }
 
 type ErEntity = {
-    id: string;
-    label: string;
-    attributes: {
-        name: string;
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        type?: string | undefined;
-        key?: "PK" | "FK" | "UK" | undefined;
-    }[];
+  id: string
+  label: string
+  attributes: {
+    name: string
     evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+    type?: string | undefined
+    key?: 'PK' | 'FK' | 'UK' | undefined
+  }[]
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
 }
 
 /** Cardinality at one end of an ER relationship (Mermaid crow's foot: |o, ||, }o, }|). */
-type ErCardinality = "zero-or-one" | "exactly-one" | "zero-or-more" | "one-or-more"
+type ErCardinality =
+  | 'zero-or-one'
+  | 'exactly-one'
+  | 'zero-or-more'
+  | 'one-or-more'
 
 type ErRelationship = {
-    id: string;
-    from: string;
-    to: string;
-    fromCardinality: "zero-or-one" | "exactly-one" | "zero-or-more" | "one-or-more";
-    toCardinality: "zero-or-one" | "exactly-one" | "zero-or-more" | "one-or-more";
-    label: string;
-    identifying: boolean;
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
+  id: string
+  from: string
+  to: string
+  fromCardinality:
+    | 'zero-or-one'
+    | 'exactly-one'
+    | 'zero-or-more'
+    | 'one-or-more'
+  toCardinality: 'zero-or-one' | 'exactly-one' | 'zero-or-more' | 'one-or-more'
+  label: string
+  identifying: boolean
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
 }
 
 /** Tables, keys, relationships in a data model; Mermaid erDiagram (§8). ≤ 12 entities, ≤ 18 relationships. */
 type ErIR = {
-    type: "er";
-    title: string;
-    entities: {
-        id: string;
-        label: string;
-        attributes: {
-            name: string;
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-            type?: string | undefined;
-            key?: "PK" | "FK" | "UK" | undefined;
-        }[];
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    }[];
-    relationships: {
-        id: string;
-        from: string;
-        to: string;
-        fromCardinality: "zero-or-one" | "exactly-one" | "zero-or-more" | "one-or-more";
-        toCardinality: "zero-or-one" | "exactly-one" | "zero-or-more" | "one-or-more";
-        label: string;
-        identifying: boolean;
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    }[];
+  type: 'er'
+  title: string
+  entities: {
+    id: string
+    label: string
+    attributes: {
+      name: string
+      evidence: {
+        blockId: string
+        quote: string
+        start?: number | undefined
+        end?: number | undefined
+        fuzzy?: boolean | undefined
+      }
+      type?: string | undefined
+      key?: 'PK' | 'FK' | 'UK' | undefined
+    }[]
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+  }[]
+  relationships: {
+    id: string
+    from: string
+    to: string
+    fromCardinality:
+      | 'zero-or-one'
+      | 'exactly-one'
+      | 'zero-or-more'
+      | 'one-or-more'
+    toCardinality:
+      | 'zero-or-one'
+      | 'exactly-one'
+      | 'zero-or-more'
+      | 'one-or-more'
+    label: string
+    identifying: boolean
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+  }[]
 }
 
 /** Evidence for one element of a template's props, addressed by element path, e.g. 'nodes.3' (§5). */
 type TemplateEvidence = {
-    path: string;
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
+  path: string
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
 }
 
 /** Data-structure template instance (§5, §10). `props` is validated by the template's own schema from the template registry. `evidence` is a list keyed by element path instead of the spec's `Record<string, Evidence>` so it fits strict structured outputs (ADR 0003). */
 type TemplateIR = {
-    type: "template";
-    templateId: "array" | "linked-list" | "stack" | "queue" | "hash-table" | "tree" | "graph-ds" | "grid" | "memory" | "bits" | "call-tree" | "pipeline" | "layers" | "cache" | "comparison" | "set-ops";
-    props: unknown;
+  type: 'template'
+  templateId:
+    | 'array'
+    | 'linked-list'
+    | 'stack'
+    | 'queue'
+    | 'hash-table'
+    | 'tree'
+    | 'graph-ds'
+    | 'grid'
+    | 'memory'
+    | 'bits'
+    | 'call-tree'
+    | 'pipeline'
+    | 'layers'
+    | 'cache'
+    | 'comparison'
+    | 'set-ops'
+  props: unknown
+  evidence: {
+    path: string
     evidence: {
-        path: string;
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    }[];
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+  }[]
 }
 
-type ChartFn = "constant" | "log" | "linear" | "nlogn" | "quadratic" | "cubic" | "exponential"
+type ChartFn =
+  | 'constant'
+  | 'log'
+  | 'linear'
+  | 'nlogn'
+  | 'quadratic'
+  | 'cubic'
+  | 'exponential'
 
 type ChartSeries = {
-    name: string;
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
-    fn?: "constant" | "log" | "linear" | "nlogn" | "quadratic" | "cubic" | "exponential" | undefined;
-    points?: [number, number][] | undefined;
+  name: string
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
+  fn?:
+    | 'constant'
+    | 'log'
+    | 'linear'
+    | 'nlogn'
+    | 'quadratic'
+    | 'cubic'
+    | 'exponential'
+    | undefined
+  points?: [number, number][] | undefined
 }
 
 /** Growth rates and numbers stated in the text; compiled to Vega-Lite (§8, §10). ≤ 4 series. */
 type ChartIR = {
-    type: "chart";
-    title: string;
-    xLabel: string;
-    yLabel: string;
-    domain: [number, number];
-    series: {
-        name: string;
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        fn?: "constant" | "log" | "linear" | "nlogn" | "quadratic" | "cubic" | "exponential" | undefined;
-        points?: [number, number][] | undefined;
-    }[];
-    logY: boolean;
+  type: 'chart'
+  title: string
+  xLabel: string
+  yLabel: string
+  domain: [number, number]
+  series: {
+    name: string
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+    fn?:
+      | 'constant'
+      | 'log'
+      | 'linear'
+      | 'nlogn'
+      | 'quadratic'
+      | 'cubic'
+      | 'exponential'
+      | undefined
+    points?: [number, number][] | undefined
+  }[]
+  logY: boolean
 }
 
 type MathTerm = {
-    symbol: string;
-    meaning: string;
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
+  symbol: string
+  meaning: string
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
 }
 
 /** Term meanings for a formula; the formula itself always comes from the book block (§5, §10). */
 type MathIR = {
-    type: "math";
-    sourceBlockId: string;
-    terms: {
-        symbol: string;
-        meaning: string;
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    }[];
+  type: 'math'
+  sourceBlockId: string
+  terms: {
+    symbol: string
+    meaning: string
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+  }[]
 }
 
 type TimelineLane = {
-    id: string;
-    label: string;
+  id: string
+  label: string
 }
 
 type TimelineEvent = {
-    id: string;
-    lane: string;
-    at: number;
-    label: string;
-    evidence: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    };
-    to?: string | undefined;
+  id: string
+  lane: string
+  at: number
+  label: string
+  evidence: {
+    blockId: string
+    quote: string
+    start?: number | undefined
+    end?: number | undefined
+    fuzzy?: boolean | undefined
+  }
+  to?: string | undefined
 }
 
 /** Concurrency lanes and events; always a simulated timeline (§2 D9, §10). */
 type TimelineIR = {
-    type: "timeline";
-    simulated: true;
-    lanes: {
-        id: string;
-        label: string;
-    }[];
-    events: {
-        id: string;
-        lane: string;
-        at: number;
-        label: string;
-        evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        to?: string | undefined;
-    }[];
+  type: 'timeline'
+  simulated: true
+  lanes: {
+    id: string
+    label: string
+  }[]
+  events: {
+    id: string
+    lane: string
+    at: number
+    label: string
+    evidence: {
+      blockId: string
+      quote: string
+      start?: number | undefined
+      end?: number | undefined
+      fuzzy?: boolean | undefined
+    }
+    to?: string | undefined
+  }[]
 }
 
 /** Last-resort self-contained HTML explainer, behind the `htmlFallback` flag only (§10, §17). */
 type HtmlIR = {
-    type: "html";
-    html: string;
-    reason: string;
+  type: 'html'
+  html: string
+  reason: string
 }
 
 /** Any extractor IR, discriminated by `type`. `trace` visuals use `Trace` instead of an IR. */
-type IR = {
-    type: "graph";
-    title: string;
-    direction: "LR" | "TB";
-    nodes: {
-        id: string;
-        label: string;
-        shape: "queue" | "box" | "store" | "actor" | "decision" | "note";
+type IR =
+  | {
+      type: 'graph'
+      title: string
+      direction: 'LR' | 'TB'
+      nodes: {
+        id: string
+        label: string
+        shape: 'queue' | 'box' | 'store' | 'actor' | 'decision' | 'note'
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        sublabel?: string | undefined;
-        group?: string | undefined;
-    }[];
-    edges: {
-        id: string;
-        from: string;
-        to: string;
-        style: "solid" | "dashed";
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+        sublabel?: string | undefined
+        group?: string | undefined
+      }[]
+      edges: {
+        id: string
+        from: string
+        to: string
+        style: 'solid' | 'dashed'
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        label?: string | undefined;
-    }[];
-    groups: {
-        id: string;
-        label: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+        label?: string | undefined
+      }[]
+      groups: {
+        id: string
+        label: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        parent?: string | undefined;
-    }[];
-} | {
-    type: "sequence";
-    title: string;
-    participants: {
-        id: string;
-        label: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+        parent?: string | undefined
+      }[]
+    }
+  | {
+      type: 'sequence'
+      title: string
+      participants: {
+        id: string
+        label: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    }[];
-    messages: {
-        id: string;
-        from: string;
-        to: string;
-        label: string;
-        kind: "sync" | "async" | "reply";
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+      }[]
+      messages: {
+        id: string
+        from: string
+        to: string
+        label: string
+        kind: 'sync' | 'async' | 'reply'
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    }[];
-} | {
-    type: "state";
-    title: string;
-    initial: string;
-    final: string[];
-    states: {
-        id: string;
-        label: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+      }[]
+    }
+  | {
+      type: 'state'
+      title: string
+      initial: string
+      final: string[]
+      states: {
+        id: string
+        label: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    }[];
-    transitions: {
-        id: string;
-        from: string;
-        to: string;
-        event: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+      }[]
+      transitions: {
+        id: string
+        from: string
+        to: string
+        event: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        guard?: string | undefined;
-    }[];
-} | {
-    type: "class";
-    title: string;
-    classes: {
-        id: string;
-        label: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+        guard?: string | undefined
+      }[]
+    }
+  | {
+      type: 'class'
+      title: string
+      classes: {
+        id: string
+        label: string
         fields: {
-            name: string;
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-            type?: string | undefined;
-            visibility?: "+" | "-" | "#" | "~" | undefined;
-            isStatic?: boolean | undefined;
-        }[];
+          name: string
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+          type?: string | undefined
+          visibility?: '+' | '-' | '#' | '~' | undefined
+          isStatic?: boolean | undefined
+        }[]
         methods: {
-            name: string;
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-            params?: string | undefined;
-            returns?: string | undefined;
-            visibility?: "+" | "-" | "#" | "~" | undefined;
-            isStatic?: boolean | undefined;
-            isAbstract?: boolean | undefined;
-        }[];
+          name: string
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+          params?: string | undefined
+          returns?: string | undefined
+          visibility?: '+' | '-' | '#' | '~' | undefined
+          isStatic?: boolean | undefined
+          isAbstract?: boolean | undefined
+        }[]
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        stereotype?: "interface" | "abstract" | "enumeration" | "service" | undefined;
-    }[];
-    relations: {
-        id: string;
-        from: string;
-        to: string;
-        kind: "inheritance" | "realization" | "composition" | "aggregation" | "association" | "dependency";
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+        stereotype?:
+          | 'interface'
+          | 'abstract'
+          | 'enumeration'
+          | 'service'
+          | undefined
+      }[]
+      relations: {
+        id: string
+        from: string
+        to: string
+        kind:
+          | 'inheritance'
+          | 'realization'
+          | 'composition'
+          | 'aggregation'
+          | 'association'
+          | 'dependency'
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        label?: string | undefined;
-        fromCardinality?: "1" | "0..1" | "0..*" | "1..*" | "*" | "n" | undefined;
-        toCardinality?: "1" | "0..1" | "0..*" | "1..*" | "*" | "n" | undefined;
-    }[];
-} | {
-    type: "er";
-    title: string;
-    entities: {
-        id: string;
-        label: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+        label?: string | undefined
+        fromCardinality?: '1' | '0..1' | '0..*' | '1..*' | '*' | 'n' | undefined
+        toCardinality?: '1' | '0..1' | '0..*' | '1..*' | '*' | 'n' | undefined
+      }[]
+    }
+  | {
+      type: 'er'
+      title: string
+      entities: {
+        id: string
+        label: string
         attributes: {
-            name: string;
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-            type?: string | undefined;
-            key?: "PK" | "FK" | "UK" | undefined;
-        }[];
+          name: string
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+          type?: string | undefined
+          key?: 'PK' | 'FK' | 'UK' | undefined
+        }[]
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    }[];
-    relationships: {
-        id: string;
-        from: string;
-        to: string;
-        fromCardinality: "zero-or-one" | "exactly-one" | "zero-or-more" | "one-or-more";
-        toCardinality: "zero-or-one" | "exactly-one" | "zero-or-more" | "one-or-more";
-        label: string;
-        identifying: boolean;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+      }[]
+      relationships: {
+        id: string
+        from: string
+        to: string
+        fromCardinality:
+          | 'zero-or-one'
+          | 'exactly-one'
+          | 'zero-or-more'
+          | 'one-or-more'
+        toCardinality:
+          | 'zero-or-one'
+          | 'exactly-one'
+          | 'zero-or-more'
+          | 'one-or-more'
+        label: string
+        identifying: boolean
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    }[];
-} | {
-    type: "template";
-    templateId: "array" | "linked-list" | "stack" | "queue" | "hash-table" | "tree" | "graph-ds" | "grid" | "memory" | "bits" | "call-tree" | "pipeline" | "layers" | "cache" | "comparison" | "set-ops";
-    props: unknown;
-    evidence: {
-        path: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+      }[]
+    }
+  | {
+      type: 'template'
+      templateId:
+        | 'array'
+        | 'linked-list'
+        | 'stack'
+        | 'queue'
+        | 'hash-table'
+        | 'tree'
+        | 'graph-ds'
+        | 'grid'
+        | 'memory'
+        | 'bits'
+        | 'call-tree'
+        | 'pipeline'
+        | 'layers'
+        | 'cache'
+        | 'comparison'
+        | 'set-ops'
+      props: unknown
+      evidence: {
+        path: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    }[];
-} | {
-    type: "chart";
-    title: string;
-    xLabel: string;
-    yLabel: string;
-    domain: [number, number];
-    series: {
-        name: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+      }[]
+    }
+  | {
+      type: 'chart'
+      title: string
+      xLabel: string
+      yLabel: string
+      domain: [number, number]
+      series: {
+        name: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        fn?: "constant" | "log" | "linear" | "nlogn" | "quadratic" | "cubic" | "exponential" | undefined;
-        points?: [number, number][] | undefined;
-    }[];
-    logY: boolean;
-} | {
-    type: "math";
-    sourceBlockId: string;
-    terms: {
-        symbol: string;
-        meaning: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+        fn?:
+          | 'constant'
+          | 'log'
+          | 'linear'
+          | 'nlogn'
+          | 'quadratic'
+          | 'cubic'
+          | 'exponential'
+          | undefined
+        points?: [number, number][] | undefined
+      }[]
+      logY: boolean
+    }
+  | {
+      type: 'math'
+      sourceBlockId: string
+      terms: {
+        symbol: string
+        meaning: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-    }[];
-} | {
-    type: "timeline";
-    simulated: true;
-    lanes: {
-        id: string;
-        label: string;
-    }[];
-    events: {
-        id: string;
-        lane: string;
-        at: number;
-        label: string;
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+      }[]
+    }
+  | {
+      type: 'timeline'
+      simulated: true
+      lanes: {
+        id: string
+        label: string
+      }[]
+      events: {
+        id: string
+        lane: string
+        at: number
+        label: string
         evidence: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        };
-        to?: string | undefined;
-    }[];
-} | {
-    type: "html";
-    html: string;
-    reason: string;
-}
+          blockId: string
+          quote: string
+          start?: number | undefined
+          end?: number | undefined
+          fuzzy?: boolean | undefined
+        }
+        to?: string | undefined
+      }[]
+    }
+  | {
+      type: 'html'
+      html: string
+      reason: string
+    }
 
 /** IR kinds (every `VisualKind` except `trace`). */
-type IrKind = "math" | "html" | "graph" | "sequence" | "state" | "class" | "er" | "template" | "chart" | "timeline"
+type IrKind =
+  | 'math'
+  | 'html'
+  | 'graph'
+  | 'sequence'
+  | 'state'
+  | 'class'
+  | 'er'
+  | 'template'
+  | 'chart'
+  | 'timeline'
 ```
 
 ### `src/schemas/llm.ts`
 
 ```ts
-type SchemaName = "IndexerOutput" | "GlossaryOutput" | "BookSummary" | "VisualPlan" | "GraphIR" | "SequenceIR" | "StateIR" | "ClassIR" | "ErIR" | "TemplateIR" | "ChartIR" | "MathIR" | "TimelineIR" | "HtmlIR" | "AnimationIR" | "Translation" | "PatchOutput" | "CriticReport"
+type SchemaName =
+  | 'IndexerOutput'
+  | 'GlossaryOutput'
+  | 'BookSummary'
+  | 'VisualPlan'
+  | 'GraphIR'
+  | 'SequenceIR'
+  | 'StateIR'
+  | 'ClassIR'
+  | 'ErIR'
+  | 'TemplateIR'
+  | 'ChartIR'
+  | 'MathIR'
+  | 'TimelineIR'
+  | 'HtmlIR'
+  | 'AnimationIR'
+  | 'Translation'
+  | 'PatchOutput'
+  | 'CriticReport'
 
-type RoleName = "critic" | "indexer" | "glossary" | "book-summary" | "planner" | "extractor.graph" | "extractor.mermaid" | "extractor.template" | "extractor.chart" | "extractor.math" | "extractor.timeline" | "animator" | "translator" | "trace-fixer" | "patcher" | "repair" | "html-fallback"
+type RoleName =
+  | 'critic'
+  | 'indexer'
+  | 'glossary'
+  | 'book-summary'
+  | 'planner'
+  | 'extractor.graph'
+  | 'extractor.mermaid'
+  | 'extractor.template'
+  | 'extractor.chart'
+  | 'extractor.math'
+  | 'extractor.timeline'
+  | 'animator'
+  | 'translator'
+  | 'trace-fixer'
+  | 'patcher'
+  | 'repair'
+  | 'html-fallback'
 
 type LlmImage = {
-    mediaType: "image/png";
-    base64: string;
+  mediaType: 'image/png'
+  base64: string
 }
 
 /** Request body of `POST /api/llm` (§9). */
 type LlmRequest = {
-    role: "critic" | "indexer" | "glossary" | "book-summary" | "planner" | "extractor.graph" | "extractor.mermaid" | "extractor.template" | "extractor.chart" | "extractor.math" | "extractor.timeline" | "animator" | "translator" | "trace-fixer" | "patcher" | "repair" | "html-fallback";
-    promptVersion: string;
-    prefix: string;
-    body: string;
-    schemaName: "IndexerOutput" | "GlossaryOutput" | "BookSummary" | "VisualPlan" | "GraphIR" | "SequenceIR" | "StateIR" | "ClassIR" | "ErIR" | "TemplateIR" | "ChartIR" | "MathIR" | "TimelineIR" | "HtmlIR" | "AnimationIR" | "Translation" | "PatchOutput" | "CriticReport";
-    requestId: string;
-    templateId?: "array" | "linked-list" | "stack" | "queue" | "hash-table" | "tree" | "graph-ds" | "grid" | "memory" | "bits" | "call-tree" | "pipeline" | "layers" | "cache" | "comparison" | "set-ops" | undefined;
-    image?: {
-        mediaType: "image/png";
-        base64: string;
-    } | undefined;
-    escalate?: boolean | undefined;
+  role:
+    | 'critic'
+    | 'indexer'
+    | 'glossary'
+    | 'book-summary'
+    | 'planner'
+    | 'extractor.graph'
+    | 'extractor.mermaid'
+    | 'extractor.template'
+    | 'extractor.chart'
+    | 'extractor.math'
+    | 'extractor.timeline'
+    | 'animator'
+    | 'translator'
+    | 'trace-fixer'
+    | 'patcher'
+    | 'repair'
+    | 'html-fallback'
+  promptVersion: string
+  prefix: string
+  body: string
+  schemaName:
+    | 'IndexerOutput'
+    | 'GlossaryOutput'
+    | 'BookSummary'
+    | 'VisualPlan'
+    | 'GraphIR'
+    | 'SequenceIR'
+    | 'StateIR'
+    | 'ClassIR'
+    | 'ErIR'
+    | 'TemplateIR'
+    | 'ChartIR'
+    | 'MathIR'
+    | 'TimelineIR'
+    | 'HtmlIR'
+    | 'AnimationIR'
+    | 'Translation'
+    | 'PatchOutput'
+    | 'CriticReport'
+  requestId: string
+  templateId?:
+    | 'array'
+    | 'linked-list'
+    | 'stack'
+    | 'queue'
+    | 'hash-table'
+    | 'tree'
+    | 'graph-ds'
+    | 'grid'
+    | 'memory'
+    | 'bits'
+    | 'call-tree'
+    | 'pipeline'
+    | 'layers'
+    | 'cache'
+    | 'comparison'
+    | 'set-ops'
+    | undefined
+  image?:
+    | {
+        mediaType: 'image/png'
+        base64: string
+      }
+    | undefined
+  escalate?: boolean | undefined
 }
 
 type LlmUsage = {
-    input: number;
-    output: number;
-    cachedInput: number;
+  input: number
+  output: number
+  cachedInput: number
 }
 
 /** Error codes of the gateway (§9). */
-type LlmErrorCode = "schema" | "auth" | "signin-required" | "plan-limit" | "upstream" | "timeout"
+type LlmErrorCode =
+  | 'schema'
+  | 'auth'
+  | 'signin-required'
+  | 'plan-limit'
+  | 'upstream'
+  | 'timeout'
 
 /** Response body of `POST /api/llm` (§9). `effort` is the effort actually sent (ADR 0003). */
-type LlmResponse = {
-    ok: true;
-    data: unknown;
-    usage: {
-        input: number;
-        output: number;
-        cachedInput: number;
-    };
-    model: string;
-    effort: "low" | "medium" | "high";
-    latencyMs: number;
-} | {
-    ok: false;
-    code: "schema" | "auth" | "signin-required" | "plan-limit" | "upstream" | "timeout";
-    message: string;
-    retryAfterMs?: number | undefined;
-    issues?: unknown[] | undefined;
-}
+type LlmResponse =
+  | {
+      ok: true
+      data: unknown
+      usage: {
+        input: number
+        output: number
+        cachedInput: number
+      }
+      model: string
+      effort: 'low' | 'medium' | 'high'
+      latencyMs: number
+    }
+  | {
+      ok: false
+      code:
+        | 'schema'
+        | 'auth'
+        | 'signin-required'
+        | 'plan-limit'
+        | 'upstream'
+        | 'timeout'
+      message: string
+      retryAfterMs?: number | undefined
+      issues?: unknown[] | undefined
+    }
 ```
 
 ### `src/schemas/plan.ts`
 
 ```ts
 /** The visual families a plan item can request (§5, kind guide in §8). */
-type VisualKind = "math" | "html" | "graph" | "sequence" | "state" | "class" | "er" | "template" | "chart" | "trace" | "timeline"
+type VisualKind =
+  | 'math'
+  | 'html'
+  | 'graph'
+  | 'sequence'
+  | 'state'
+  | 'class'
+  | 'er'
+  | 'template'
+  | 'chart'
+  | 'trace'
+  | 'timeline'
 
 /** The 16 templates of the template library (§10). */
-type TemplateId = "array" | "linked-list" | "stack" | "queue" | "hash-table" | "tree" | "graph-ds" | "grid" | "memory" | "bits" | "call-tree" | "pipeline" | "layers" | "cache" | "comparison" | "set-ops"
+type TemplateId =
+  | 'array'
+  | 'linked-list'
+  | 'stack'
+  | 'queue'
+  | 'hash-table'
+  | 'tree'
+  | 'graph-ds'
+  | 'grid'
+  | 'memory'
+  | 'bits'
+  | 'call-tree'
+  | 'pipeline'
+  | 'layers'
+  | 'cache'
+  | 'comparison'
+  | 'set-ops'
 
 /** Kinds that may extend or start a concept model in v1 (§13). */
-type ConceptModelKind = "graph" | "sequence" | "state"
+type ConceptModelKind = 'graph' | 'sequence' | 'state'
 
 /** One visual the planner wants for a section (§5). */
 type PlanItem = {
-    planItemId: string;
-    kind: "math" | "html" | "graph" | "sequence" | "state" | "class" | "er" | "template" | "chart" | "trace" | "timeline";
-    intent: string;
-    conceptIds: string[];
-    priority: 1 | 3 | 2;
-    animate: boolean;
-    templateId?: "array" | "linked-list" | "stack" | "queue" | "hash-table" | "tree" | "graph-ds" | "grid" | "memory" | "bits" | "call-tree" | "pipeline" | "layers" | "cache" | "comparison" | "set-ops" | undefined;
-    codeBlockId?: string | undefined;
-    conceptModelId?: string | undefined;
-    newConceptModel?: string | undefined;
+  planItemId: string
+  kind:
+    | 'math'
+    | 'html'
+    | 'graph'
+    | 'sequence'
+    | 'state'
+    | 'class'
+    | 'er'
+    | 'template'
+    | 'chart'
+    | 'trace'
+    | 'timeline'
+  intent: string
+  conceptIds: string[]
+  priority: 1 | 3 | 2
+  animate: boolean
+  templateId?:
+    | 'array'
+    | 'linked-list'
+    | 'stack'
+    | 'queue'
+    | 'hash-table'
+    | 'tree'
+    | 'graph-ds'
+    | 'grid'
+    | 'memory'
+    | 'bits'
+    | 'call-tree'
+    | 'pipeline'
+    | 'layers'
+    | 'cache'
+    | 'comparison'
+    | 'set-ops'
+    | undefined
+  codeBlockId?: string | undefined
+  conceptModelId?: string | undefined
+  newConceptModel?: string | undefined
 }
 
 /** Output of the `planner` role (§5, §8 stage 1): at most 3 items, none when no visual is needed. */
 type VisualPlan = {
-    sectionId: string;
-    needsVisual: boolean;
-    reason: string;
-    items: {
-        planItemId: string;
-        kind: "math" | "html" | "graph" | "sequence" | "state" | "class" | "er" | "template" | "chart" | "trace" | "timeline";
-        intent: string;
-        conceptIds: string[];
-        priority: 1 | 3 | 2;
-        animate: boolean;
-        templateId?: "array" | "linked-list" | "stack" | "queue" | "hash-table" | "tree" | "graph-ds" | "grid" | "memory" | "bits" | "call-tree" | "pipeline" | "layers" | "cache" | "comparison" | "set-ops" | undefined;
-        codeBlockId?: string | undefined;
-        conceptModelId?: string | undefined;
-        newConceptModel?: string | undefined;
-    }[];
+  sectionId: string
+  needsVisual: boolean
+  reason: string
+  items: {
+    planItemId: string
+    kind:
+      | 'math'
+      | 'html'
+      | 'graph'
+      | 'sequence'
+      | 'state'
+      | 'class'
+      | 'er'
+      | 'template'
+      | 'chart'
+      | 'trace'
+      | 'timeline'
+    intent: string
+    conceptIds: string[]
+    priority: 1 | 3 | 2
+    animate: boolean
+    templateId?:
+      | 'array'
+      | 'linked-list'
+      | 'stack'
+      | 'queue'
+      | 'hash-table'
+      | 'tree'
+      | 'graph-ds'
+      | 'grid'
+      | 'memory'
+      | 'bits'
+      | 'call-tree'
+      | 'pipeline'
+      | 'layers'
+      | 'cache'
+      | 'comparison'
+      | 'set-ops'
+      | undefined
+    codeBlockId?: string | undefined
+    conceptModelId?: string | undefined
+    newConceptModel?: string | undefined
+  }[]
 }
 
 /** Record of the `plans` store (§5), keyed by the plan cache key. */
 type PlanRecord = {
-    cacheKey: string;
-    bookId: string;
-    sectionId: string;
-    plan: {
-        sectionId: string;
-        needsVisual: boolean;
-        reason: string;
-        items: {
-            planItemId: string;
-            kind: "math" | "html" | "graph" | "sequence" | "state" | "class" | "er" | "template" | "chart" | "trace" | "timeline";
-            intent: string;
-            conceptIds: string[];
-            priority: 1 | 3 | 2;
-            animate: boolean;
-            templateId?: "array" | "linked-list" | "stack" | "queue" | "hash-table" | "tree" | "graph-ds" | "grid" | "memory" | "bits" | "call-tree" | "pipeline" | "layers" | "cache" | "comparison" | "set-ops" | undefined;
-            codeBlockId?: string | undefined;
-            conceptModelId?: string | undefined;
-            newConceptModel?: string | undefined;
-        }[];
-    };
-    partialContext: boolean;
-    model: string;
-    effort: "low" | "medium" | "high";
-    promptVersion: string;
-    usageTokens: number;
-    createdAt: number;
-    stale: boolean;
+  cacheKey: string
+  bookId: string
+  sectionId: string
+  plan: {
+    sectionId: string
+    needsVisual: boolean
+    reason: string
+    items: {
+      planItemId: string
+      kind:
+        | 'math'
+        | 'html'
+        | 'graph'
+        | 'sequence'
+        | 'state'
+        | 'class'
+        | 'er'
+        | 'template'
+        | 'chart'
+        | 'trace'
+        | 'timeline'
+      intent: string
+      conceptIds: string[]
+      priority: 1 | 3 | 2
+      animate: boolean
+      templateId?:
+        | 'array'
+        | 'linked-list'
+        | 'stack'
+        | 'queue'
+        | 'hash-table'
+        | 'tree'
+        | 'graph-ds'
+        | 'grid'
+        | 'memory'
+        | 'bits'
+        | 'call-tree'
+        | 'pipeline'
+        | 'layers'
+        | 'cache'
+        | 'comparison'
+        | 'set-ops'
+        | undefined
+      codeBlockId?: string | undefined
+      conceptModelId?: string | undefined
+      newConceptModel?: string | undefined
+    }[]
+  }
+  partialContext: boolean
+  model: string
+  effort: 'low' | 'medium' | 'high'
+  promptVersion: string
+  usageTokens: number
+  createdAt: number
+  stale: boolean
 }
 ```
 
@@ -2265,85 +3033,107 @@ type PlanRecord = {
 ```ts
 /** Theme tokens derived from Flow's active theme, exposed as `--illus-*` CSS variables (§10). */
 type ThemeTokens = {
-    bg: string;
-    fg: string;
-    muted: string;
-    line: string;
-    accent: string;
-    new: string;
-    earlier: string;
-    highlight: string;
-    font: string;
-    mono: string;
-    dark: boolean;
+  bg: string
+  fg: string
+  muted: string
+  line: string
+  accent: string
+  new: string
+  earlier: string
+  highlight: string
+  font: string
+  mono: string
+  dark: boolean
 }
 
-type GroundingStatus = "grounded" | "half-grounded" | "failed"
+type GroundingStatus = 'grounded' | 'half-grounded' | 'failed'
 
 /** The grounding matcher (§16). Pure and synchronous. Implemented by `ground()` in `@illus/core/grounding`. */
-type GroundingFn = (evidence: Evidence, ctx: GroundingContext) => GroundingResult
+type GroundingFn = (
+  evidence: Evidence,
+  ctx: GroundingContext,
+) => GroundingResult
 
 /** Schema + grounding + structural checks for one IR (§16 L1–L3). Implemented by `validate()` (W10). */
-type Validator = (kind: VisualKind, ir: unknown, ctx: ValidationContext) => ValidationResult
+type Validator = (
+  kind: VisualKind,
+  ir: unknown,
+  ctx: ValidationContext,
+) => ValidationResult
 
 /** ELK layout in a Web Worker (§10). Implemented by `layoutGraph()` in `@illus/render`. */
-type LayoutGraphFn = (input: LayoutGraphInput, opts?: {
-    signal?: AbortSignal;
-}) => Promise<LayoutGraphResult>
+type LayoutGraphFn = (
+  input: LayoutGraphInput,
+  opts?: {
+    signal?: AbortSignal
+  },
+) => Promise<LayoutGraphResult>
 ```
 
 ### `src/schemas/quality.ts`
 
 ```ts
 /** Validation layer that raised an issue (§16 table: L1 schema … L4 render; animation is §11). */
-type ValidationLayer = "schema" | "grounding" | "structure" | "render" | "animation"
+type ValidationLayer =
+  | 'schema'
+  | 'grounding'
+  | 'structure'
+  | 'render'
+  | 'animation'
 
 type ValidationIssue = {
-    layer: "schema" | "grounding" | "structure" | "render" | "animation";
-    severity: "error" | "warning";
-    code: string;
-    message: string;
-    elementId?: string | undefined;
-    autoFixed?: boolean | undefined;
+  layer: 'schema' | 'grounding' | 'structure' | 'render' | 'animation'
+  severity: 'error' | 'warning'
+  code: string
+  message: string
+  elementId?: string | undefined
+  autoFixed?: boolean | undefined
 }
 
 /** Outcome of the deterministic checks on one IR (§16 L1–L4). Not defined in the spec; W0 draft. `groundingScore` = (grounded + 0.5 × halfGrounded) / total (§16). */
 type ValidationReport = {
-    ok: boolean;
-    groundingScore: number;
-    counts: {
-        total: number;
-        grounded: number;
-        halfGrounded: number;
-        fuzzy: number;
-        dropped: number;
-    };
-    dropped: string[];
-    issues: {
-        layer: "schema" | "grounding" | "structure" | "render" | "animation";
-        severity: "error" | "warning";
-        code: string;
-        message: string;
-        elementId?: string | undefined;
-        autoFixed?: boolean | undefined;
-    }[];
-    retried: boolean;
-    escalated: boolean;
+  ok: boolean
+  groundingScore: number
+  counts: {
+    total: number
+    grounded: number
+    halfGrounded: number
+    fuzzy: number
+    dropped: number
+  }
+  dropped: string[]
+  issues: {
+    layer: 'schema' | 'grounding' | 'structure' | 'render' | 'animation'
+    severity: 'error' | 'warning'
+    code: string
+    message: string
+    elementId?: string | undefined
+    autoFixed?: boolean | undefined
+  }[]
+  retried: boolean
+  escalated: boolean
 }
 
 /** Output of the `critic` role (§16). */
 type CriticReport = {
-    pass: boolean;
-    scores: {
-        legibility: 1 | 3 | 4 | 2 | 5;
-        intentMatch: 1 | 3 | 4 | 2 | 5;
-        clutter: 1 | 3 | 4 | 2 | 5;
-    };
-    issues: {
-        kind: "clutter" | "overlap" | "unreadable" | "missing-step" | "wrong-direction" | "mislabel" | "other";
-        note: string;
-        elementId?: string | undefined;
-    }[];
+  pass: boolean
+  scores: {
+    legibility: 1 | 3 | 4 | 2 | 5
+    intentMatch: 1 | 3 | 4 | 2 | 5
+    clutter: 1 | 3 | 4 | 2 | 5
+  }
+  issues: {
+    kind:
+      | 'clutter'
+      | 'overlap'
+      | 'unreadable'
+      | 'missing-step'
+      | 'wrong-direction'
+      | 'mislabel'
+      | 'other'
+    note: string
+    elementId?: string | undefined
+  }[]
 }
 ```
 
@@ -2352,189 +3142,345 @@ type CriticReport = {
 ```ts
 /** Element-level "This is wrong" report from the pane (§16 human feedback). */
 type ElementReport = {
-    elementId: string;
-    note: string;
-    createdAt: number;
-    evidence?: {
-        blockId: string;
-        quote: string;
-        start?: number | undefined;
-        end?: number | undefined;
-        fuzzy?: boolean | undefined;
-    } | undefined;
+  elementId: string
+  note: string
+  createdAt: number
+  evidence?:
+    | {
+        blockId: string
+        quote: string
+        start?: number | undefined
+        end?: number | undefined
+        fuzzy?: boolean | undefined
+      }
+    | undefined
 }
 
 /** Record of the `visuals` store (§5), keyed by the visual cache key. */
 type VisualRecord = {
-    cacheKey: string;
-    bookId: string;
-    sectionId: string;
-    planItemId: string;
-    kind: "math" | "html" | "graph" | "sequence" | "state" | "class" | "er" | "template" | "chart" | "trace" | "timeline";
-    ir: unknown;
-    spec: unknown;
-    validation: {
-        ok: boolean;
-        groundingScore: number;
-        counts: {
-            total: number;
-            grounded: number;
-            halfGrounded: number;
-            fuzzy: number;
-            dropped: number;
-        };
-        dropped: string[];
-        issues: {
-            layer: "schema" | "grounding" | "structure" | "render" | "animation";
-            severity: "error" | "warning";
-            code: string;
-            message: string;
-            elementId?: string | undefined;
-            autoFixed?: boolean | undefined;
-        }[];
-        retried: boolean;
-        escalated: boolean;
-    };
-    promptVersions: Record<string, string>;
-    models: Record<string, string>;
-    usageTokens: number;
-    createdAt: number;
-    stale: boolean;
-    animation?: {
-        planItemId: string;
-        initialHidden: (`node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`)[];
+  cacheKey: string
+  bookId: string
+  sectionId: string
+  planItemId: string
+  kind:
+    | 'math'
+    | 'html'
+    | 'graph'
+    | 'sequence'
+    | 'state'
+    | 'class'
+    | 'er'
+    | 'template'
+    | 'chart'
+    | 'trace'
+    | 'timeline'
+  ir: unknown
+  spec: unknown
+  validation: {
+    ok: boolean
+    groundingScore: number
+    counts: {
+      total: number
+      grounded: number
+      halfGrounded: number
+      fuzzy: number
+      dropped: number
+    }
+    dropped: string[]
+    issues: {
+      layer: 'schema' | 'grounding' | 'structure' | 'render' | 'animation'
+      severity: 'error' | 'warning'
+      code: string
+      message: string
+      elementId?: string | undefined
+      autoFixed?: boolean | undefined
+    }[]
+    retried: boolean
+    escalated: boolean
+  }
+  promptVersions: Record<string, string>
+  models: Record<string, string>
+  usageTokens: number
+  createdAt: number
+  stale: boolean
+  animation?:
+    | {
+        planItemId: string
+        initialHidden: (
+          | `node:${string}`
+          | `edge:${string}`
+          | `group:${string}`
+          | `msg:${string}`
+          | `cell:${string}[${number}]`
+          | `item:${string}`
+        )[]
         steps: {
-            id: string;
-            narration: string;
-            evidence: {
-                blockId: string;
-                quote: string;
-                start?: number | undefined;
-                end?: number | undefined;
-                fuzzy?: boolean | undefined;
-            };
-            actions: ({
-                op: "highlight";
-                target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-                tone: "success" | "focus" | "warning" | "muted";
-            } | {
-                op: "unhighlight";
-                target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}` | "all";
-            } | {
-                op: "reveal";
-                target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-            } | {
-                op: "hide";
-                target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-            } | {
-                op: "set";
-                target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-                value: string | number;
-            } | {
-                op: "swap";
-                a: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-                b: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-            } | {
-                op: "pointer";
-                name: string;
-                target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}` | null;
-            } | {
-                op: "push" | "enqueue";
-                container: string;
-                id: string;
-                value: string | number;
-            } | {
-                op: "pop" | "dequeue";
-                container: string;
-            } | {
-                op: "add";
+          id: string
+          narration: string
+          evidence: {
+            blockId: string
+            quote: string
+            start?: number | undefined
+            end?: number | undefined
+            fuzzy?: boolean | undefined
+          }
+          actions: (
+            | {
+                op: 'highlight'
+                target:
+                  | `node:${string}`
+                  | `edge:${string}`
+                  | `group:${string}`
+                  | `msg:${string}`
+                  | `cell:${string}[${number}]`
+                  | `item:${string}`
+                tone: 'success' | 'focus' | 'warning' | 'muted'
+              }
+            | {
+                op: 'unhighlight'
+                target:
+                  | `node:${string}`
+                  | `edge:${string}`
+                  | `group:${string}`
+                  | `msg:${string}`
+                  | `cell:${string}[${number}]`
+                  | `item:${string}`
+                  | 'all'
+              }
+            | {
+                op: 'reveal'
+                target:
+                  | `node:${string}`
+                  | `edge:${string}`
+                  | `group:${string}`
+                  | `msg:${string}`
+                  | `cell:${string}[${number}]`
+                  | `item:${string}`
+              }
+            | {
+                op: 'hide'
+                target:
+                  | `node:${string}`
+                  | `edge:${string}`
+                  | `group:${string}`
+                  | `msg:${string}`
+                  | `cell:${string}[${number}]`
+                  | `item:${string}`
+              }
+            | {
+                op: 'set'
+                target:
+                  | `node:${string}`
+                  | `edge:${string}`
+                  | `group:${string}`
+                  | `msg:${string}`
+                  | `cell:${string}[${number}]`
+                  | `item:${string}`
+                value: string | number
+              }
+            | {
+                op: 'swap'
+                a:
+                  | `node:${string}`
+                  | `edge:${string}`
+                  | `group:${string}`
+                  | `msg:${string}`
+                  | `cell:${string}[${number}]`
+                  | `item:${string}`
+                b:
+                  | `node:${string}`
+                  | `edge:${string}`
+                  | `group:${string}`
+                  | `msg:${string}`
+                  | `cell:${string}[${number}]`
+                  | `item:${string}`
+              }
+            | {
+                op: 'pointer'
+                name: string
+                target:
+                  | `node:${string}`
+                  | `edge:${string}`
+                  | `group:${string}`
+                  | `msg:${string}`
+                  | `cell:${string}[${number}]`
+                  | `item:${string}`
+                  | null
+              }
+            | {
+                op: 'push' | 'enqueue'
+                container: string
+                id: string
+                value: string | number
+              }
+            | {
+                op: 'pop' | 'dequeue'
+                container: string
+              }
+            | {
+                op: 'add'
                 element: {
-                    id: string;
-                    label: string;
-                };
-                parent?: string | undefined;
-            } | {
-                op: "remove";
-                target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-            } | {
-                op: "token";
-                id: string;
-                path: string[];
-                label?: string | undefined;
-            } | {
-                op: "annotate";
-                target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}`;
-                text: string;
-            } | {
-                op: "focus";
-                target: `node:${string}` | `edge:${string}` | `group:${string}` | `msg:${string}` | `cell:${string}[${number}]` | `item:${string}` | "all";
-            })[];
-        }[];
-    } | undefined;
-    traceKey?: string | undefined;
-    layout?: unknown;
-    critic?: {
-        pass: boolean;
+                  id: string
+                  label: string
+                }
+                parent?: string | undefined
+              }
+            | {
+                op: 'remove'
+                target:
+                  | `node:${string}`
+                  | `edge:${string}`
+                  | `group:${string}`
+                  | `msg:${string}`
+                  | `cell:${string}[${number}]`
+                  | `item:${string}`
+              }
+            | {
+                op: 'token'
+                id: string
+                path: string[]
+                label?: string | undefined
+              }
+            | {
+                op: 'annotate'
+                target:
+                  | `node:${string}`
+                  | `edge:${string}`
+                  | `group:${string}`
+                  | `msg:${string}`
+                  | `cell:${string}[${number}]`
+                  | `item:${string}`
+                text: string
+              }
+            | {
+                op: 'focus'
+                target:
+                  | `node:${string}`
+                  | `edge:${string}`
+                  | `group:${string}`
+                  | `msg:${string}`
+                  | `cell:${string}[${number}]`
+                  | `item:${string}`
+                  | 'all'
+              }
+          )[]
+        }[]
+      }
+    | undefined
+  traceKey?: string | undefined
+  layout?: unknown
+  critic?:
+    | {
+        pass: boolean
         scores: {
-            legibility: 1 | 3 | 4 | 2 | 5;
-            intentMatch: 1 | 3 | 4 | 2 | 5;
-            clutter: 1 | 3 | 4 | 2 | 5;
-        };
+          legibility: 1 | 3 | 4 | 2 | 5
+          intentMatch: 1 | 3 | 4 | 2 | 5
+          clutter: 1 | 3 | 4 | 2 | 5
+        }
         issues: {
-            kind: "clutter" | "overlap" | "unreadable" | "missing-step" | "wrong-direction" | "mislabel" | "other";
-            note: string;
-            elementId?: string | undefined;
-        }[];
-    } | undefined;
-    pinned?: boolean | undefined;
-    instruction?: string | undefined;
-    feedback?: {
-        vote: "up" | "down";
-        note?: string | undefined;
-    } | undefined;
-    elementReports?: {
-        elementId: string;
-        note: string;
-        createdAt: number;
-        evidence?: {
-            blockId: string;
-            quote: string;
-            start?: number | undefined;
-            end?: number | undefined;
-            fuzzy?: boolean | undefined;
-        } | undefined;
-    }[] | undefined;
+          kind:
+            | 'clutter'
+            | 'overlap'
+            | 'unreadable'
+            | 'missing-step'
+            | 'wrong-direction'
+            | 'mislabel'
+            | 'other'
+          note: string
+          elementId?: string | undefined
+        }[]
+      }
+    | undefined
+  pinned?: boolean | undefined
+  instruction?: string | undefined
+  feedback?:
+    | {
+        vote: 'up' | 'down'
+        note?: string | undefined
+      }
+    | undefined
+  elementReports?:
+    | {
+        elementId: string
+        note: string
+        createdAt: number
+        evidence?:
+          | {
+              blockId: string
+              quote: string
+              start?: number | undefined
+              end?: number | undefined
+              fuzzy?: boolean | undefined
+            }
+          | undefined
+      }[]
+    | undefined
 }
 
 /** Outcome of one model call: `ok` or the gateway error code (§9). */
-type LlmOutcome = "schema" | "ok" | "auth" | "signin-required" | "plan-limit" | "upstream" | "timeout" | "aborted"
+type LlmOutcome =
+  | 'schema'
+  | 'ok'
+  | 'auth'
+  | 'signin-required'
+  | 'plan-limit'
+  | 'upstream'
+  | 'timeout'
+  | 'aborted'
 
 /** Row of the `llmLog` store (§9 client): one per call. Prompts only when `debugPrompts` is on. */
 type LlmLogEntry = {
-    requestId: string;
-    role: "critic" | "indexer" | "glossary" | "book-summary" | "planner" | "extractor.graph" | "extractor.mermaid" | "extractor.template" | "extractor.chart" | "extractor.math" | "extractor.timeline" | "animator" | "translator" | "trace-fixer" | "patcher" | "repair" | "html-fallback";
-    promptVersion: string;
-    model: string;
-    effort: "low" | "medium" | "high";
-    inputTokens: number;
-    outputTokens: number;
-    cachedInputTokens: number;
-    latencyMs: number;
-    outcome: "schema" | "ok" | "auth" | "signin-required" | "plan-limit" | "upstream" | "timeout" | "aborted";
-    createdAt: number;
-    id?: number | undefined;
-    bookId?: string | undefined;
-    sectionId?: string | undefined;
-    prompt?: {
-        prefix: string;
-        body: string;
-    } | undefined;
+  requestId: string
+  role:
+    | 'critic'
+    | 'indexer'
+    | 'glossary'
+    | 'book-summary'
+    | 'planner'
+    | 'extractor.graph'
+    | 'extractor.mermaid'
+    | 'extractor.template'
+    | 'extractor.chart'
+    | 'extractor.math'
+    | 'extractor.timeline'
+    | 'animator'
+    | 'translator'
+    | 'trace-fixer'
+    | 'patcher'
+    | 'repair'
+    | 'html-fallback'
+  promptVersion: string
+  model: string
+  effort: 'low' | 'medium' | 'high'
+  inputTokens: number
+  outputTokens: number
+  cachedInputTokens: number
+  latencyMs: number
+  outcome:
+    | 'schema'
+    | 'ok'
+    | 'auth'
+    | 'signin-required'
+    | 'plan-limit'
+    | 'upstream'
+    | 'timeout'
+    | 'aborted'
+  createdAt: number
+  id?: number | undefined
+  bookId?: string | undefined
+  sectionId?: string | undefined
+  prompt?:
+    | {
+        prefix: string
+        body: string
+      }
+    | undefined
 }
 
 /** Row of the `settings` store (§5): a key and a JSON value. */
 type SettingRecord = {
-    key: string;
-    value: unknown;
+  key: string
+  value: unknown
 }
 ```
 
@@ -2543,388 +3489,614 @@ type SettingRecord = {
 ```ts
 /** Output of the `translator` and `trace-fixer` roles (§12). */
 type Translation = {
-    traceable: boolean;
-    python: string;
-    scenarios: {
-        label: string;
-        entry: string;
-    }[];
-    inputRationale: string;
-    lineMap: {
-        py: number;
-        orig: number[];
-    }[];
-    focusFunctions: string[];
-    vizHints: {
-        variable: string;
-        template: "array" | "linked-list" | "stack" | "queue" | "hash-table" | "tree" | "graph-ds" | "grid" | "memory" | "bits" | "call-tree" | "pipeline" | "layers" | "cache" | "comparison" | "set-ops";
-        fn?: string | undefined;
-        pointerOf?: string | undefined;
-    }[];
-    assumptions: string[];
-    reason?: string | undefined;
+  traceable: boolean
+  python: string
+  scenarios: {
+    label: string
+    entry: string
+  }[]
+  inputRationale: string
+  lineMap: {
+    py: number
+    orig: number[]
+  }[]
+  focusFunctions: string[]
+  vizHints: {
+    variable: string
+    template:
+      | 'array'
+      | 'linked-list'
+      | 'stack'
+      | 'queue'
+      | 'hash-table'
+      | 'tree'
+      | 'graph-ds'
+      | 'grid'
+      | 'memory'
+      | 'bits'
+      | 'call-tree'
+      | 'pipeline'
+      | 'layers'
+      | 'cache'
+      | 'comparison'
+      | 'set-ops'
+    fn?: string | undefined
+    pointerOf?: string | undefined
+  }[]
+  assumptions: string[]
+  reason?: string | undefined
 }
 
 /** A primitive value or a reference into the step's heap (§12). */
-type ValueRef = {
-    prim: string | number | boolean | null;
-} | {
-    ref: string;
-}
+type ValueRef =
+  | {
+      prim: string | number | boolean | null
+    }
+  | {
+      ref: string
+    }
 
 /** A heap object reachable from locals, identified by Python `id()` (§12). */
 type HeapObj = {
-    kind: "object" | "list" | "tuple" | "set" | "dict";
-    cls?: string | undefined;
-    items?: ({
-        prim: string | number | boolean | null;
-    } | {
-        ref: string;
-    })[] | undefined;
-    entries?: [{
-        prim: string | number | boolean | null;
-    } | {
-        ref: string;
-    }, {
-        prim: string | number | boolean | null;
-    } | {
-        ref: string;
-    }][] | undefined;
-    fields?: Record<string, {
-        prim: string | number | boolean | null;
-    } | {
-        ref: string;
-    }> | undefined;
-    truncated?: boolean | undefined;
+  kind: 'object' | 'list' | 'tuple' | 'set' | 'dict'
+  cls?: string | undefined
+  items?:
+    | (
+        | {
+            prim: string | number | boolean | null
+          }
+        | {
+            ref: string
+          }
+      )[]
+    | undefined
+  entries?:
+    | [
+        (
+          | {
+              prim: string | number | boolean | null
+            }
+          | {
+              ref: string
+            }
+        ),
+        (
+          | {
+              prim: string | number | boolean | null
+            }
+          | {
+              ref: string
+            }
+        ),
+      ][]
+    | undefined
+  fields?:
+    | Record<
+        string,
+        | {
+            prim: string | number | boolean | null
+          }
+        | {
+            ref: string
+          }
+      >
+    | undefined
+  truncated?: boolean | undefined
 }
 
 /** One recorded execution event (§12). Frames are innermost last. */
 type TraceStep = {
-    i: number;
-    event: "line" | "call" | "return" | "exception";
-    pyLine: number;
-    origLines: number[];
-    frames: {
-        fn: string;
-        locals: Record<string, {
-            prim: string | number | boolean | null;
-        } | {
-            ref: string;
-        }>;
-    }[];
-    heap: Record<string, {
-        kind: "object" | "list" | "tuple" | "set" | "dict";
-        cls?: string | undefined;
-        items?: ({
-            prim: string | number | boolean | null;
-        } | {
-            ref: string;
-        })[] | undefined;
-        entries?: [{
-            prim: string | number | boolean | null;
-        } | {
-            ref: string;
-        }, {
-            prim: string | number | boolean | null;
-        } | {
-            ref: string;
-        }][] | undefined;
-        fields?: Record<string, {
-            prim: string | number | boolean | null;
-        } | {
-            ref: string;
-        }> | undefined;
-        truncated?: boolean | undefined;
-    }>;
-    stdout: string;
-    returnValue?: {
-        prim: string | number | boolean | null;
-    } | {
-        ref: string;
-    } | undefined;
-    exception?: string | undefined;
-    skipped?: {
-        iterations: number;
-    } | undefined;
+  i: number
+  event: 'line' | 'call' | 'return' | 'exception'
+  pyLine: number
+  origLines: number[]
+  frames: {
+    fn: string
+    locals: Record<
+      string,
+      | {
+          prim: string | number | boolean | null
+        }
+      | {
+          ref: string
+        }
+    >
+  }[]
+  heap: Record<
+    string,
+    {
+      kind: 'object' | 'list' | 'tuple' | 'set' | 'dict'
+      cls?: string | undefined
+      items?:
+        | (
+            | {
+                prim: string | number | boolean | null
+              }
+            | {
+                ref: string
+              }
+          )[]
+        | undefined
+      entries?:
+        | [
+            (
+              | {
+                  prim: string | number | boolean | null
+                }
+              | {
+                  ref: string
+                }
+            ),
+            (
+              | {
+                  prim: string | number | boolean | null
+                }
+              | {
+                  ref: string
+                }
+            ),
+          ][]
+        | undefined
+      fields?:
+        | Record<
+            string,
+            | {
+                prim: string | number | boolean | null
+              }
+            | {
+                ref: string
+              }
+          >
+        | undefined
+      truncated?: boolean | undefined
+    }
+  >
+  stdout: string
+  returnValue?:
+    | {
+        prim: string | number | boolean | null
+      }
+    | {
+        ref: string
+      }
+    | undefined
+  exception?: string | undefined
+  skipped?:
+    | {
+        iterations: number
+      }
+    | undefined
 }
 
 /** What the trace worker returns for one run, before compression (§12 trace worker API). */
 type RawTrace = {
-    steps: {
-        i: number;
-        event: "line" | "call" | "return" | "exception";
-        pyLine: number;
-        origLines: number[];
-        frames: {
-            fn: string;
-            locals: Record<string, {
-                prim: string | number | boolean | null;
-            } | {
-                ref: string;
-            }>;
-        }[];
-        heap: Record<string, {
-            kind: "object" | "list" | "tuple" | "set" | "dict";
-            cls?: string | undefined;
-            items?: ({
-                prim: string | number | boolean | null;
-            } | {
-                ref: string;
-            })[] | undefined;
-            entries?: [{
-                prim: string | number | boolean | null;
-            } | {
-                ref: string;
-            }, {
-                prim: string | number | boolean | null;
-            } | {
-                ref: string;
-            }][] | undefined;
-            fields?: Record<string, {
-                prim: string | number | boolean | null;
-            } | {
-                ref: string;
-            }> | undefined;
-            truncated?: boolean | undefined;
-        }>;
-        stdout: string;
-        returnValue?: {
-            prim: string | number | boolean | null;
-        } | {
-            ref: string;
-        } | undefined;
-        exception?: string | undefined;
-        skipped?: {
-            iterations: number;
-        } | undefined;
-    }[];
-    truncated: boolean;
-    error?: string | undefined;
+  steps: {
+    i: number
+    event: 'line' | 'call' | 'return' | 'exception'
+    pyLine: number
+    origLines: number[]
+    frames: {
+      fn: string
+      locals: Record<
+        string,
+        | {
+            prim: string | number | boolean | null
+          }
+        | {
+            ref: string
+          }
+      >
+    }[]
+    heap: Record<
+      string,
+      {
+        kind: 'object' | 'list' | 'tuple' | 'set' | 'dict'
+        cls?: string | undefined
+        items?:
+          | (
+              | {
+                  prim: string | number | boolean | null
+                }
+              | {
+                  ref: string
+                }
+            )[]
+          | undefined
+        entries?:
+          | [
+              (
+                | {
+                    prim: string | number | boolean | null
+                  }
+                | {
+                    ref: string
+                  }
+              ),
+              (
+                | {
+                    prim: string | number | boolean | null
+                  }
+                | {
+                    ref: string
+                  }
+              ),
+            ][]
+          | undefined
+        fields?:
+          | Record<
+              string,
+              | {
+                  prim: string | number | boolean | null
+                }
+              | {
+                  ref: string
+                }
+            >
+          | undefined
+        truncated?: boolean | undefined
+      }
+    >
+    stdout: string
+    returnValue?:
+      | {
+          prim: string | number | boolean | null
+        }
+      | {
+          ref: string
+        }
+      | undefined
+    exception?: string | undefined
+    skipped?:
+      | {
+          iterations: number
+        }
+      | undefined
+  }[]
+  truncated: boolean
+  error?: string | undefined
 }
 
 /** A compressed, stored trace of one scenario (§5, §12). `input` is the scenario's entry call. */
 type Trace = {
-    codeBlockId: string;
-    python: string;
-    lineMap: {
-        py: number;
-        orig: number[];
-    }[];
-    input: string;
-    assumptions: string[];
-    steps: {
-        i: number;
-        event: "line" | "call" | "return" | "exception";
-        pyLine: number;
-        origLines: number[];
-        frames: {
-            fn: string;
-            locals: Record<string, {
-                prim: string | number | boolean | null;
-            } | {
-                ref: string;
-            }>;
-        }[];
-        heap: Record<string, {
-            kind: "object" | "list" | "tuple" | "set" | "dict";
-            cls?: string | undefined;
-            items?: ({
-                prim: string | number | boolean | null;
-            } | {
-                ref: string;
-            })[] | undefined;
-            entries?: [{
-                prim: string | number | boolean | null;
-            } | {
-                ref: string;
-            }, {
-                prim: string | number | boolean | null;
-            } | {
-                ref: string;
-            }][] | undefined;
-            fields?: Record<string, {
-                prim: string | number | boolean | null;
-            } | {
-                ref: string;
-            }> | undefined;
-            truncated?: boolean | undefined;
-        }>;
-        stdout: string;
-        returnValue?: {
-            prim: string | number | boolean | null;
-        } | {
-            ref: string;
-        } | undefined;
-        exception?: string | undefined;
-        skipped?: {
-            iterations: number;
-        } | undefined;
-    }[];
-    truncated: boolean;
-    error?: string | undefined;
+  codeBlockId: string
+  python: string
+  lineMap: {
+    py: number
+    orig: number[]
+  }[]
+  input: string
+  assumptions: string[]
+  steps: {
+    i: number
+    event: 'line' | 'call' | 'return' | 'exception'
+    pyLine: number
+    origLines: number[]
+    frames: {
+      fn: string
+      locals: Record<
+        string,
+        | {
+            prim: string | number | boolean | null
+          }
+        | {
+            ref: string
+          }
+      >
+    }[]
+    heap: Record<
+      string,
+      {
+        kind: 'object' | 'list' | 'tuple' | 'set' | 'dict'
+        cls?: string | undefined
+        items?:
+          | (
+              | {
+                  prim: string | number | boolean | null
+                }
+              | {
+                  ref: string
+                }
+            )[]
+          | undefined
+        entries?:
+          | [
+              (
+                | {
+                    prim: string | number | boolean | null
+                  }
+                | {
+                    ref: string
+                  }
+              ),
+              (
+                | {
+                    prim: string | number | boolean | null
+                  }
+                | {
+                    ref: string
+                  }
+              ),
+            ][]
+          | undefined
+        fields?:
+          | Record<
+              string,
+              | {
+                  prim: string | number | boolean | null
+                }
+              | {
+                  ref: string
+                }
+            >
+          | undefined
+        truncated?: boolean | undefined
+      }
+    >
+    stdout: string
+    returnValue?:
+      | {
+          prim: string | number | boolean | null
+        }
+      | {
+          ref: string
+        }
+      | undefined
+    exception?: string | undefined
+    skipped?:
+      | {
+          iterations: number
+        }
+      | undefined
+  }[]
+  truncated: boolean
+  error?: string | undefined
 }
 
 /** A trace with the label of the scenario it ran (scenario tabs in the trace view). */
 type ScenarioTrace = {
-    label: string;
-    trace: {
-        codeBlockId: string;
-        python: string;
-        lineMap: {
-            py: number;
-            orig: number[];
-        }[];
-        input: string;
-        assumptions: string[];
-        steps: {
-            i: number;
-            event: "line" | "call" | "return" | "exception";
-            pyLine: number;
-            origLines: number[];
-            frames: {
-                fn: string;
-                locals: Record<string, {
-                    prim: string | number | boolean | null;
-                } | {
-                    ref: string;
-                }>;
-            }[];
-            heap: Record<string, {
-                kind: "object" | "list" | "tuple" | "set" | "dict";
-                cls?: string | undefined;
-                items?: ({
-                    prim: string | number | boolean | null;
-                } | {
-                    ref: string;
-                })[] | undefined;
-                entries?: [{
-                    prim: string | number | boolean | null;
-                } | {
-                    ref: string;
-                }, {
-                    prim: string | number | boolean | null;
-                } | {
-                    ref: string;
-                }][] | undefined;
-                fields?: Record<string, {
-                    prim: string | number | boolean | null;
-                } | {
-                    ref: string;
-                }> | undefined;
-                truncated?: boolean | undefined;
-            }>;
-            stdout: string;
-            returnValue?: {
-                prim: string | number | boolean | null;
-            } | {
-                ref: string;
-            } | undefined;
-            exception?: string | undefined;
-            skipped?: {
-                iterations: number;
-            } | undefined;
-        }[];
-        truncated: boolean;
-        error?: string | undefined;
-    };
+  label: string
+  trace: {
+    codeBlockId: string
+    python: string
+    lineMap: {
+      py: number
+      orig: number[]
+    }[]
+    input: string
+    assumptions: string[]
+    steps: {
+      i: number
+      event: 'line' | 'call' | 'return' | 'exception'
+      pyLine: number
+      origLines: number[]
+      frames: {
+        fn: string
+        locals: Record<
+          string,
+          | {
+              prim: string | number | boolean | null
+            }
+          | {
+              ref: string
+            }
+        >
+      }[]
+      heap: Record<
+        string,
+        {
+          kind: 'object' | 'list' | 'tuple' | 'set' | 'dict'
+          cls?: string | undefined
+          items?:
+            | (
+                | {
+                    prim: string | number | boolean | null
+                  }
+                | {
+                    ref: string
+                  }
+              )[]
+            | undefined
+          entries?:
+            | [
+                (
+                  | {
+                      prim: string | number | boolean | null
+                    }
+                  | {
+                      ref: string
+                    }
+                ),
+                (
+                  | {
+                      prim: string | number | boolean | null
+                    }
+                  | {
+                      ref: string
+                    }
+                ),
+              ][]
+            | undefined
+          fields?:
+            | Record<
+                string,
+                | {
+                    prim: string | number | boolean | null
+                  }
+                | {
+                    ref: string
+                  }
+              >
+            | undefined
+          truncated?: boolean | undefined
+        }
+      >
+      stdout: string
+      returnValue?:
+        | {
+            prim: string | number | boolean | null
+          }
+        | {
+            ref: string
+          }
+        | undefined
+      exception?: string | undefined
+      skipped?:
+        | {
+            iterations: number
+          }
+        | undefined
+    }[]
+    truncated: boolean
+    error?: string | undefined
+  }
 }
 
 /** Record of the `traces` store (§5), keyed by the trace cache key. */
 type TraceRecord = {
-    cacheKey: string;
-    bookId: string;
-    codeBlockId: string;
-    translation: {
-        traceable: boolean;
-        python: string;
-        scenarios: {
-            label: string;
-            entry: string;
-        }[];
-        inputRationale: string;
-        lineMap: {
-            py: number;
-            orig: number[];
-        }[];
-        focusFunctions: string[];
-        vizHints: {
-            variable: string;
-            template: "array" | "linked-list" | "stack" | "queue" | "hash-table" | "tree" | "graph-ds" | "grid" | "memory" | "bits" | "call-tree" | "pipeline" | "layers" | "cache" | "comparison" | "set-ops";
-            fn?: string | undefined;
-            pointerOf?: string | undefined;
-        }[];
-        assumptions: string[];
-        reason?: string | undefined;
-    };
+  cacheKey: string
+  bookId: string
+  codeBlockId: string
+  translation: {
+    traceable: boolean
+    python: string
     scenarios: {
-        label: string;
-        trace: {
-            codeBlockId: string;
-            python: string;
-            lineMap: {
-                py: number;
-                orig: number[];
-            }[];
-            input: string;
-            assumptions: string[];
-            steps: {
-                i: number;
-                event: "line" | "call" | "return" | "exception";
-                pyLine: number;
-                origLines: number[];
-                frames: {
-                    fn: string;
-                    locals: Record<string, {
-                        prim: string | number | boolean | null;
-                    } | {
-                        ref: string;
-                    }>;
-                }[];
-                heap: Record<string, {
-                    kind: "object" | "list" | "tuple" | "set" | "dict";
-                    cls?: string | undefined;
-                    items?: ({
-                        prim: string | number | boolean | null;
-                    } | {
-                        ref: string;
-                    })[] | undefined;
-                    entries?: [{
-                        prim: string | number | boolean | null;
-                    } | {
-                        ref: string;
-                    }, {
-                        prim: string | number | boolean | null;
-                    } | {
-                        ref: string;
-                    }][] | undefined;
-                    fields?: Record<string, {
-                        prim: string | number | boolean | null;
-                    } | {
-                        ref: string;
-                    }> | undefined;
-                    truncated?: boolean | undefined;
-                }>;
-                stdout: string;
-                returnValue?: {
-                    prim: string | number | boolean | null;
-                } | {
-                    ref: string;
-                } | undefined;
-                exception?: string | undefined;
-                skipped?: {
-                    iterations: number;
-                } | undefined;
-            }[];
-            truncated: boolean;
-            error?: string | undefined;
-        };
-    }[];
-    mode: "simulated" | "executed";
-    promptVersions: Record<string, string>;
-    models: Record<string, string>;
-    efforts: Record<string, "low" | "medium" | "high">;
-    createdAt: number;
-    stale: boolean;
+      label: string
+      entry: string
+    }[]
+    inputRationale: string
+    lineMap: {
+      py: number
+      orig: number[]
+    }[]
+    focusFunctions: string[]
+    vizHints: {
+      variable: string
+      template:
+        | 'array'
+        | 'linked-list'
+        | 'stack'
+        | 'queue'
+        | 'hash-table'
+        | 'tree'
+        | 'graph-ds'
+        | 'grid'
+        | 'memory'
+        | 'bits'
+        | 'call-tree'
+        | 'pipeline'
+        | 'layers'
+        | 'cache'
+        | 'comparison'
+        | 'set-ops'
+      fn?: string | undefined
+      pointerOf?: string | undefined
+    }[]
+    assumptions: string[]
+    reason?: string | undefined
+  }
+  scenarios: {
+    label: string
+    trace: {
+      codeBlockId: string
+      python: string
+      lineMap: {
+        py: number
+        orig: number[]
+      }[]
+      input: string
+      assumptions: string[]
+      steps: {
+        i: number
+        event: 'line' | 'call' | 'return' | 'exception'
+        pyLine: number
+        origLines: number[]
+        frames: {
+          fn: string
+          locals: Record<
+            string,
+            | {
+                prim: string | number | boolean | null
+              }
+            | {
+                ref: string
+              }
+          >
+        }[]
+        heap: Record<
+          string,
+          {
+            kind: 'object' | 'list' | 'tuple' | 'set' | 'dict'
+            cls?: string | undefined
+            items?:
+              | (
+                  | {
+                      prim: string | number | boolean | null
+                    }
+                  | {
+                      ref: string
+                    }
+                )[]
+              | undefined
+            entries?:
+              | [
+                  (
+                    | {
+                        prim: string | number | boolean | null
+                      }
+                    | {
+                        ref: string
+                      }
+                  ),
+                  (
+                    | {
+                        prim: string | number | boolean | null
+                      }
+                    | {
+                        ref: string
+                      }
+                  ),
+                ][]
+              | undefined
+            fields?:
+              | Record<
+                  string,
+                  | {
+                      prim: string | number | boolean | null
+                    }
+                  | {
+                      ref: string
+                    }
+                >
+              | undefined
+            truncated?: boolean | undefined
+          }
+        >
+        stdout: string
+        returnValue?:
+          | {
+              prim: string | number | boolean | null
+            }
+          | {
+              ref: string
+            }
+          | undefined
+        exception?: string | undefined
+        skipped?:
+          | {
+              iterations: number
+            }
+          | undefined
+      }[]
+      truncated: boolean
+      error?: string | undefined
+    }
+  }[]
+  mode: 'simulated' | 'executed'
+  promptVersions: Record<string, string>
+  models: Record<string, string>
+  efforts: Record<string, 'low' | 'medium' | 'high'>
+  createdAt: number
+  stale: boolean
 }
 ```
 
@@ -2932,18 +4104,27 @@ type TraceRecord = {
 
 ```ts
 /** A finding to fix: a validation/render issue or a critic issue. */
-type RepairFinding = {
-    layer: "schema" | "grounding" | "structure" | "render" | "animation";
-    severity: "error" | "warning";
-    code: string;
-    message: string;
-    elementId?: string | undefined;
-    autoFixed?: boolean | undefined;
-} | {
-    kind: "clutter" | "overlap" | "unreadable" | "missing-step" | "wrong-direction" | "mislabel" | "other";
-    note: string;
-    elementId?: string | undefined;
-}
+type RepairFinding =
+  | {
+      layer: 'schema' | 'grounding' | 'structure' | 'render' | 'animation'
+      severity: 'error' | 'warning'
+      code: string
+      message: string
+      elementId?: string | undefined
+      autoFixed?: boolean | undefined
+    }
+  | {
+      kind:
+        | 'clutter'
+        | 'overlap'
+        | 'unreadable'
+        | 'missing-step'
+        | 'wrong-direction'
+        | 'mislabel'
+        | 'other'
+      note: string
+      elementId?: string | undefined
+    }
 ```
 
 ## 2. Model output schemas
@@ -3008,17 +4189,11 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       "type": "boolean"
                     }
                   },
-                  "required": [
-                    "blockId",
-                    "quote"
-                  ],
+                  "required": ["blockId", "quote"],
                   "additionalProperties": false
                 }
               },
-              "required": [
-                "name",
-                "evidence"
-              ],
+              "required": ["name", "evidence"],
               "additionalProperties": false
             }
           },
@@ -3032,9 +4207,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                   "minLength": 1
                 }
               },
-              "required": [
-                "name"
-              ],
+              "required": ["name"],
               "additionalProperties": false
             }
           },
@@ -3079,20 +4252,12 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
             "additionalProperties": false
           }
         },
-        "required": [
-          "sectionId",
-          "summary",
-          "defines",
-          "uses",
-          "flags"
-        ],
+        "required": ["sectionId", "summary", "defines", "uses", "flags"],
         "additionalProperties": false
       }
     }
   },
-  "required": [
-    "sections"
-  ],
+  "required": ["sections"],
   "additionalProperties": false
 }
 ```
@@ -3125,17 +4290,12 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
             }
           }
         },
-        "required": [
-          "canonical",
-          "aliases"
-        ],
+        "required": ["canonical", "aliases"],
         "additionalProperties": false
       }
     }
   },
-  "required": [
-    "merges"
-  ],
+  "required": ["merges"],
   "additionalProperties": false
 }
 ```
@@ -3163,10 +4323,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
       }
     }
   },
-  "required": [
-    "summary",
-    "conventions"
-  ],
+  "required": ["summary", "conventions"],
   "additionalProperties": false
 }
 ```
@@ -3265,11 +4422,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
           },
           "priority": {
             "type": "number",
-            "enum": [
-              1,
-              2,
-              3
-            ]
+            "enum": [1, 2, 3]
           },
           "animate": {
             "type": "boolean"
@@ -3287,12 +4440,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
       }
     }
   },
-  "required": [
-    "sectionId",
-    "needsVisual",
-    "reason",
-    "items"
-  ],
+  "required": ["sectionId", "needsVisual", "reason", "items"],
   "additionalProperties": false
 }
 ```
@@ -3318,10 +4466,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
     },
     "direction": {
       "type": "string",
-      "enum": [
-        "LR",
-        "TB"
-      ]
+      "enum": ["LR", "TB"]
     },
     "nodes": {
       "maxItems": 12,
@@ -3349,14 +4494,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
           },
           "shape": {
             "type": "string",
-            "enum": [
-              "box",
-              "store",
-              "actor",
-              "queue",
-              "decision",
-              "note"
-            ]
+            "enum": ["box", "store", "actor", "queue", "decision", "note"]
           },
           "evidence": {
             "type": "object",
@@ -3383,19 +4521,11 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 "type": "boolean"
               }
             },
-            "required": [
-              "blockId",
-              "quote"
-            ],
+            "required": ["blockId", "quote"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "id",
-          "label",
-          "shape",
-          "evidence"
-        ],
+        "required": ["id", "label", "shape", "evidence"],
         "additionalProperties": false
       }
     },
@@ -3424,10 +4554,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
           },
           "style": {
             "type": "string",
-            "enum": [
-              "solid",
-              "dashed"
-            ]
+            "enum": ["solid", "dashed"]
           },
           "evidence": {
             "type": "object",
@@ -3454,20 +4581,11 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 "type": "boolean"
               }
             },
-            "required": [
-              "blockId",
-              "quote"
-            ],
+            "required": ["blockId", "quote"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "id",
-          "from",
-          "to",
-          "style",
-          "evidence"
-        ],
+        "required": ["id", "from", "to", "style", "evidence"],
         "additionalProperties": false
       }
     },
@@ -3514,30 +4632,16 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 "type": "boolean"
               }
             },
-            "required": [
-              "blockId",
-              "quote"
-            ],
+            "required": ["blockId", "quote"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "id",
-          "label",
-          "evidence"
-        ],
+        "required": ["id", "label", "evidence"],
         "additionalProperties": false
       }
     }
   },
-  "required": [
-    "type",
-    "title",
-    "direction",
-    "nodes",
-    "edges",
-    "groups"
-  ],
+  "required": ["type", "title", "direction", "nodes", "edges", "groups"],
   "additionalProperties": false
 }
 ```
@@ -3601,18 +4705,11 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 "type": "boolean"
               }
             },
-            "required": [
-              "blockId",
-              "quote"
-            ],
+            "required": ["blockId", "quote"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "id",
-          "label",
-          "evidence"
-        ],
+        "required": ["id", "label", "evidence"],
         "additionalProperties": false
       }
     },
@@ -3641,11 +4738,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
           },
           "kind": {
             "type": "string",
-            "enum": [
-              "sync",
-              "async",
-              "reply"
-            ]
+            "enum": ["sync", "async", "reply"]
           },
           "evidence": {
             "type": "object",
@@ -3672,31 +4765,16 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 "type": "boolean"
               }
             },
-            "required": [
-              "blockId",
-              "quote"
-            ],
+            "required": ["blockId", "quote"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "id",
-          "from",
-          "to",
-          "label",
-          "kind",
-          "evidence"
-        ],
+        "required": ["id", "from", "to", "label", "kind", "evidence"],
         "additionalProperties": false
       }
     }
   },
-  "required": [
-    "type",
-    "title",
-    "participants",
-    "messages"
-  ],
+  "required": ["type", "title", "participants", "messages"],
   "additionalProperties": false
 }
 ```
@@ -3771,18 +4849,11 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 "type": "boolean"
               }
             },
-            "required": [
-              "blockId",
-              "quote"
-            ],
+            "required": ["blockId", "quote"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "id",
-          "label",
-          "evidence"
-        ],
+        "required": ["id", "label", "evidence"],
         "additionalProperties": false
       }
     },
@@ -3838,32 +4909,16 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 "type": "boolean"
               }
             },
-            "required": [
-              "blockId",
-              "quote"
-            ],
+            "required": ["blockId", "quote"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "id",
-          "from",
-          "to",
-          "event",
-          "evidence"
-        ],
+        "required": ["id", "from", "to", "event", "evidence"],
         "additionalProperties": false
       }
     }
   },
-  "required": [
-    "type",
-    "title",
-    "initial",
-    "final",
-    "states",
-    "transitions"
-  ],
+  "required": ["type", "title", "initial", "final", "states", "transitions"],
   "additionalProperties": false
 }
 ```
@@ -3904,12 +4959,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
           },
           "stereotype": {
             "type": "string",
-            "enum": [
-              "interface",
-              "abstract",
-              "enumeration",
-              "service"
-            ]
+            "enum": ["interface", "abstract", "enumeration", "service"]
           },
           "fields": {
             "maxItems": 8,
@@ -3929,12 +4979,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 },
                 "visibility": {
                   "type": "string",
-                  "enum": [
-                    "+",
-                    "-",
-                    "#",
-                    "~"
-                  ]
+                  "enum": ["+", "-", "#", "~"]
                 },
                 "isStatic": {
                   "type": "boolean"
@@ -3964,17 +5009,11 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       "type": "boolean"
                     }
                   },
-                  "required": [
-                    "blockId",
-                    "quote"
-                  ],
+                  "required": ["blockId", "quote"],
                   "additionalProperties": false
                 }
               },
-              "required": [
-                "name",
-                "evidence"
-              ],
+              "required": ["name", "evidence"],
               "additionalProperties": false
             }
           },
@@ -4000,12 +5039,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 },
                 "visibility": {
                   "type": "string",
-                  "enum": [
-                    "+",
-                    "-",
-                    "#",
-                    "~"
-                  ]
+                  "enum": ["+", "-", "#", "~"]
                 },
                 "isStatic": {
                   "type": "boolean"
@@ -4038,17 +5072,11 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       "type": "boolean"
                     }
                   },
-                  "required": [
-                    "blockId",
-                    "quote"
-                  ],
+                  "required": ["blockId", "quote"],
                   "additionalProperties": false
                 }
               },
-              "required": [
-                "name",
-                "evidence"
-              ],
+              "required": ["name", "evidence"],
               "additionalProperties": false
             }
           },
@@ -4077,20 +5105,11 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 "type": "boolean"
               }
             },
-            "required": [
-              "blockId",
-              "quote"
-            ],
+            "required": ["blockId", "quote"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "id",
-          "label",
-          "fields",
-          "methods",
-          "evidence"
-        ],
+        "required": ["id", "label", "fields", "methods", "evidence"],
         "additionalProperties": false
       }
     },
@@ -4130,25 +5149,11 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
           },
           "fromCardinality": {
             "type": "string",
-            "enum": [
-              "1",
-              "0..1",
-              "0..*",
-              "1..*",
-              "*",
-              "n"
-            ]
+            "enum": ["1", "0..1", "0..*", "1..*", "*", "n"]
           },
           "toCardinality": {
             "type": "string",
-            "enum": [
-              "1",
-              "0..1",
-              "0..*",
-              "1..*",
-              "*",
-              "n"
-            ]
+            "enum": ["1", "0..1", "0..*", "1..*", "*", "n"]
           },
           "evidence": {
             "type": "object",
@@ -4175,30 +5180,16 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 "type": "boolean"
               }
             },
-            "required": [
-              "blockId",
-              "quote"
-            ],
+            "required": ["blockId", "quote"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "id",
-          "from",
-          "to",
-          "kind",
-          "evidence"
-        ],
+        "required": ["id", "from", "to", "kind", "evidence"],
         "additionalProperties": false
       }
     }
   },
-  "required": [
-    "type",
-    "title",
-    "classes",
-    "relations"
-  ],
+  "required": ["type", "title", "classes", "relations"],
   "additionalProperties": false
 }
 ```
@@ -4255,11 +5246,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 },
                 "key": {
                   "type": "string",
-                  "enum": [
-                    "PK",
-                    "FK",
-                    "UK"
-                  ]
+                  "enum": ["PK", "FK", "UK"]
                 },
                 "evidence": {
                   "type": "object",
@@ -4286,17 +5273,11 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       "type": "boolean"
                     }
                   },
-                  "required": [
-                    "blockId",
-                    "quote"
-                  ],
+                  "required": ["blockId", "quote"],
                   "additionalProperties": false
                 }
               },
-              "required": [
-                "name",
-                "evidence"
-              ],
+              "required": ["name", "evidence"],
               "additionalProperties": false
             }
           },
@@ -4325,19 +5306,11 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 "type": "boolean"
               }
             },
-            "required": [
-              "blockId",
-              "quote"
-            ],
+            "required": ["blockId", "quote"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "id",
-          "label",
-          "attributes",
-          "evidence"
-        ],
+        "required": ["id", "label", "attributes", "evidence"],
         "additionalProperties": false
       }
     },
@@ -4410,10 +5383,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 "type": "boolean"
               }
             },
-            "required": [
-              "blockId",
-              "quote"
-            ],
+            "required": ["blockId", "quote"],
             "additionalProperties": false
           }
         },
@@ -4431,12 +5401,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
       }
     }
   },
-  "required": [
-    "type",
-    "title",
-    "entities",
-    "relationships"
-  ],
+  "required": ["type", "title", "entities", "relationships"],
   "additionalProperties": false
 }
 ```
@@ -4512,27 +5477,16 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 "type": "boolean"
               }
             },
-            "required": [
-              "blockId",
-              "quote"
-            ],
+            "required": ["blockId", "quote"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "path",
-          "evidence"
-        ],
+        "required": ["path", "evidence"],
         "additionalProperties": false
       }
     }
   },
-  "required": [
-    "type",
-    "templateId",
-    "props",
-    "evidence"
-  ],
+  "required": ["type", "templateId", "props", "evidence"],
   "additionalProperties": false
 }
 ```
@@ -4646,17 +5600,11 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 "type": "boolean"
               }
             },
-            "required": [
-              "blockId",
-              "quote"
-            ],
+            "required": ["blockId", "quote"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "name",
-          "evidence"
-        ],
+        "required": ["name", "evidence"],
         "additionalProperties": false
       }
     },
@@ -4664,15 +5612,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
       "type": "boolean"
     }
   },
-  "required": [
-    "type",
-    "title",
-    "xLabel",
-    "yLabel",
-    "domain",
-    "series",
-    "logY"
-  ],
+  "required": ["type", "title", "xLabel", "yLabel", "domain", "series", "logY"],
   "additionalProperties": false
 }
 ```
@@ -4736,27 +5676,16 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 "type": "boolean"
               }
             },
-            "required": [
-              "blockId",
-              "quote"
-            ],
+            "required": ["blockId", "quote"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "symbol",
-          "meaning",
-          "evidence"
-        ],
+        "required": ["symbol", "meaning", "evidence"],
         "additionalProperties": false
       }
     }
   },
-  "required": [
-    "type",
-    "sourceBlockId",
-    "terms"
-  ],
+  "required": ["type", "sourceBlockId", "terms"],
   "additionalProperties": false
 }
 ```
@@ -4796,10 +5725,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
             "maxLength": 40
           }
         },
-        "required": [
-          "id",
-          "label"
-        ],
+        "required": ["id", "label"],
         "additionalProperties": false
       }
     },
@@ -4853,30 +5779,16 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 "type": "boolean"
               }
             },
-            "required": [
-              "blockId",
-              "quote"
-            ],
+            "required": ["blockId", "quote"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "id",
-          "lane",
-          "at",
-          "label",
-          "evidence"
-        ],
+        "required": ["id", "lane", "at", "label", "evidence"],
         "additionalProperties": false
       }
     }
   },
-  "required": [
-    "type",
-    "simulated",
-    "lanes",
-    "events"
-  ],
+  "required": ["type", "simulated", "lanes", "events"],
   "additionalProperties": false
 }
 ```
@@ -4905,11 +5817,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
       "minLength": 1
     }
   },
-  "required": [
-    "type",
-    "html",
-    "reason"
-  ],
+  "required": ["type", "html", "reason"],
   "additionalProperties": false
 }
 ```
@@ -5001,10 +5909,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                 "type": "boolean"
               }
             },
-            "required": [
-              "blockId",
-              "quote"
-            ],
+            "required": ["blockId", "quote"],
             "additionalProperties": false
           },
           "actions": {
@@ -5049,19 +5954,10 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                     },
                     "tone": {
                       "type": "string",
-                      "enum": [
-                        "focus",
-                        "success",
-                        "warning",
-                        "muted"
-                      ]
+                      "enum": ["focus", "success", "warning", "muted"]
                     }
                   },
-                  "required": [
-                    "op",
-                    "target",
-                    "tone"
-                  ],
+                  "required": ["op", "target", "tone"],
                   "additionalProperties": false
                 },
                 {
@@ -5108,10 +6004,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       ]
                     }
                   },
-                  "required": [
-                    "op",
-                    "target"
-                  ],
+                  "required": ["op", "target"],
                   "additionalProperties": false
                 },
                 {
@@ -5150,10 +6043,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       ]
                     }
                   },
-                  "required": [
-                    "op",
-                    "target"
-                  ],
+                  "required": ["op", "target"],
                   "additionalProperties": false
                 },
                 {
@@ -5192,10 +6082,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       ]
                     }
                   },
-                  "required": [
-                    "op",
-                    "target"
-                  ],
+                  "required": ["op", "target"],
                   "additionalProperties": false
                 },
                 {
@@ -5234,17 +6121,10 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       ]
                     },
                     "value": {
-                      "type": [
-                        "string",
-                        "number"
-                      ]
+                      "type": ["string", "number"]
                     }
                   },
-                  "required": [
-                    "op",
-                    "target",
-                    "value"
-                  ],
+                  "required": ["op", "target", "value"],
                   "additionalProperties": false
                 },
                 {
@@ -5311,11 +6191,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       ]
                     }
                   },
-                  "required": [
-                    "op",
-                    "a",
-                    "b"
-                  ],
+                  "required": ["op", "a", "b"],
                   "additionalProperties": false
                 },
                 {
@@ -5365,11 +6241,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       ]
                     }
                   },
-                  "required": [
-                    "op",
-                    "name",
-                    "target"
-                  ],
+                  "required": ["op", "name", "target"],
                   "additionalProperties": false
                 },
                 {
@@ -5377,10 +6249,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                   "properties": {
                     "op": {
                       "type": "string",
-                      "enum": [
-                        "push",
-                        "enqueue"
-                      ]
+                      "enum": ["push", "enqueue"]
                     },
                     "container": {
                       "type": "string",
@@ -5391,18 +6260,10 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       "minLength": 1
                     },
                     "value": {
-                      "type": [
-                        "string",
-                        "number"
-                      ]
+                      "type": ["string", "number"]
                     }
                   },
-                  "required": [
-                    "op",
-                    "container",
-                    "id",
-                    "value"
-                  ],
+                  "required": ["op", "container", "id", "value"],
                   "additionalProperties": false
                 },
                 {
@@ -5410,20 +6271,14 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                   "properties": {
                     "op": {
                       "type": "string",
-                      "enum": [
-                        "pop",
-                        "dequeue"
-                      ]
+                      "enum": ["pop", "dequeue"]
                     },
                     "container": {
                       "type": "string",
                       "minLength": 1
                     }
                   },
-                  "required": [
-                    "op",
-                    "container"
-                  ],
+                  "required": ["op", "container"],
                   "additionalProperties": false
                 },
                 {
@@ -5450,17 +6305,11 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                           "maxLength": 40
                         }
                       },
-                      "required": [
-                        "id",
-                        "label"
-                      ],
+                      "required": ["id", "label"],
                       "additionalProperties": false
                     }
                   },
-                  "required": [
-                    "op",
-                    "element"
-                  ],
+                  "required": ["op", "element"],
                   "additionalProperties": false
                 },
                 {
@@ -5499,10 +6348,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       ]
                     }
                   },
-                  "required": [
-                    "op",
-                    "target"
-                  ],
+                  "required": ["op", "target"],
                   "additionalProperties": false
                 },
                 {
@@ -5530,11 +6376,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       }
                     }
                   },
-                  "required": [
-                    "op",
-                    "id",
-                    "path"
-                  ],
+                  "required": ["op", "id", "path"],
                   "additionalProperties": false
                 },
                 {
@@ -5578,11 +6420,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       "maxLength": 40
                     }
                   },
-                  "required": [
-                    "op",
-                    "target",
-                    "text"
-                  ],
+                  "required": ["op", "target", "text"],
                   "additionalProperties": false
                 },
                 {
@@ -5629,31 +6467,19 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       ]
                     }
                   },
-                  "required": [
-                    "op",
-                    "target"
-                  ],
+                  "required": ["op", "target"],
                   "additionalProperties": false
                 }
               ]
             }
           }
         },
-        "required": [
-          "id",
-          "narration",
-          "evidence",
-          "actions"
-        ],
+        "required": ["id", "narration", "evidence", "actions"],
         "additionalProperties": false
       }
     }
   },
-  "required": [
-    "planItemId",
-    "initialHidden",
-    "steps"
-  ],
+  "required": ["planItemId", "initialHidden", "steps"],
   "additionalProperties": false
 }
 ```
@@ -5695,10 +6521,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
             "minLength": 1
           }
         },
-        "required": [
-          "label",
-          "entry"
-        ],
+        "required": ["label", "entry"],
         "additionalProperties": false
       }
     },
@@ -5725,10 +6548,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
             }
           }
         },
-        "required": [
-          "py",
-          "orig"
-        ],
+        "required": ["py", "orig"],
         "additionalProperties": false
       }
     },
@@ -5778,10 +6598,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
             "minLength": 1
           }
         },
-        "required": [
-          "variable",
-          "template"
-        ],
+        "required": ["variable", "template"],
         "additionalProperties": false
       }
     },
@@ -5888,26 +6705,15 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                         "type": "boolean"
                       }
                     },
-                    "required": [
-                      "blockId",
-                      "quote"
-                    ],
+                    "required": ["blockId", "quote"],
                     "additionalProperties": false
                   }
                 },
-                "required": [
-                  "id",
-                  "label",
-                  "shape",
-                  "evidence"
-                ],
+                "required": ["id", "label", "shape", "evidence"],
                 "additionalProperties": false
               }
             },
-            "required": [
-              "op",
-              "node"
-            ],
+            "required": ["op", "node"],
             "additionalProperties": false
           },
           {
@@ -5939,10 +6745,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                   },
                   "style": {
                     "type": "string",
-                    "enum": [
-                      "solid",
-                      "dashed"
-                    ]
+                    "enum": ["solid", "dashed"]
                   },
                   "evidence": {
                     "type": "object",
@@ -5969,27 +6772,15 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                         "type": "boolean"
                       }
                     },
-                    "required": [
-                      "blockId",
-                      "quote"
-                    ],
+                    "required": ["blockId", "quote"],
                     "additionalProperties": false
                   }
                 },
-                "required": [
-                  "id",
-                  "from",
-                  "to",
-                  "style",
-                  "evidence"
-                ],
+                "required": ["id", "from", "to", "style", "evidence"],
                 "additionalProperties": false
               }
             },
-            "required": [
-              "op",
-              "edge"
-            ],
+            "required": ["op", "edge"],
             "additionalProperties": false
           },
           {
@@ -6040,25 +6831,15 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                         "type": "boolean"
                       }
                     },
-                    "required": [
-                      "blockId",
-                      "quote"
-                    ],
+                    "required": ["blockId", "quote"],
                     "additionalProperties": false
                   }
                 },
-                "required": [
-                  "id",
-                  "label",
-                  "evidence"
-                ],
+                "required": ["id", "label", "evidence"],
                 "additionalProperties": false
               }
             },
-            "required": [
-              "op",
-              "group"
-            ],
+            "required": ["op", "group"],
             "additionalProperties": false
           },
           {
@@ -6105,25 +6886,15 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                         "type": "boolean"
                       }
                     },
-                    "required": [
-                      "blockId",
-                      "quote"
-                    ],
+                    "required": ["blockId", "quote"],
                     "additionalProperties": false
                   }
                 },
-                "required": [
-                  "id",
-                  "label",
-                  "evidence"
-                ],
+                "required": ["id", "label", "evidence"],
                 "additionalProperties": false
               }
             },
-            "required": [
-              "op",
-              "item"
-            ],
+            "required": ["op", "item"],
             "additionalProperties": false
           },
           {
@@ -6155,11 +6926,7 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                   },
                   "kind": {
                     "type": "string",
-                    "enum": [
-                      "sync",
-                      "async",
-                      "reply"
-                    ]
+                    "enum": ["sync", "async", "reply"]
                   },
                   "evidence": {
                     "type": "object",
@@ -6186,28 +6953,15 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                         "type": "boolean"
                       }
                     },
-                    "required": [
-                      "blockId",
-                      "quote"
-                    ],
+                    "required": ["blockId", "quote"],
                     "additionalProperties": false
                   }
                 },
-                "required": [
-                  "id",
-                  "from",
-                  "to",
-                  "label",
-                  "kind",
-                  "evidence"
-                ],
+                "required": ["id", "from", "to", "label", "kind", "evidence"],
                 "additionalProperties": false
               }
             },
-            "required": [
-              "op",
-              "item"
-            ],
+            "required": ["op", "item"],
             "additionalProperties": false
           },
           {
@@ -6254,25 +7008,15 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                         "type": "boolean"
                       }
                     },
-                    "required": [
-                      "blockId",
-                      "quote"
-                    ],
+                    "required": ["blockId", "quote"],
                     "additionalProperties": false
                   }
                 },
-                "required": [
-                  "id",
-                  "label",
-                  "evidence"
-                ],
+                "required": ["id", "label", "evidence"],
                 "additionalProperties": false
               }
             },
-            "required": [
-              "op",
-              "item"
-            ],
+            "required": ["op", "item"],
             "additionalProperties": false
           },
           {
@@ -6332,27 +7076,15 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                         "type": "boolean"
                       }
                     },
-                    "required": [
-                      "blockId",
-                      "quote"
-                    ],
+                    "required": ["blockId", "quote"],
                     "additionalProperties": false
                   }
                 },
-                "required": [
-                  "id",
-                  "from",
-                  "to",
-                  "event",
-                  "evidence"
-                ],
+                "required": ["id", "from", "to", "event", "evidence"],
                 "additionalProperties": false
               }
             },
-            "required": [
-              "op",
-              "item"
-            ],
+            "required": ["op", "item"],
             "additionalProperties": false
           },
           {
@@ -6405,18 +7137,11 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "blockId",
-                  "quote"
-                ],
+                "required": ["blockId", "quote"],
                 "additionalProperties": false
               }
             },
-            "required": [
-              "op",
-              "id",
-              "evidence"
-            ],
+            "required": ["op", "id", "evidence"],
             "additionalProperties": false
           },
           {
@@ -6455,18 +7180,11 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "blockId",
-                  "quote"
-                ],
+                "required": ["blockId", "quote"],
                 "additionalProperties": false
               }
             },
-            "required": [
-              "op",
-              "id",
-              "evidence"
-            ],
+            "required": ["op", "id", "evidence"],
             "additionalProperties": false
           },
           {
@@ -6510,28 +7228,18 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "blockId",
-                  "quote"
-                ],
+                "required": ["blockId", "quote"],
                 "additionalProperties": false
               }
             },
-            "required": [
-              "op",
-              "id",
-              "text",
-              "evidence"
-            ],
+            "required": ["op", "id", "text", "evidence"],
             "additionalProperties": false
           }
         ]
       }
     }
   },
-  "required": [
-    "ops"
-  ],
+  "required": ["ops"],
   "additionalProperties": false
 }
 ```
@@ -6555,40 +7263,18 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
       "properties": {
         "legibility": {
           "type": "number",
-          "enum": [
-            1,
-            2,
-            3,
-            4,
-            5
-          ]
+          "enum": [1, 2, 3, 4, 5]
         },
         "intentMatch": {
           "type": "number",
-          "enum": [
-            1,
-            2,
-            3,
-            4,
-            5
-          ]
+          "enum": [1, 2, 3, 4, 5]
         },
         "clutter": {
           "type": "number",
-          "enum": [
-            1,
-            2,
-            3,
-            4,
-            5
-          ]
+          "enum": [1, 2, 3, 4, 5]
         }
       },
-      "required": [
-        "legibility",
-        "intentMatch",
-        "clutter"
-      ],
+      "required": ["legibility", "intentMatch", "clutter"],
       "additionalProperties": false
     },
     "issues": {
@@ -6617,19 +7303,12 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
             "minLength": 1
           }
         },
-        "required": [
-          "kind",
-          "note"
-        ],
+        "required": ["kind", "note"],
         "additionalProperties": false
       }
     }
   },
-  "required": [
-    "pass",
-    "scores",
-    "issues"
-  ],
+  "required": ["pass", "scores", "issues"],
   "additionalProperties": false
 }
 ```
@@ -6664,13 +7343,13 @@ new LlmError(
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `code` | \| `"schema"` \| `"auth"` \| `"signin-required"` \| `"plan-limit"` \| `"upstream"` \| `"timeout"` \| `"aborted"` |
-| `message` | `string` |
-| `extra` | \{ `issues?`: `unknown`[]; `retryAfterMs?`: `number`; \} |
-| `extra.issues?` | `unknown`[] |
-| `extra.retryAfterMs?` | `number` |
+| Parameter             | Type                                                                                                             |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `code`                | \| `"schema"` \| `"auth"` \| `"signin-required"` \| `"plan-limit"` \| `"upstream"` \| `"timeout"` \| `"aborted"` |
+| `message`             | `string`                                                                                                         |
+| `extra`               | \{ `issues?`: `unknown`[]; `retryAfterMs?`: `number`; \}                                                         |
+| `extra.issues?`       | `unknown`[]                                                                                                      |
+| `extra.retryAfterMs?` | `number`                                                                                                         |
 
 ####### Returns
 
@@ -6718,7 +7397,7 @@ readonly issues: unknown[] | undefined;
 ###### message
 
 ```ts
-message: string;
+message: string
 ```
 
 ####### Inherited from
@@ -6730,7 +7409,7 @@ Error.message
 ###### name
 
 ```ts
-name: string;
+name: string
 ```
 
 ####### Inherited from
@@ -6763,28 +7442,28 @@ Error.stack
 
 ##### Properties
 
-| Property | Type | Description |
-| ------ | ------ | ------ |
-| <a id="property-grounding"></a> `grounding?` | [`GroundingContext`](#groundingcontext) | Mandatory for validateAnimation; only permitted section blocks may be supplied. |
-| <a id="property-templates"></a> `templates?` | [`TemplateRegistry`](#templateregistry)\<[`TemplateSpec`](#templatespec)\<`unknown`\>\> | - |
+| Property                                     | Type                                                                                    | Description                                                                     |
+| -------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| <a id="property-grounding"></a> `grounding?` | [`GroundingContext`](#groundingcontext)                                                 | Mandatory for validateAnimation; only permitted section blocks may be supplied. |
+| <a id="property-templates"></a> `templates?` | [`TemplateRegistry`](#templateregistry)\<[`TemplateSpec`](#templatespec)\<`unknown`\>\> | -                                                                               |
 
-***
+---
 
 #### AnimationValidation
 
 ##### Properties
 
-| Property | Type | Description |
-| ------ | ------ | ------ |
-| <a id="property-animation"></a> `animation?` | `object` | - |
-| `animation.initialHidden` | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[] | Elements revealed by later steps (progressive build-up). |
-| `animation.planItemId` | `string` | - |
-| `animation.steps` | `object`[] | - |
-| <a id="property-frames"></a> `frames?` | `object`[] | - |
-| <a id="property-issues"></a> `issues` | `object`[] | - |
-| <a id="property-ok"></a> `ok` | `boolean` | - |
+| Property                                     | Type                                                                                                                                                                        | Description                                              |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| <a id="property-animation"></a> `animation?` | `object`                                                                                                                                                                    | -                                                        |
+| `animation.initialHidden`                    | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[] | Elements revealed by later steps (progressive build-up). |
+| `animation.planItemId`                       | `string`                                                                                                                                                                    | -                                                        |
+| `animation.steps`                            | `object`[]                                                                                                                                                                  | -                                                        |
+| <a id="property-frames"></a> `frames?`       | `object`[]                                                                                                                                                                  | -                                                        |
+| <a id="property-issues"></a> `issues`        | `object`[]                                                                                                                                                                  | -                                                        |
+| <a id="property-ok"></a> `ok`                | `boolean`                                                                                                                                                                   | -                                                        |
 
-***
+---
 
 #### BlocksRepo
 
@@ -6837,46 +7516,46 @@ bulkGet(keys): Promise<(
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `keys` | readonly `string`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `keys`    | readonly `string`[] |
 
 ####### Returns
 
 `Promise`\<(
-  \| \{
-  `blockId`: `string`;
-  `cfiRange`: `string`;
-  `code?`: \{
-     `langHint?`: `string`;
-     `source`: `string`;
-  \};
-  `figure?`: \{
-     `alt?`: `string`;
-     `caption?`: `string`;
-     `imgHref?`: `string`;
-  \};
-  `kind`:   \| `"quote"`
-     \| `"paragraph"`
-     \| `"code"`
-     \| `"figure"`
-     \| `"table"`
-     \| `"math"`
-     \| `"list"`
-     \| `"aside"`;
-  `label?`: `string`;
-  `math?`: \{
-     `mathml?`: `string`;
-     `tex?`: `string`;
-  \};
-  `sectionId`: `string`;
-  `table?`: \{
-     `html`: `string`;
-     `rows`: `string`[][];
-  \};
-  `text`: `string`;
+\| \{
+`blockId`: `string`;
+`cfiRange`: `string`;
+`code?`: \{
+`langHint?`: `string`;
+`source`: `string`;
+\};
+`figure?`: \{
+`alt?`: `string`;
+`caption?`: `string`;
+`imgHref?`: `string`;
+\};
+`kind`: \| `"quote"`
+\| `"paragraph"`
+\| `"code"`
+\| `"figure"`
+\| `"table"`
+\| `"math"`
+\| `"list"`
+\| `"aside"`;
+`label?`: `string`;
+`math?`: \{
+`mathml?`: `string`;
+`tex?`: `string`;
+\};
+`sectionId`: `string`;
+`table?`: \{
+`html`: `string`;
+`rows`: `string`[][];
+\};
+`text`: `string`;
 \}
-  \| `undefined`)[]\>
+\| `undefined`)[]\>
 
 ####### Inherited from
 
@@ -6890,9 +7569,9 @@ bulkPut(values): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `values` | readonly `object`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `values`  | readonly `object`[] |
 
 ####### Returns
 
@@ -6910,9 +7589,9 @@ delete(key): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
@@ -6930,9 +7609,9 @@ deleteByBook(bookId): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `bookId`  | `string` |
 
 ####### Returns
 
@@ -6983,46 +7662,46 @@ get(key): Promise<
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
 `Promise`\<
-  \| \{
-  `blockId`: `string`;
-  `cfiRange`: `string`;
-  `code?`: \{
-     `langHint?`: `string`;
-     `source`: `string`;
-  \};
-  `figure?`: \{
-     `alt?`: `string`;
-     `caption?`: `string`;
-     `imgHref?`: `string`;
-  \};
-  `kind`:   \| `"quote"`
-     \| `"paragraph"`
-     \| `"code"`
-     \| `"figure"`
-     \| `"table"`
-     \| `"math"`
-     \| `"list"`
-     \| `"aside"`;
-  `label?`: `string`;
-  `math?`: \{
-     `mathml?`: `string`;
-     `tex?`: `string`;
-  \};
-  `sectionId`: `string`;
-  `table?`: \{
-     `html`: `string`;
-     `rows`: `string`[][];
-  \};
-  `text`: `string`;
+\| \{
+`blockId`: `string`;
+`cfiRange`: `string`;
+`code?`: \{
+`langHint?`: `string`;
+`source`: `string`;
+\};
+`figure?`: \{
+`alt?`: `string`;
+`caption?`: `string`;
+`imgHref?`: `string`;
+\};
+`kind`: \| `"quote"`
+\| `"paragraph"`
+\| `"code"`
+\| `"figure"`
+\| `"table"`
+\| `"math"`
+\| `"list"`
+\| `"aside"`;
+`label?`: `string`;
+`math?`: \{
+`mathml?`: `string`;
+`tex?`: `string`;
+\};
+`sectionId`: `string`;
+`table?`: \{
+`html`: `string`;
+`rows`: `string`[][];
+\};
+`text`: `string`;
 \}
-  \| `undefined`\>
+\| `undefined`\>
 
 ####### Inherited from
 
@@ -7038,8 +7717,8 @@ Blocks of a section in block order.
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
+| Parameter   | Type     |
+| ----------- | -------- |
 | `sectionId` | `string` |
 
 ####### Returns
@@ -7054,28 +7733,28 @@ put(value): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type | Description |
-| ------ | ------ | ------ |
-| `value` | \{ `blockId`: `string`; `cfiRange`: `string`; `code?`: \{ `langHint?`: `string`; `source`: `string`; \}; `figure?`: \{ `alt?`: `string`; `caption?`: `string`; `imgHref?`: `string`; \}; `kind`: \| `"quote"` \| `"paragraph"` \| `"code"` \| `"figure"` \| `"table"` \| `"math"` \| `"list"` \| `"aside"`; `label?`: `string`; `math?`: \{ `mathml?`: `string`; `tex?`: `string`; \}; `sectionId`: `string`; `table?`: \{ `html`: `string`; `rows`: `string`[][]; \}; `text`: `string`; \} | - |
-| `value.blockId` | `string` | - |
-| `value.cfiRange` | `string` | epub.js CFI range used for highlighting. |
-| `value.code?` | \{ `langHint?`: `string`; `source`: `string`; \} | - |
-| `value.code.langHint?` | `string` | - |
-| `value.code.source` | `string` | - |
-| `value.figure?` | \{ `alt?`: `string`; `caption?`: `string`; `imgHref?`: `string`; \} | - |
-| `value.figure.alt?` | `string` | - |
-| `value.figure.caption?` | `string` | - |
-| `value.figure.imgHref?` | `string` | - |
-| `value.kind` | \| `"quote"` \| `"paragraph"` \| `"code"` \| `"figure"` \| `"table"` \| `"math"` \| `"list"` \| `"aside"` | - |
-| `value.label?` | `string` | 'Listing 4.2', 'Figure 3.1', 'Table 2.4' |
-| `value.math?` | \{ `mathml?`: `string`; `tex?`: `string`; \} | - |
-| `value.math.mathml?` | `string` | - |
-| `value.math.tex?` | `string` | - |
-| `value.sectionId` | `string` | - |
-| `value.table?` | \{ `html`: `string`; `rows`: `string`[][]; \} | - |
-| `value.table.html` | `string` | - |
-| `value.table.rows` | `string`[][] | - |
-| `value.text` | `string` | - |
+| Parameter               | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Description                              |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `value`                 | \{ `blockId`: `string`; `cfiRange`: `string`; `code?`: \{ `langHint?`: `string`; `source`: `string`; \}; `figure?`: \{ `alt?`: `string`; `caption?`: `string`; `imgHref?`: `string`; \}; `kind`: \| `"quote"` \| `"paragraph"` \| `"code"` \| `"figure"` \| `"table"` \| `"math"` \| `"list"` \| `"aside"`; `label?`: `string`; `math?`: \{ `mathml?`: `string`; `tex?`: `string`; \}; `sectionId`: `string`; `table?`: \{ `html`: `string`; `rows`: `string`[][]; \}; `text`: `string`; \} | -                                        |
+| `value.blockId`         | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                        |
+| `value.cfiRange`        | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | epub.js CFI range used for highlighting. |
+| `value.code?`           | \{ `langHint?`: `string`; `source`: `string`; \}                                                                                                                                                                                                                                                                                                                                                                                                                                            | -                                        |
+| `value.code.langHint?`  | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                        |
+| `value.code.source`     | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                        |
+| `value.figure?`         | \{ `alt?`: `string`; `caption?`: `string`; `imgHref?`: `string`; \}                                                                                                                                                                                                                                                                                                                                                                                                                         | -                                        |
+| `value.figure.alt?`     | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                        |
+| `value.figure.caption?` | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                        |
+| `value.figure.imgHref?` | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                        |
+| `value.kind`            | \| `"quote"` \| `"paragraph"` \| `"code"` \| `"figure"` \| `"table"` \| `"math"` \| `"list"` \| `"aside"`                                                                                                                                                                                                                                                                                                                                                                                   | -                                        |
+| `value.label?`          | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | 'Listing 4.2', 'Figure 3.1', 'Table 2.4' |
+| `value.math?`           | \{ `mathml?`: `string`; `tex?`: `string`; \}                                                                                                                                                                                                                                                                                                                                                                                                                                                | -                                        |
+| `value.math.mathml?`    | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                        |
+| `value.math.tex?`       | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                        |
+| `value.sectionId`       | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                        |
+| `value.table?`          | \{ `html`: `string`; `rows`: `string`[][]; \}                                                                                                                                                                                                                                                                                                                                                                                                                                               | -                                        |
+| `value.table.html`      | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                        |
+| `value.table.rows`      | `string`[][]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | -                                        |
+| `value.text`            | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                        |
 
 ####### Returns
 
@@ -7085,7 +7764,7 @@ put(value): Promise<void>;
 
 [`KeyedRepo`](#keyedrepo).[`put`](#put-4)
 
-***
+---
 
 #### BooksRepo
 
@@ -7119,27 +7798,27 @@ bulkGet(keys): Promise<(
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `keys` | readonly `string`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `keys`    | readonly `string`[] |
 
 ####### Returns
 
 `Promise`\<(
-  \| \{
-  `bookId`: `string`;
-  `createdAt`: `number`;
-  `indexStatus`: `"none"` \| `"structural"` \| `"complete"`;
-  `indexVersion`: `number`;
-  `sectionCount?`: `number`;
-  `summary?`: \{
-     `conventions`: `string`[];
-     `summary`: `string`;
-  \};
-  `title`: `string`;
-  `updatedAt`: `number`;
+\| \{
+`bookId`: `string`;
+`createdAt`: `number`;
+`indexStatus`: `"none"` \| `"structural"` \| `"complete"`;
+`indexVersion`: `number`;
+`sectionCount?`: `number`;
+`summary?`: \{
+`conventions`: `string`[];
+`summary`: `string`;
+\};
+`title`: `string`;
+`updatedAt`: `number`;
 \}
-  \| `undefined`)[]\>
+\| `undefined`)[]\>
 
 ####### Inherited from
 
@@ -7153,9 +7832,9 @@ bulkPut(values): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `values` | readonly `object`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `values`  | readonly `object`[] |
 
 ####### Returns
 
@@ -7173,9 +7852,9 @@ delete(key): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
@@ -7207,27 +7886,27 @@ get(key): Promise<
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
 `Promise`\<
-  \| \{
-  `bookId`: `string`;
-  `createdAt`: `number`;
-  `indexStatus`: `"none"` \| `"structural"` \| `"complete"`;
-  `indexVersion`: `number`;
-  `sectionCount?`: `number`;
-  `summary?`: \{
-     `conventions`: `string`[];
-     `summary`: `string`;
-  \};
-  `title`: `string`;
-  `updatedAt`: `number`;
+\| \{
+`bookId`: `string`;
+`createdAt`: `number`;
+`indexStatus`: `"none"` \| `"structural"` \| `"complete"`;
+`indexVersion`: `number`;
+`sectionCount?`: `number`;
+`summary?`: \{
+`conventions`: `string`[];
+`summary`: `string`;
+\};
+`title`: `string`;
+`updatedAt`: `number`;
 \}
-  \| `undefined`\>
+\| `undefined`\>
 
 ####### Inherited from
 
@@ -7241,9 +7920,9 @@ listByIndexStatus(status): Promise<object[]>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `status` | `"none"` \| `"structural"` \| `"complete"` |
+| Parameter | Type                                       |
+| --------- | ------------------------------------------ |
+| `status`  | `"none"` \| `"structural"` \| `"complete"` |
 
 ####### Returns
 
@@ -7257,19 +7936,19 @@ put(value): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type | Description |
-| ------ | ------ | ------ |
-| `value` | \{ `bookId`: `string`; `createdAt`: `number`; `indexStatus`: `"none"` \| `"structural"` \| `"complete"`; `indexVersion`: `number`; `sectionCount?`: `number`; `summary?`: \{ `conventions`: `string`[]; `summary`: `string`; \}; `title`: `string`; `updatedAt`: `number`; \} | - |
-| `value.bookId` | `string` | - |
-| `value.createdAt` | `number` | - |
-| `value.indexStatus` | `"none"` \| `"structural"` \| `"complete"` | - |
-| `value.indexVersion` | `number` | `INDEX_VERSION` of `@illus/book-index` that produced the structural index. |
-| `value.sectionCount?` | `number` | - |
-| `value.summary?` | \{ `conventions`: `string`[]; `summary`: `string`; \} | - |
-| `value.summary.conventions` | `string`[] | - |
-| `value.summary.summary` | `string` | - |
-| `value.title` | `string` | - |
-| `value.updatedAt` | `number` | - |
+| Parameter                   | Type                                                                                                                                                                                                                                                                          | Description                                                                |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `value`                     | \{ `bookId`: `string`; `createdAt`: `number`; `indexStatus`: `"none"` \| `"structural"` \| `"complete"`; `indexVersion`: `number`; `sectionCount?`: `number`; `summary?`: \{ `conventions`: `string`[]; `summary`: `string`; \}; `title`: `string`; `updatedAt`: `number`; \} | -                                                                          |
+| `value.bookId`              | `string`                                                                                                                                                                                                                                                                      | -                                                                          |
+| `value.createdAt`           | `number`                                                                                                                                                                                                                                                                      | -                                                                          |
+| `value.indexStatus`         | `"none"` \| `"structural"` \| `"complete"`                                                                                                                                                                                                                                    | -                                                                          |
+| `value.indexVersion`        | `number`                                                                                                                                                                                                                                                                      | `INDEX_VERSION` of `@illus/book-index` that produced the structural index. |
+| `value.sectionCount?`       | `number`                                                                                                                                                                                                                                                                      | -                                                                          |
+| `value.summary?`            | \{ `conventions`: `string`[]; `summary`: `string`; \}                                                                                                                                                                                                                         | -                                                                          |
+| `value.summary.conventions` | `string`[]                                                                                                                                                                                                                                                                    | -                                                                          |
+| `value.summary.summary`     | `string`                                                                                                                                                                                                                                                                      | -                                                                          |
+| `value.title`               | `string`                                                                                                                                                                                                                                                                      | -                                                                          |
+| `value.updatedAt`           | `number`                                                                                                                                                                                                                                                                      | -                                                                          |
 
 ####### Returns
 
@@ -7287,18 +7966,18 @@ setSummary(bookId, summary): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
-| `summary` | \{ `conventions`: `string`[]; `summary`: `string`; \} |
-| `summary.conventions` | `string`[] |
-| `summary.summary` | `string` |
+| Parameter             | Type                                                  |
+| --------------------- | ----------------------------------------------------- |
+| `bookId`              | `string`                                              |
+| `summary`             | \{ `conventions`: `string`[]; `summary`: `string`; \} |
+| `summary.conventions` | `string`[]                                            |
+| `summary.summary`     | `string`                                              |
 
 ####### Returns
 
 `Promise`\<`void`\>
 
-***
+---
 
 #### ConceptModelsRepo
 
@@ -7330,25 +8009,25 @@ bulkGet(keys): Promise<(
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `keys` | readonly `string`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `keys`    | readonly `string`[] |
 
 ####### Returns
 
 `Promise`\<(
-  \| \{
-  `bookId`: `string`;
-  `conceptId`: `string`;
-  `conceptModelId`: `string`;
-  `kind`: `"graph"` \| `"sequence"` \| `"state"`;
-  `layout?`: `Record`\<`string`, \{
-     `x`: `number`;
-     `y`: `number`;
-  \}\>;
-  `patches`: `object`[];
+\| \{
+`bookId`: `string`;
+`conceptId`: `string`;
+`conceptModelId`: `string`;
+`kind`: `"graph"` \| `"sequence"` \| `"state"`;
+`layout?`: `Record`\<`string`, \{
+`x`: `number`;
+`y`: `number`;
+\}\>;
+`patches`: `object`[];
 \}
-  \| `undefined`)[]\>
+\| `undefined`)[]\>
 
 ####### Inherited from
 
@@ -7362,9 +8041,9 @@ bulkPut(values): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `values` | readonly `object`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `values`  | readonly `object`[] |
 
 ####### Returns
 
@@ -7382,9 +8061,9 @@ delete(key): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
@@ -7402,9 +8081,9 @@ deleteByBook(bookId): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `bookId`  | `string` |
 
 ####### Returns
 
@@ -7434,25 +8113,25 @@ get(key): Promise<
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
 `Promise`\<
-  \| \{
-  `bookId`: `string`;
-  `conceptId`: `string`;
-  `conceptModelId`: `string`;
-  `kind`: `"graph"` \| `"sequence"` \| `"state"`;
-  `layout?`: `Record`\<`string`, \{
-     `x`: `number`;
-     `y`: `number`;
-  \}\>;
-  `patches`: `object`[];
+\| \{
+`bookId`: `string`;
+`conceptId`: `string`;
+`conceptModelId`: `string`;
+`kind`: `"graph"` \| `"sequence"` \| `"state"`;
+`layout?`: `Record`\<`string`, \{
+`x`: `number`;
+`y`: `number`;
+\}\>;
+`patches`: `object`[];
 \}
-  \| `undefined`\>
+\| `undefined`\>
 
 ####### Inherited from
 
@@ -7466,9 +8145,9 @@ listByBook(bookId): Promise<object[]>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `bookId`  | `string` |
 
 ####### Returns
 
@@ -7482,8 +8161,8 @@ listByConcept(conceptId): Promise<object[]>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
+| Parameter   | Type     |
+| ----------- | -------- |
 | `conceptId` | `string` |
 
 ####### Returns
@@ -7498,15 +8177,15 @@ put(value): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type | Description |
-| ------ | ------ | ------ |
-| `value` | \{ `bookId`: `string`; `conceptId`: `string`; `conceptModelId`: `string`; `kind`: `"graph"` \| `"sequence"` \| `"state"`; `layout?`: `Record`\<`string`, \{ `x`: `number`; `y`: `number`; \}\>; `patches`: `object`[]; \} | - |
-| `value.bookId` | `string` | - |
-| `value.conceptId` | `string` | - |
-| `value.conceptModelId` | `string` | - |
-| `value.kind` | `"graph"` \| `"sequence"` \| `"state"` | - |
-| `value.layout?` | `Record`\<`string`, \{ `x`: `number`; `y`: `number`; \}\> | Node positions after the last render, used as ELK interactive hints (§13). |
-| `value.patches` | `object`[] | - |
+| Parameter              | Type                                                                                                                                                                                                                      | Description                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `value`                | \{ `bookId`: `string`; `conceptId`: `string`; `conceptModelId`: `string`; `kind`: `"graph"` \| `"sequence"` \| `"state"`; `layout?`: `Record`\<`string`, \{ `x`: `number`; `y`: `number`; \}\>; `patches`: `object`[]; \} | -                                                                          |
+| `value.bookId`         | `string`                                                                                                                                                                                                                  | -                                                                          |
+| `value.conceptId`      | `string`                                                                                                                                                                                                                  | -                                                                          |
+| `value.conceptModelId` | `string`                                                                                                                                                                                                                  | -                                                                          |
+| `value.kind`           | `"graph"` \| `"sequence"` \| `"state"`                                                                                                                                                                                    | -                                                                          |
+| `value.layout?`        | `Record`\<`string`, \{ `x`: `number`; `y`: `number`; \}\>                                                                                                                                                                 | Node positions after the last render, used as ELK interactive hints (§13). |
+| `value.patches`        | `object`[]                                                                                                                                                                                                                | -                                                                          |
 
 ####### Returns
 
@@ -7516,7 +8195,7 @@ put(value): Promise<void>;
 
 [`KeyedRepo`](#keyedrepo).[`put`](#put-4)
 
-***
+---
 
 #### ConceptsRepo
 
@@ -7554,31 +8233,31 @@ bulkGet(keys): Promise<(
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `keys` | readonly `string`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `keys`    | readonly `string`[] |
 
 ####### Returns
 
 `Promise`\<(
-  \| \{
-  `aliases`: `string`[];
-  `bookId`: `string`;
-  `canonical`: `string`;
-  `conceptId`: `string`;
-  `definedInSectionId?`: `string`;
-  `definition?`: \{
-     `blockId`: `string`;
-     `end?`: `number`;
-     `fuzzy?`: `boolean`;
-     `quote`: `string`;
-     `start?`: `number`;
-  \};
-  `firstOrdinal`: `number`;
-  `spanning`: `boolean`;
-  `usedInSectionIds`: `string`[];
+\| \{
+`aliases`: `string`[];
+`bookId`: `string`;
+`canonical`: `string`;
+`conceptId`: `string`;
+`definedInSectionId?`: `string`;
+`definition?`: \{
+`blockId`: `string`;
+`end?`: `number`;
+`fuzzy?`: `boolean`;
+`quote`: `string`;
+`start?`: `number`;
+\};
+`firstOrdinal`: `number`;
+`spanning`: `boolean`;
+`usedInSectionIds`: `string`[];
 \}
-  \| `undefined`)[]\>
+\| `undefined`)[]\>
 
 ####### Inherited from
 
@@ -7592,9 +8271,9 @@ bulkPut(values): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `values` | readonly `object`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `values`  | readonly `object`[] |
 
 ####### Returns
 
@@ -7612,9 +8291,9 @@ delete(key): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
@@ -7632,9 +8311,9 @@ deleteByBook(bookId): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `bookId`  | `string` |
 
 ####### Returns
 
@@ -7654,10 +8333,10 @@ Case-sensitive match on the `*aliases` multi-entry index or `canonical`.
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
-| `name` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `bookId`  | `string` |
+| `name`    | `string` |
 
 ####### Returns
 
@@ -7689,31 +8368,31 @@ get(key): Promise<
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
 `Promise`\<
-  \| \{
-  `aliases`: `string`[];
-  `bookId`: `string`;
-  `canonical`: `string`;
-  `conceptId`: `string`;
-  `definedInSectionId?`: `string`;
-  `definition?`: \{
-     `blockId`: `string`;
-     `end?`: `number`;
-     `fuzzy?`: `boolean`;
-     `quote`: `string`;
-     `start?`: `number`;
-  \};
-  `firstOrdinal`: `number`;
-  `spanning`: `boolean`;
-  `usedInSectionIds`: `string`[];
+\| \{
+`aliases`: `string`[];
+`bookId`: `string`;
+`canonical`: `string`;
+`conceptId`: `string`;
+`definedInSectionId?`: `string`;
+`definition?`: \{
+`blockId`: `string`;
+`end?`: `number`;
+`fuzzy?`: `boolean`;
+`quote`: `string`;
+`start?`: `number`;
+\};
+`firstOrdinal`: `number`;
+`spanning`: `boolean`;
+`usedInSectionIds`: `string`[];
 \}
-  \| `undefined`\>
+\| `undefined`\>
 
 ####### Inherited from
 
@@ -7727,9 +8406,9 @@ listByBook(bookId): Promise<object[]>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `bookId`  | `string` |
 
 ####### Returns
 
@@ -7743,23 +8422,23 @@ put(value): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type | Description |
-| ------ | ------ | ------ |
-| `value` | \{ `aliases`: `string`[]; `bookId`: `string`; `canonical`: `string`; `conceptId`: `string`; `definedInSectionId?`: `string`; `definition?`: \{ `blockId`: `string`; `end?`: `number`; `fuzzy?`: `boolean`; `quote`: `string`; `start?`: `number`; \}; `firstOrdinal`: `number`; `spanning`: `boolean`; `usedInSectionIds`: `string`[]; \} | - |
-| `value.aliases` | `string`[] | - |
-| `value.bookId` | `string` | - |
-| `value.canonical` | `string` | - |
-| `value.conceptId` | `string` | - |
-| `value.definedInSectionId?` | `string` | - |
-| `value.definition?` | \{ `blockId`: `string`; `end?`: `number`; `fuzzy?`: `boolean`; `quote`: `string`; `start?`: `number`; \} | - |
-| `value.definition.blockId` | `string` | - |
-| `value.definition.end?` | `number` | - |
-| `value.definition.fuzzy?` | `boolean` | - |
-| `value.definition.quote` | `string` | - |
-| `value.definition.start?` | `number` | - |
-| `value.firstOrdinal` | `number` | - |
-| `value.spanning` | `boolean` | Used in ≥ 3 sections → eligible for a concept model. |
-| `value.usedInSectionIds` | `string`[] | - |
+| Parameter                   | Type                                                                                                                                                                                                                                                                                                                                      | Description                                          |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `value`                     | \{ `aliases`: `string`[]; `bookId`: `string`; `canonical`: `string`; `conceptId`: `string`; `definedInSectionId?`: `string`; `definition?`: \{ `blockId`: `string`; `end?`: `number`; `fuzzy?`: `boolean`; `quote`: `string`; `start?`: `number`; \}; `firstOrdinal`: `number`; `spanning`: `boolean`; `usedInSectionIds`: `string`[]; \} | -                                                    |
+| `value.aliases`             | `string`[]                                                                                                                                                                                                                                                                                                                                | -                                                    |
+| `value.bookId`              | `string`                                                                                                                                                                                                                                                                                                                                  | -                                                    |
+| `value.canonical`           | `string`                                                                                                                                                                                                                                                                                                                                  | -                                                    |
+| `value.conceptId`           | `string`                                                                                                                                                                                                                                                                                                                                  | -                                                    |
+| `value.definedInSectionId?` | `string`                                                                                                                                                                                                                                                                                                                                  | -                                                    |
+| `value.definition?`         | \{ `blockId`: `string`; `end?`: `number`; `fuzzy?`: `boolean`; `quote`: `string`; `start?`: `number`; \}                                                                                                                                                                                                                                  | -                                                    |
+| `value.definition.blockId`  | `string`                                                                                                                                                                                                                                                                                                                                  | -                                                    |
+| `value.definition.end?`     | `number`                                                                                                                                                                                                                                                                                                                                  | -                                                    |
+| `value.definition.fuzzy?`   | `boolean`                                                                                                                                                                                                                                                                                                                                 | -                                                    |
+| `value.definition.quote`    | `string`                                                                                                                                                                                                                                                                                                                                  | -                                                    |
+| `value.definition.start?`   | `number`                                                                                                                                                                                                                                                                                                                                  | -                                                    |
+| `value.firstOrdinal`        | `number`                                                                                                                                                                                                                                                                                                                                  | -                                                    |
+| `value.spanning`            | `boolean`                                                                                                                                                                                                                                                                                                                                 | Used in ≥ 3 sections → eligible for a concept model. |
+| `value.usedInSectionIds`    | `string`[]                                                                                                                                                                                                                                                                                                                                | -                                                    |
 
 ####### Returns
 
@@ -7769,20 +8448,20 @@ put(value): Promise<void>;
 
 [`KeyedRepo`](#keyedrepo).[`put`](#put-4)
 
-***
+---
 
 #### CritiqueInput
 
 ##### Properties
 
-| Property | Type | Description |
-| ------ | ------ | ------ |
-| <a id="property-intent"></a> `intent` | `string` | The plan item's intent (≤ 25 words, model-written). |
-| <a id="property-ir"></a> `ir` | `unknown` | - |
-| <a id="property-kind"></a> `kind` | \| `"math"` \| `"html"` \| `"graph"` \| `"sequence"` \| `"state"` \| `"class"` \| `"er"` \| `"template"` \| `"chart"` \| `"trace"` \| `"timeline"` | - |
-| <a id="property-pngbase64"></a> `pngBase64` | `string` | PNG of the rendered visual (900 px wide at 2×), base64 without the data: prefix. |
+| Property                                    | Type                                                                                                                                               | Description                                                                      |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| <a id="property-intent"></a> `intent`       | `string`                                                                                                                                           | The plan item's intent (≤ 25 words, model-written).                              |
+| <a id="property-ir"></a> `ir`               | `unknown`                                                                                                                                          | -                                                                                |
+| <a id="property-kind"></a> `kind`           | \| `"math"` \| `"html"` \| `"graph"` \| `"sequence"` \| `"state"` \| `"class"` \| `"er"` \| `"template"` \| `"chart"` \| `"trace"` \| `"timeline"` | -                                                                                |
+| <a id="property-pngbase64"></a> `pngBase64` | `string`                                                                                                                                           | PNG of the rendered visual (900 px wide at 2×), base64 without the data: prefix. |
 
-***
+---
 
 #### CrossRefsRepo
 
@@ -7804,9 +8483,9 @@ Adds refs and returns their auto-increment ids.
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `refs` | readonly `object`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `refs`    | readonly `object`[] |
 
 ####### Returns
 
@@ -7820,9 +8499,9 @@ deleteByBook(bookId): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `bookId`  | `string` |
 
 ####### Returns
 
@@ -7840,8 +8519,8 @@ listFromBlock(fromBlockId): Promise<object[]>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
+| Parameter     | Type     |
+| ------------- | -------- |
 | `fromBlockId` | `string` |
 
 ####### Returns
@@ -7856,15 +8535,15 @@ listToSection(targetSectionId): Promise<object[]>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
+| Parameter         | Type     |
+| ----------------- | -------- |
 | `targetSectionId` | `string` |
 
 ####### Returns
 
 `Promise`\<`object`[]\>
 
-***
+---
 
 #### GroundingContext
 
@@ -7872,30 +8551,30 @@ What the matcher may read: only blocks in the context's `usedBlockIds` (§7, §1
 
 ##### Properties
 
-| Property | Type | Description |
-| ------ | ------ | ------ |
-| <a id="property-aliases"></a> `aliases?` | readonly `string`[] | Glossary aliases of the label. |
-| <a id="property-blocks"></a> `blocks` | `ReadonlyMap`\<`string`, \{ `blockId`: `string`; `cfiRange`: `string`; `code?`: \{ `langHint?`: `string`; `source`: `string`; \}; `figure?`: \{ `alt?`: `string`; `caption?`: `string`; `imgHref?`: `string`; \}; `kind`: \| `"quote"` \| `"paragraph"` \| `"code"` \| `"figure"` \| `"table"` \| `"math"` \| `"list"` \| `"aside"`; `label?`: `string`; `math?`: \{ `mathml?`: `string`; `tex?`: `string`; \}; `sectionId`: `string`; `table?`: \{ `html`: `string`; `rows`: `string`[][]; \}; `text`: `string`; \}\> | Permitted blocks by id. |
-| <a id="property-label"></a> `label?` | `string` | Label of the element the quote justifies, for the relevance check (§16 step 7). |
+| Property                                 | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Description                                                                     |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| <a id="property-aliases"></a> `aliases?` | readonly `string`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Glossary aliases of the label.                                                  |
+| <a id="property-blocks"></a> `blocks`    | `ReadonlyMap`\<`string`, \{ `blockId`: `string`; `cfiRange`: `string`; `code?`: \{ `langHint?`: `string`; `source`: `string`; \}; `figure?`: \{ `alt?`: `string`; `caption?`: `string`; `imgHref?`: `string`; \}; `kind`: \| `"quote"` \| `"paragraph"` \| `"code"` \| `"figure"` \| `"table"` \| `"math"` \| `"list"` \| `"aside"`; `label?`: `string`; `math?`: \{ `mathml?`: `string`; `tex?`: `string`; \}; `sectionId`: `string`; `table?`: \{ `html`: `string`; `rows`: `string`[][]; \}; `text`: `string`; \}\> | Permitted blocks by id.                                                         |
+| <a id="property-label"></a> `label?`     | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Label of the element the quote justifies, for the relevance check (§16 step 7). |
 
-***
+---
 
 #### GroundingResult
 
 ##### Properties
 
-| Property | Type | Description |
-| ------ | ------ | ------ |
-| <a id="property-evidence"></a> `evidence?` | `object` | Evidence with corrected `blockId`, `start`/`end` and `fuzzy`; absent when `failed`. |
-| `evidence.blockId` | `string` | - |
-| `evidence.end?` | `number` | - |
-| `evidence.fuzzy?` | `boolean` | - |
-| `evidence.quote` | `string` | - |
-| `evidence.start?` | `number` | - |
-| <a id="property-reason"></a> `reason?` | `string` | - |
-| <a id="property-status"></a> `status` | [`GroundingStatus`](#groundingstatus) | - |
+| Property                                   | Type                                  | Description                                                                         |
+| ------------------------------------------ | ------------------------------------- | ----------------------------------------------------------------------------------- |
+| <a id="property-evidence"></a> `evidence?` | `object`                              | Evidence with corrected `blockId`, `start`/`end` and `fuzzy`; absent when `failed`. |
+| `evidence.blockId`                         | `string`                              | -                                                                                   |
+| `evidence.end?`                            | `number`                              | -                                                                                   |
+| `evidence.fuzzy?`                          | `boolean`                             | -                                                                                   |
+| `evidence.quote`                           | `string`                              | -                                                                                   |
+| `evidence.start?`                          | `number`                              | -                                                                                   |
+| <a id="property-reason"></a> `reason?`     | `string`                              | -                                                                                   |
+| <a id="property-status"></a> `status`      | [`GroundingStatus`](#groundingstatus) | -                                                                                   |
 
-***
+---
 
 #### HighlightHandle
 
@@ -7911,7 +8590,7 @@ remove(): void;
 
 `void`
 
-***
+---
 
 #### IllusRepos
 
@@ -7919,20 +8598,20 @@ All stores together. `transaction` runs `fn` atomically over the named stores (D
 
 ##### Properties
 
-| Property | Type |
-| ------ | ------ |
-| <a id="property-blocks-1"></a> `blocks` | [`BlocksRepo`](#blocksrepo) |
-| <a id="property-books"></a> `books` | [`BooksRepo`](#booksrepo) |
+| Property                                            | Type                                      |
+| --------------------------------------------------- | ----------------------------------------- |
+| <a id="property-blocks-1"></a> `blocks`             | [`BlocksRepo`](#blocksrepo)               |
+| <a id="property-books"></a> `books`                 | [`BooksRepo`](#booksrepo)                 |
 | <a id="property-conceptmodels"></a> `conceptModels` | [`ConceptModelsRepo`](#conceptmodelsrepo) |
-| <a id="property-concepts"></a> `concepts` | [`ConceptsRepo`](#conceptsrepo) |
-| <a id="property-crossrefs"></a> `crossRefs` | [`CrossRefsRepo`](#crossrefsrepo) |
-| <a id="property-llmlog"></a> `llmLog` | [`LlmLogRepo`](#llmlogrepo) |
-| <a id="property-plans"></a> `plans` | [`PlansRepo`](#plansrepo) |
-| <a id="property-sectionindex"></a> `sectionIndex` | [`SectionIndexRepo`](#sectionindexrepo) |
-| <a id="property-sections"></a> `sections` | [`SectionsRepo`](#sectionsrepo) |
-| <a id="property-settings"></a> `settings` | [`SettingsRepo`](#settingsrepo) |
-| <a id="property-traces"></a> `traces` | [`TracesRepo`](#tracesrepo) |
-| <a id="property-visuals"></a> `visuals` | [`VisualsRepo`](#visualsrepo) |
+| <a id="property-concepts"></a> `concepts`           | [`ConceptsRepo`](#conceptsrepo)           |
+| <a id="property-crossrefs"></a> `crossRefs`         | [`CrossRefsRepo`](#crossrefsrepo)         |
+| <a id="property-llmlog"></a> `llmLog`               | [`LlmLogRepo`](#llmlogrepo)               |
+| <a id="property-plans"></a> `plans`                 | [`PlansRepo`](#plansrepo)                 |
+| <a id="property-sectionindex"></a> `sectionIndex`   | [`SectionIndexRepo`](#sectionindexrepo)   |
+| <a id="property-sections"></a> `sections`           | [`SectionsRepo`](#sectionsrepo)           |
+| <a id="property-settings"></a> `settings`           | [`SettingsRepo`](#settingsrepo)           |
+| <a id="property-traces"></a> `traces`               | [`TracesRepo`](#tracesrepo)               |
+| <a id="property-visuals"></a> `visuals`             | [`VisualsRepo`](#visualsrepo)             |
 
 ##### Methods
 
@@ -7945,21 +8624,21 @@ transaction<T>(stores, fn): Promise<T>;
 ####### Type Parameters
 
 | Type Parameter |
-| ------ |
-| `T` |
+| -------------- |
+| `T`            |
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `stores` | readonly ( \| `"sections"` \| `"conceptModels"` \| `"books"` \| `"blocks"` \| `"crossRefs"` \| `"sectionIndex"` \| `"concepts"` \| `"plans"` \| `"visuals"` \| `"traces"` \| `"llmLog"` \| `"settings"`)[] |
-| `fn` | () => `Promise`\<`T`\> |
+| Parameter | Type                                                                                                                                                                                                       |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stores`  | readonly ( \| `"sections"` \| `"conceptModels"` \| `"books"` \| `"blocks"` \| `"crossRefs"` \| `"sectionIndex"` \| `"concepts"` \| `"plans"` \| `"visuals"` \| `"traces"` \| `"llmLog"` \| `"settings"`)[] |
+| `fn`      | () => `Promise`\<`T`\>                                                                                                                                                                                     |
 
 ####### Returns
 
 `Promise`\<`T`\>
 
-***
+---
 
 #### KeyedRepo
 
@@ -7980,9 +8659,9 @@ Basic keyed access shared by every store. `put` upserts.
 ##### Type Parameters
 
 | Type Parameter | Default type |
-| ------ | ------ |
-| `T` | - |
-| `K` | `string` |
+| -------------- | ------------ |
+| `T`            | -            |
+| `K`            | `string`     |
 
 ##### Methods
 
@@ -7994,9 +8673,9 @@ bulkGet(keys): Promise<(T | undefined)[]>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `keys` | readonly `K`[] |
+| Parameter | Type           |
+| --------- | -------------- |
+| `keys`    | readonly `K`[] |
 
 ####### Returns
 
@@ -8010,9 +8689,9 @@ bulkPut(values): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `values` | readonly `T`[] |
+| Parameter | Type           |
+| --------- | -------------- |
+| `values`  | readonly `T`[] |
 
 ####### Returns
 
@@ -8027,8 +8706,8 @@ delete(key): Promise<void>;
 ####### Parameters
 
 | Parameter | Type |
-| ------ | ------ |
-| `key` | `K` |
+| --------- | ---- |
+| `key`     | `K`  |
 
 ####### Returns
 
@@ -8043,8 +8722,8 @@ get(key): Promise<T | undefined>;
 ####### Parameters
 
 | Parameter | Type |
-| ------ | ------ |
-| `key` | `K` |
+| --------- | ---- |
+| `key`     | `K`  |
 
 ####### Returns
 
@@ -8059,52 +8738,52 @@ put(value): Promise<void>;
 ####### Parameters
 
 | Parameter | Type |
-| ------ | ------ |
-| `value` | `T` |
+| --------- | ---- |
+| `value`   | `T`  |
 
 ####### Returns
 
 `Promise`\<`void`\>
 
-***
+---
 
 #### LayoutGraphInput
 
 ##### Properties
 
-| Property | Type | Description |
-| ------ | ------ | ------ |
-| <a id="property-algorithm"></a> `algorithm` | `"layered"` \| `"stress"` | - |
-| <a id="property-direction"></a> `direction` | `"LR"` \| `"TB"` | - |
-| <a id="property-edges"></a> `edges` | `object`[] | - |
-| <a id="property-hints"></a> `hints?` | `Readonly`\<`Record`\<`string`, [`LayoutPoint`](#layoutpoint)\>\> | Previous positions; when given, ELK runs in interactive mode so unchanged nodes stay put (§11, §13). |
-| <a id="property-nodes"></a> `nodes` | `object`[] | - |
+| Property                                    | Type                                                              | Description                                                                                          |
+| ------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| <a id="property-algorithm"></a> `algorithm` | `"layered"` \| `"stress"`                                         | -                                                                                                    |
+| <a id="property-direction"></a> `direction` | `"LR"` \| `"TB"`                                                  | -                                                                                                    |
+| <a id="property-edges"></a> `edges`         | `object`[]                                                        | -                                                                                                    |
+| <a id="property-hints"></a> `hints?`        | `Readonly`\<`Record`\<`string`, [`LayoutPoint`](#layoutpoint)\>\> | Previous positions; when given, ELK runs in interactive mode so unchanged nodes stay put (§11, §13). |
+| <a id="property-nodes"></a> `nodes`         | `object`[]                                                        | -                                                                                                    |
 
-***
+---
 
 #### LayoutGraphResult
 
 ##### Properties
 
-| Property | Type |
-| ------ | ------ |
+| Property                              | Type                                                                                                            |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | <a id="property-edges-1"></a> `edges` | `Record`\<`string`, \{ `label?`: [`LayoutPoint`](#layoutpoint); `points`: [`LayoutPoint`](#layoutpoint)[]; \}\> |
-| <a id="property-height"></a> `height` | `number` |
-| <a id="property-nodes-1"></a> `nodes` | `Record`\<`string`, [`LayoutPoint`](#layoutpoint) & `object`\> |
-| <a id="property-width"></a> `width` | `number` |
+| <a id="property-height"></a> `height` | `number`                                                                                                        |
+| <a id="property-nodes-1"></a> `nodes` | `Record`\<`string`, [`LayoutPoint`](#layoutpoint) & `object`\>                                                  |
+| <a id="property-width"></a> `width`   | `number`                                                                                                        |
 
-***
+---
 
 #### LayoutPoint
 
 ##### Properties
 
-| Property | Type |
-| ------ | ------ |
+| Property                    | Type     |
+| --------------------------- | -------- |
 | <a id="property-x"></a> `x` | `number` |
 | <a id="property-y"></a> `y` | `number` |
 
-***
+---
 
 #### LlmCall
 
@@ -8125,49 +8804,49 @@ call<R, S>(
 
 ####### Type Parameters
 
-| Type Parameter | Default type |
-| ------ | ------ |
-| `R` *extends* \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"` | - |
-| `S` *extends* \| `"IndexerOutput"` \| `"GlossaryOutput"` \| `"BookSummary"` \| `"VisualPlan"` \| `"GraphIR"` \| `"SequenceIR"` \| `"StateIR"` \| `"ClassIR"` \| `"ErIR"` \| `"TemplateIR"` \| `"ChartIR"` \| `"MathIR"` \| `"TimelineIR"` \| `"HtmlIR"` \| `"AnimationIR"` \| `"Translation"` \| `"PatchOutput"` \| `"CriticReport"` | [`RoleSchemaName`](#roleschemaname)\<`R`\> |
+| Type Parameter                                                                                                                                                                                                                                                                                                                                        | Default type                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `R` _extends_ \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"` | -                                          |
+| `S` _extends_ \| `"IndexerOutput"` \| `"GlossaryOutput"` \| `"BookSummary"` \| `"VisualPlan"` \| `"GraphIR"` \| `"SequenceIR"` \| `"StateIR"` \| `"ClassIR"` \| `"ErIR"` \| `"TemplateIR"` \| `"ChartIR"` \| `"MathIR"` \| `"TimelineIR"` \| `"HtmlIR"` \| `"AnimationIR"` \| `"Translation"` \| `"PatchOutput"` \| `"CriticReport"`                  | [`RoleSchemaName`](#roleschemaname)\<`R`\> |
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `role` | `R` |
-| `ctx` | [`LlmContext`](#llmcontext) |
-| `opts?` | [`LlmCallOptions`](#llmcalloptions)\<`S`\> |
+| Parameter | Type                                       |
+| --------- | ------------------------------------------ |
+| `role`    | `R`                                        |
+| `ctx`     | [`LlmContext`](#llmcontext)                |
+| `opts?`   | [`LlmCallOptions`](#llmcalloptions)\<`S`\> |
 
 ####### Returns
 
 `Promise`\<[`LlmResult`](#llmresult)\<[`SchemaOutput`](#schemaoutput)\<`S`\>\>\>
 
-***
+---
 
 #### LlmCallOptions
 
 ##### Type Parameters
 
 | Type Parameter |
-| ------ |
-| `S` |
+| -------------- |
+| `S`            |
 
 ##### Properties
 
-| Property | Type | Description |
-| ------ | ------ | ------ |
-| <a id="property-bookid"></a> `bookId?` | `string` | For the `llmLog` row. |
-| <a id="property-escalate"></a> `escalate?` | `boolean` | - |
-| <a id="property-image"></a> `image?` | `object` | - |
-| `image.base64` | `string` | - |
-| `image.mediaType` | `"image/png"` | - |
-| <a id="property-requestid"></a> `requestId?` | `string` | - |
-| <a id="property-schemaname"></a> `schemaName?` | `S` | Which of the role's schemas to request; defaults to the role's first schema. |
-| <a id="property-sectionid"></a> `sectionId?` | `string` | - |
-| <a id="property-signal"></a> `signal?` | `AbortSignal` | On abort the request is dropped client-side and nothing is cached (§9). |
-| <a id="property-templateid"></a> `templateId?` | \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"` | Required with `schemaName: 'TemplateIR'`. |
+| Property                                       | Type                                                                                                                                                                                                                                       | Description                                                                  |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| <a id="property-bookid"></a> `bookId?`         | `string`                                                                                                                                                                                                                                   | For the `llmLog` row.                                                        |
+| <a id="property-escalate"></a> `escalate?`     | `boolean`                                                                                                                                                                                                                                  | -                                                                            |
+| <a id="property-image"></a> `image?`           | `object`                                                                                                                                                                                                                                   | -                                                                            |
+| `image.base64`                                 | `string`                                                                                                                                                                                                                                   | -                                                                            |
+| `image.mediaType`                              | `"image/png"`                                                                                                                                                                                                                              | -                                                                            |
+| <a id="property-requestid"></a> `requestId?`   | `string`                                                                                                                                                                                                                                   | -                                                                            |
+| <a id="property-schemaname"></a> `schemaName?` | `S`                                                                                                                                                                                                                                        | Which of the role's schemas to request; defaults to the role's first schema. |
+| <a id="property-sectionid"></a> `sectionId?`   | `string`                                                                                                                                                                                                                                   | -                                                                            |
+| <a id="property-signal"></a> `signal?`         | `AbortSignal`                                                                                                                                                                                                                              | On abort the request is dropped client-side and nothing is cached (§9).      |
+| <a id="property-templateid"></a> `templateId?` | \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"` | Required with `schemaName: 'TemplateIR'`.                                    |
 
-***
+---
 
 #### LlmContext
 
@@ -8175,12 +8854,12 @@ Packed context for one call: `prefix` is stable and cacheable, `body` is per cal
 
 ##### Properties
 
-| Property | Type |
-| ------ | ------ |
-| <a id="property-body"></a> `body` | `string` |
+| Property                              | Type     |
+| ------------------------------------- | -------- |
+| <a id="property-body"></a> `body`     | `string` |
 | <a id="property-prefix"></a> `prefix` | `string` |
 
-***
+---
 
 #### LlmLogRepo
 
@@ -8194,26 +8873,26 @@ add(entry): Promise<number>;
 
 ####### Parameters
 
-| Parameter | Type | Description |
-| ------ | ------ | ------ |
-| `entry` | \{ `bookId?`: `string`; `cachedInputTokens`: `number`; `createdAt`: `number`; `effort`: `"low"` \| `"medium"` \| `"high"`; `id?`: `number`; `inputTokens`: `number`; `latencyMs`: `number`; `model`: `string`; `outcome`: \| `"schema"` \| `"ok"` \| `"auth"` \| `"signin-required"` \| `"plan-limit"` \| `"upstream"` \| `"timeout"` \| `"aborted"`; `outputTokens`: `number`; `prompt?`: \{ `body`: `string`; `prefix`: `string`; \}; `promptVersion`: `string`; `requestId`: `string`; `role`: \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"`; `sectionId?`: `string`; \} | - |
-| `entry.bookId?` | `string` | - |
-| `entry.cachedInputTokens` | `number` | - |
-| `entry.createdAt` | `number` | - |
-| `entry.effort` | `"low"` \| `"medium"` \| `"high"` | - |
-| `entry.id?` | `number` | Auto-increment key; absent until stored. |
-| `entry.inputTokens` | `number` | - |
-| `entry.latencyMs` | `number` | - |
-| `entry.model` | `string` | - |
-| `entry.outcome` | \| `"schema"` \| `"ok"` \| `"auth"` \| `"signin-required"` \| `"plan-limit"` \| `"upstream"` \| `"timeout"` \| `"aborted"` | - |
-| `entry.outputTokens` | `number` | - |
-| `entry.prompt?` | \{ `body`: `string`; `prefix`: `string`; \} | - |
-| `entry.prompt.body` | `string` | - |
-| `entry.prompt.prefix` | `string` | - |
-| `entry.promptVersion` | `string` | - |
-| `entry.requestId` | `string` | - |
-| `entry.role` | \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"` | - |
-| `entry.sectionId?` | `string` | - |
+| Parameter                 | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Description                              |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `entry`                   | \{ `bookId?`: `string`; `cachedInputTokens`: `number`; `createdAt`: `number`; `effort`: `"low"` \| `"medium"` \| `"high"`; `id?`: `number`; `inputTokens`: `number`; `latencyMs`: `number`; `model`: `string`; `outcome`: \| `"schema"` \| `"ok"` \| `"auth"` \| `"signin-required"` \| `"plan-limit"` \| `"upstream"` \| `"timeout"` \| `"aborted"`; `outputTokens`: `number`; `prompt?`: \{ `body`: `string`; `prefix`: `string`; \}; `promptVersion`: `string`; `requestId`: `string`; `role`: \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"`; `sectionId?`: `string`; \} | -                                        |
+| `entry.bookId?`           | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | -                                        |
+| `entry.cachedInputTokens` | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | -                                        |
+| `entry.createdAt`         | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | -                                        |
+| `entry.effort`            | `"low"` \| `"medium"` \| `"high"`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | -                                        |
+| `entry.id?`               | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Auto-increment key; absent until stored. |
+| `entry.inputTokens`       | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | -                                        |
+| `entry.latencyMs`         | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | -                                        |
+| `entry.model`             | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | -                                        |
+| `entry.outcome`           | \| `"schema"` \| `"ok"` \| `"auth"` \| `"signin-required"` \| `"plan-limit"` \| `"upstream"` \| `"timeout"` \| `"aborted"`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | -                                        |
+| `entry.outputTokens`      | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | -                                        |
+| `entry.prompt?`           | \{ `body`: `string`; `prefix`: `string`; \}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | -                                        |
+| `entry.prompt.body`       | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | -                                        |
+| `entry.prompt.prefix`     | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | -                                        |
+| `entry.promptVersion`     | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | -                                        |
+| `entry.requestId`         | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | -                                        |
+| `entry.role`              | \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | -                                        |
+| `entry.sectionId?`        | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | -                                        |
 
 ####### Returns
 
@@ -8229,43 +8908,43 @@ Newest first.
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `filter?` | \{ `limit?`: `number`; `role?`: \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"`; `since?`: `number`; \} |
-| `filter.limit?` | `number` |
-| `filter.role?` | \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"` |
-| `filter.since?` | `number` |
+| Parameter       | Type                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `filter?`       | \{ `limit?`: `number`; `role?`: \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"`; `since?`: `number`; \} |
+| `filter.limit?` | `number`                                                                                                                                                                                                                                                                                                                                                                                        |
+| `filter.role?`  | \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"`                                                         |
+| `filter.since?` | `number`                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ####### Returns
 
 `Promise`\<`object`[]\>
 
-***
+---
 
 #### LlmResult
 
 ##### Type Parameters
 
 | Type Parameter |
-| ------ |
-| `T` |
+| -------------- |
+| `T`            |
 
 ##### Properties
 
-| Property | Type |
-| ------ | ------ |
-| <a id="property-data"></a> `data` | `T` |
-| <a id="property-effort"></a> `effort` | `"low"` \| `"medium"` \| `"high"` |
-| <a id="property-latencyms"></a> `latencyMs` | `number` |
-| <a id="property-model"></a> `model` | `string` |
-| <a id="property-promptversion"></a> `promptVersion` | `string` |
-| <a id="property-requestid-1"></a> `requestId` | `string` |
-| <a id="property-usage"></a> `usage` | `object` |
-| `usage.cachedInput` | `number` |
-| `usage.input` | `number` |
-| `usage.output` | `number` |
+| Property                                            | Type                              |
+| --------------------------------------------------- | --------------------------------- |
+| <a id="property-data"></a> `data`                   | `T`                               |
+| <a id="property-effort"></a> `effort`               | `"low"` \| `"medium"` \| `"high"` |
+| <a id="property-latencyms"></a> `latencyMs`         | `number`                          |
+| <a id="property-model"></a> `model`                 | `string`                          |
+| <a id="property-promptversion"></a> `promptVersion` | `string`                          |
+| <a id="property-requestid-1"></a> `requestId`       | `string`                          |
+| <a id="property-usage"></a> `usage`                 | `object`                          |
+| `usage.cachedInput`                                 | `number`                          |
+| `usage.input`                                       | `number`                          |
+| `usage.output`                                      | `number`                          |
 
-***
+---
 
 #### Normalized
 
@@ -8273,26 +8952,26 @@ Normalised text plus, for each UTF-16 unit `i` of `text`, the original range `[s
 
 ##### Properties
 
-| Property | Type |
-| ------ | ------ |
-| <a id="property-end"></a> `end` | `number`[] |
+| Property                            | Type       |
+| ----------------------------------- | ---------- |
+| <a id="property-end"></a> `end`     | `number`[] |
 | <a id="property-start"></a> `start` | `number`[] |
-| <a id="property-text"></a> `text` | `string` |
+| <a id="property-text"></a> `text`   | `string`   |
 
-***
+---
 
 #### ParsedSectionId
 
 ##### Properties
 
-| Property | Type |
-| ------ | ------ |
-| <a id="property-bookid-1"></a> `bookId` | `string` |
+| Property                                                | Type     |
+| ------------------------------------------------------- | -------- |
+| <a id="property-bookid-1"></a> `bookId`                 | `string` |
 | <a id="property-headingslugpath"></a> `headingSlugPath` | `string` |
-| <a id="property-ordinalinspine"></a> `ordinalInSpine` | `number` |
-| <a id="property-spineindex"></a> `spineIndex` | `number` |
+| <a id="property-ordinalinspine"></a> `ordinalInSpine`   | `number` |
+| <a id="property-spineindex"></a> `spineIndex`           | `number` |
 
-***
+---
 
 #### PerBook
 
@@ -8320,29 +8999,29 @@ deleteByBook(bookId): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `bookId`  | `string` |
 
 ####### Returns
 
 `Promise`\<`void`\>
 
-***
+---
 
 #### PlanKeyInput
 
 ##### Properties
 
-| Property | Type |
-| ------ | ------ |
-| <a id="property-bookid-2"></a> `bookId` | `string` |
-| <a id="property-contenthash"></a> `contentHash` | `string` |
-| <a id="property-contextversion"></a> `contextVersion` | `string` \| `number` |
-| <a id="property-planner"></a> `planner` | [`RoleRun`](#rolerun) |
-| <a id="property-sectionid-1"></a> `sectionId` | `string` |
+| Property                                              | Type                  |
+| ----------------------------------------------------- | --------------------- |
+| <a id="property-bookid-2"></a> `bookId`               | `string`              |
+| <a id="property-contenthash"></a> `contentHash`       | `string`              |
+| <a id="property-contextversion"></a> `contextVersion` | `string` \| `number`  |
+| <a id="property-planner"></a> `planner`               | [`RoleRun`](#rolerun) |
+| <a id="property-sectionid-1"></a> `sectionId`         | `string`              |
 
-***
+---
 
 #### PlansRepo
 
@@ -8381,32 +9060,32 @@ bulkGet(keys): Promise<(
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `keys` | readonly `string`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `keys`    | readonly `string`[] |
 
 ####### Returns
 
 `Promise`\<(
-  \| \{
-  `bookId`: `string`;
-  `cacheKey`: `string`;
-  `createdAt`: `number`;
-  `effort`: `"low"` \| `"medium"` \| `"high"`;
-  `model`: `string`;
-  `partialContext`: `boolean`;
-  `plan`: \{
-     `items`: `object`[];
-     `needsVisual`: `boolean`;
-     `reason`: `string`;
-     `sectionId`: `string`;
-  \};
-  `promptVersion`: `string`;
-  `sectionId`: `string`;
-  `stale`: `boolean`;
-  `usageTokens`: `number`;
+\| \{
+`bookId`: `string`;
+`cacheKey`: `string`;
+`createdAt`: `number`;
+`effort`: `"low"` \| `"medium"` \| `"high"`;
+`model`: `string`;
+`partialContext`: `boolean`;
+`plan`: \{
+`items`: `object`[];
+`needsVisual`: `boolean`;
+`reason`: `string`;
+`sectionId`: `string`;
+\};
+`promptVersion`: `string`;
+`sectionId`: `string`;
+`stale`: `boolean`;
+`usageTokens`: `number`;
 \}
-  \| `undefined`)[]\>
+\| `undefined`)[]\>
 
 ####### Inherited from
 
@@ -8420,9 +9099,9 @@ bulkPut(values): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `values` | readonly `object`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `values`  | readonly `object`[] |
 
 ####### Returns
 
@@ -8440,9 +9119,9 @@ delete(key): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
@@ -8460,9 +9139,9 @@ deleteByBook(bookId): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `bookId`  | `string` |
 
 ####### Returns
 
@@ -8499,32 +9178,32 @@ get(key): Promise<
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
 `Promise`\<
-  \| \{
-  `bookId`: `string`;
-  `cacheKey`: `string`;
-  `createdAt`: `number`;
-  `effort`: `"low"` \| `"medium"` \| `"high"`;
-  `model`: `string`;
-  `partialContext`: `boolean`;
-  `plan`: \{
-     `items`: `object`[];
-     `needsVisual`: `boolean`;
-     `reason`: `string`;
-     `sectionId`: `string`;
-  \};
-  `promptVersion`: `string`;
-  `sectionId`: `string`;
-  `stale`: `boolean`;
-  `usageTokens`: `number`;
+\| \{
+`bookId`: `string`;
+`cacheKey`: `string`;
+`createdAt`: `number`;
+`effort`: `"low"` \| `"medium"` \| `"high"`;
+`model`: `string`;
+`partialContext`: `boolean`;
+`plan`: \{
+`items`: `object`[];
+`needsVisual`: `boolean`;
+`reason`: `string`;
+`sectionId`: `string`;
+\};
+`promptVersion`: `string`;
+`sectionId`: `string`;
+`stale`: `boolean`;
+`usageTokens`: `number`;
 \}
-  \| `undefined`\>
+\| `undefined`\>
 
 ####### Inherited from
 
@@ -8538,9 +9217,9 @@ listBySection(bookId, sectionId): Promise<object[]>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter   | Type     |
+| ----------- | -------- |
+| `bookId`    | `string` |
 | `sectionId` | `string` |
 
 ####### Returns
@@ -8555,24 +9234,24 @@ put(value): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type | Description |
-| ------ | ------ | ------ |
-| `value` | \{ `bookId`: `string`; `cacheKey`: `string`; `createdAt`: `number`; `effort`: `"low"` \| `"medium"` \| `"high"`; `model`: `string`; `partialContext`: `boolean`; `plan`: \{ `items`: `object`[]; `needsVisual`: `boolean`; `reason`: `string`; `sectionId`: `string`; \}; `promptVersion`: `string`; `sectionId`: `string`; `stale`: `boolean`; `usageTokens`: `number`; \} | - |
-| `value.bookId` | `string` | - |
-| `value.cacheKey` | `string` | - |
-| `value.createdAt` | `number` | - |
-| `value.effort` | `"low"` \| `"medium"` \| `"high"` | - |
-| `value.model` | `string` | - |
-| `value.partialContext` | `boolean` | The concept index was still missing after 20 s, so the plan used partial context (§15 step 2). |
-| `value.plan` | \{ `items`: `object`[]; `needsVisual`: `boolean`; `reason`: `string`; `sectionId`: `string`; \} | - |
-| `value.plan.items` | `object`[] | - |
-| `value.plan.needsVisual` | `boolean` | - |
-| `value.plan.reason` | `string` | - |
-| `value.plan.sectionId` | `string` | - |
-| `value.promptVersion` | `string` | - |
-| `value.sectionId` | `string` | - |
-| `value.stale` | `boolean` | - |
-| `value.usageTokens` | `number` | - |
+| Parameter                | Type                                                                                                                                                                                                                                                                                                                                                                        | Description                                                                                    |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `value`                  | \{ `bookId`: `string`; `cacheKey`: `string`; `createdAt`: `number`; `effort`: `"low"` \| `"medium"` \| `"high"`; `model`: `string`; `partialContext`: `boolean`; `plan`: \{ `items`: `object`[]; `needsVisual`: `boolean`; `reason`: `string`; `sectionId`: `string`; \}; `promptVersion`: `string`; `sectionId`: `string`; `stale`: `boolean`; `usageTokens`: `number`; \} | -                                                                                              |
+| `value.bookId`           | `string`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
+| `value.cacheKey`         | `string`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
+| `value.createdAt`        | `number`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
+| `value.effort`           | `"low"` \| `"medium"` \| `"high"`                                                                                                                                                                                                                                                                                                                                           | -                                                                                              |
+| `value.model`            | `string`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
+| `value.partialContext`   | `boolean`                                                                                                                                                                                                                                                                                                                                                                   | The concept index was still missing after 20 s, so the plan used partial context (§15 step 2). |
+| `value.plan`             | \{ `items`: `object`[]; `needsVisual`: `boolean`; `reason`: `string`; `sectionId`: `string`; \}                                                                                                                                                                                                                                                                             | -                                                                                              |
+| `value.plan.items`       | `object`[]                                                                                                                                                                                                                                                                                                                                                                  | -                                                                                              |
+| `value.plan.needsVisual` | `boolean`                                                                                                                                                                                                                                                                                                                                                                   | -                                                                                              |
+| `value.plan.reason`      | `string`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
+| `value.plan.sectionId`   | `string`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
+| `value.promptVersion`    | `string`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
+| `value.sectionId`        | `string`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
+| `value.stale`            | `boolean`                                                                                                                                                                                                                                                                                                                                                                   | -                                                                                              |
+| `value.usageTokens`      | `number`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
 
 ####### Returns
 
@@ -8582,20 +9261,20 @@ put(value): Promise<void>;
 
 [`KeyedRepo`](#keyedrepo).[`put`](#put-4)
 
-***
+---
 
 #### QuoteMatch
 
 ##### Properties
 
-| Property | Type | Description |
-| ------ | ------ | ------ |
-| <a id="property-end-1"></a> `end` | `number` | - |
-| <a id="property-fuzzy"></a> `fuzzy` | `boolean` | - |
-| <a id="property-similarity"></a> `similarity` | `number` | 1 for exact matches, else the Levenshtein similarity. |
-| <a id="property-start-1"></a> `start` | `number` | Offsets into the original (un-normalised) text. |
+| Property                                      | Type      | Description                                           |
+| --------------------------------------------- | --------- | ----------------------------------------------------- |
+| <a id="property-end-1"></a> `end`             | `number`  | -                                                     |
+| <a id="property-fuzzy"></a> `fuzzy`           | `boolean` | -                                                     |
+| <a id="property-similarity"></a> `similarity` | `number`  | 1 for exact matches, else the Levenshtein similarity. |
+| <a id="property-start-1"></a> `start`         | `number`  | Offsets into the original (un-normalised) text.       |
 
-***
+---
 
 #### ReaderBridge
 
@@ -8611,9 +9290,9 @@ clearHighlights(kind?): void;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `kind?` | `"evidence"` \| `"step"` |
+| Parameter | Type                     |
+| --------- | ------------------------ |
+| `kind?`   | `"evidence"` \| `"step"` |
 
 ####### Returns
 
@@ -8632,61 +9311,61 @@ getTheme(): object;
 ####### accent
 
 ```ts
-accent: string;
+accent: string
 ```
 
 ####### bg
 
 ```ts
-bg: string;
+bg: string
 ```
 
 ####### dark
 
 ```ts
-dark: boolean;
+dark: boolean
 ```
 
 ####### earlier
 
 ```ts
-earlier: string;
+earlier: string
 ```
 
 ####### fg
 
 ```ts
-fg: string;
+fg: string
 ```
 
 ####### font
 
 ```ts
-font: string;
+font: string
 ```
 
 ####### highlight
 
 ```ts
-highlight: string;
+highlight: string
 ```
 
 ####### line
 
 ```ts
-line: string;
+line: string
 ```
 
 ####### mono
 
 ```ts
-mono: string;
+mono: string
 ```
 
 ####### muted
 
 ```ts
-muted: string;
+muted: string
 ```
 
 ####### new
@@ -8703,10 +9382,10 @@ highlight(cfiRange, kind): HighlightHandle;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `cfiRange` | `string` |
-| `kind` | `"evidence"` \| `"step"` |
+| Parameter  | Type                     |
+| ---------- | ------------------------ |
+| `cfiRange` | `string`                 |
+| `kind`     | `"evidence"` \| `"step"` |
 
 ####### Returns
 
@@ -8720,9 +9399,9 @@ onLocationChange(cb): () => void;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `cb` | (`loc`) => `void` |
+| Parameter | Type              |
+| --------- | ----------------- |
+| `cb`      | (`loc`) => `void` |
 
 ####### Returns
 
@@ -8736,9 +9415,9 @@ onSelection(cb): () => void;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `cb` | (`sel`) => `void` |
+| Parameter | Type              |
+| --------- | ----------------- |
+| `cb`      | (`sel`) => `void` |
 
 ####### Returns
 
@@ -8752,9 +9431,9 @@ onThemeChange(cb): () => void;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `cb` | (`t`) => `void` |
+| Parameter | Type            |
+| --------- | --------------- |
+| `cb`      | (`t`) => `void` |
 
 ####### Returns
 
@@ -8768,10 +9447,10 @@ quoteToCfi(blockId, quote): Promise<string | null>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
+| Parameter | Type     |
+| --------- | -------- |
 | `blockId` | `string` |
-| `quote` | `string` |
+| `quote`   | `string` |
 
 ####### Returns
 
@@ -8785,56 +9464,56 @@ scrollTo(cfi): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `cfi` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `cfi`     | `string` |
 
 ####### Returns
 
 `Promise`\<`void`\>
 
-***
+---
 
 #### ReaderLocation
 
 ##### Properties
 
-| Property | Type |
-| ------ | ------ |
-| <a id="property-bookid-3"></a> `bookId` | `string` |
-| <a id="property-cfi"></a> `cfi` | `string` |
+| Property                                      | Type               |
+| --------------------------------------------- | ------------------ |
+| <a id="property-bookid-3"></a> `bookId`       | `string`           |
+| <a id="property-cfi"></a> `cfi`               | `string`           |
 | <a id="property-sectionid-2"></a> `sectionId` | `string` \| `null` |
 
-***
+---
 
 #### ReaderSelection
 
 ##### Properties
 
-| Property | Type |
-| ------ | ------ |
+| Property                                  | Type       |
+| ----------------------------------------- | ---------- |
 | <a id="property-blockids"></a> `blockIds` | `string`[] |
-| <a id="property-cfirange"></a> `cfiRange` | `string` |
-| <a id="property-text-1"></a> `text` | `string` |
+| <a id="property-cfirange"></a> `cfiRange` | `string`   |
+| <a id="property-text-1"></a> `text`       | `string`   |
 
-***
+---
 
 #### RepairInput
 
 ##### Properties
 
-| Property | Type | Description |
-| ------ | ------ | ------ |
-| <a id="property-bookid-4"></a> `bookId?` | `string` | - |
-| <a id="property-context"></a> `context` | [`LlmContext`](#llmcontext) | The same packed context the extractor saw: the repair may re-quote only these blocks. |
-| <a id="property-findings"></a> `findings` | readonly [`RepairFinding`](#repairfinding)[] | - |
-| <a id="property-ir-1"></a> `ir` | `unknown` | The IR to fix (the validated one, or the last attempt). |
-| <a id="property-kind-1"></a> `kind` | \| `"math"` \| `"graph"` \| `"sequence"` \| `"state"` \| `"class"` \| `"er"` \| `"template"` \| `"chart"` \| `"timeline"` | - |
-| <a id="property-sectionid-3"></a> `sectionId?` | `string` | - |
-| <a id="property-signal-1"></a> `signal?` | `AbortSignal` | - |
-| <a id="property-validation"></a> `validation` | [`ValidationContext`](#validationcontext) | - |
+| Property                                       | Type                                                                                                                      | Description                                                                           |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| <a id="property-bookid-4"></a> `bookId?`       | `string`                                                                                                                  | -                                                                                     |
+| <a id="property-context"></a> `context`        | [`LlmContext`](#llmcontext)                                                                                               | The same packed context the extractor saw: the repair may re-quote only these blocks. |
+| <a id="property-findings"></a> `findings`      | readonly [`RepairFinding`](#repairfinding)[]                                                                              | -                                                                                     |
+| <a id="property-ir-1"></a> `ir`                | `unknown`                                                                                                                 | The IR to fix (the validated one, or the last attempt).                               |
+| <a id="property-kind-1"></a> `kind`            | \| `"math"` \| `"graph"` \| `"sequence"` \| `"state"` \| `"class"` \| `"er"` \| `"template"` \| `"chart"` \| `"timeline"` | -                                                                                     |
+| <a id="property-sectionid-3"></a> `sectionId?` | `string`                                                                                                                  | -                                                                                     |
+| <a id="property-signal-1"></a> `signal?`       | `AbortSignal`                                                                                                             | -                                                                                     |
+| <a id="property-validation"></a> `validation`  | [`ValidationContext`](#validationcontext)                                                                                 | -                                                                                     |
 
-***
+---
 
 #### RoleRun
 
@@ -8842,40 +9521,40 @@ The prompt version, model and effort that produced a result; all three are key p
 
 ##### Properties
 
-| Property | Type |
-| ------ | ------ |
-| <a id="property-effort-1"></a> `effort` | `"low"` \| `"medium"` \| `"high"` |
-| <a id="property-model-1"></a> `model` | `string` |
-| <a id="property-promptversion-1"></a> `promptVersion` | `string` |
+| Property                                              | Type                              |
+| ----------------------------------------------------- | --------------------------------- |
+| <a id="property-effort-1"></a> `effort`               | `"low"` \| `"medium"` \| `"high"` |
+| <a id="property-model-1"></a> `model`                 | `string`                          |
+| <a id="property-promptversion-1"></a> `promptVersion` | `string`                          |
 
-***
+---
 
 #### RoleSpec
 
 ##### Properties
 
-| Property | Modifier | Type | Description |
-| ------ | ------ | ------ | ------ |
-| <a id="property-effort-2"></a> `effort` | `readonly` | `"low"` \| `"medium"` \| `"high"` | Default reasoning effort (§9 roles table; overridable through `ILLUS_MODELS_JSON`). |
-| <a id="property-escalationtier"></a> `escalationTier?` | `readonly` | `"fast"` \| `"standard"` \| `"deep"` | Tier used when `escalate: true`; absent when the role never escalates. |
-| <a id="property-image-1"></a> `image?` | `readonly` | `boolean` | The role sends an image (critic only). |
-| <a id="property-schemas"></a> `schemas` | `readonly` | readonly ( \| `"IndexerOutput"` \| `"GlossaryOutput"` \| `"BookSummary"` \| `"VisualPlan"` \| `"GraphIR"` \| `"SequenceIR"` \| `"StateIR"` \| `"ClassIR"` \| `"ErIR"` \| `"TemplateIR"` \| `"ChartIR"` \| `"MathIR"` \| `"TimelineIR"` \| `"HtmlIR"` \| `"AnimationIR"` \| `"Translation"` \| `"PatchOutput"` \| `"CriticReport"`)[] | Output schemas the role may be asked for; the first is the default. |
-| <a id="property-tier"></a> `tier` | `readonly` | `"fast"` \| `"standard"` \| `"deep"` | Tier the role runs on. |
+| Property                                               | Modifier   | Type                                                                                                                                                                                                                                                                                                                                 | Description                                                                         |
+| ------------------------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| <a id="property-effort-2"></a> `effort`                | `readonly` | `"low"` \| `"medium"` \| `"high"`                                                                                                                                                                                                                                                                                                    | Default reasoning effort (§9 roles table; overridable through `ILLUS_MODELS_JSON`). |
+| <a id="property-escalationtier"></a> `escalationTier?` | `readonly` | `"fast"` \| `"standard"` \| `"deep"`                                                                                                                                                                                                                                                                                                 | Tier used when `escalate: true`; absent when the role never escalates.              |
+| <a id="property-image-1"></a> `image?`                 | `readonly` | `boolean`                                                                                                                                                                                                                                                                                                                            | The role sends an image (critic only).                                              |
+| <a id="property-schemas"></a> `schemas`                | `readonly` | readonly ( \| `"IndexerOutput"` \| `"GlossaryOutput"` \| `"BookSummary"` \| `"VisualPlan"` \| `"GraphIR"` \| `"SequenceIR"` \| `"StateIR"` \| `"ClassIR"` \| `"ErIR"` \| `"TemplateIR"` \| `"ChartIR"` \| `"MathIR"` \| `"TimelineIR"` \| `"HtmlIR"` \| `"AnimationIR"` \| `"Translation"` \| `"PatchOutput"` \| `"CriticReport"`)[] | Output schemas the role may be asked for; the first is the default.                 |
+| <a id="property-tier"></a> `tier`                      | `readonly` | `"fast"` \| `"standard"` \| `"deep"`                                                                                                                                                                                                                                                                                                 | Tier the role runs on.                                                              |
 
-***
+---
 
 #### SectionIdParts
 
 ##### Properties
 
-| Property | Type | Description |
-| ------ | ------ | ------ |
-| <a id="property-bookid-5"></a> `bookId` | `string` | - |
-| <a id="property-headingpath"></a> `headingPath` | readonly `string`[] | Heading texts from the chapter down to this section. |
-| <a id="property-ordinalinspine-1"></a> `ordinalInSpine` | `number` | 0-based position of the section within its spine item. |
-| <a id="property-spineindex-1"></a> `spineIndex` | `number` | - |
+| Property                                                | Type                | Description                                            |
+| ------------------------------------------------------- | ------------------- | ------------------------------------------------------ |
+| <a id="property-bookid-5"></a> `bookId`                 | `string`            | -                                                      |
+| <a id="property-headingpath"></a> `headingPath`         | readonly `string`[] | Heading texts from the chapter down to this section.   |
+| <a id="property-ordinalinspine-1"></a> `ordinalInSpine` | `number`            | 0-based position of the section within its spine item. |
+| <a id="property-spineindex-1"></a> `spineIndex`         | `number`            | -                                                      |
 
-***
+---
 
 #### SectionIndexRepo
 
@@ -8917,35 +9596,35 @@ bulkGet(keys): Promise<(
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `keys` | readonly `string`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `keys`    | readonly `string`[] |
 
 ####### Returns
 
 `Promise`\<(
-  \| \{
-  `bookId`: `string`;
-  `defines`: `object`[];
-  `flags`: \{
-     `algorithm`: `boolean`;
-     `architecture`: `boolean`;
-     `codeHeavy`: `boolean`;
-     `dataStructure`: `boolean`;
-     `math`: `boolean`;
-     `narrative`: `boolean`;
-     `protocol`: `boolean`;
-     `stateMachine`: `boolean`;
-  \};
-  `indexedWith`: \{
-     `model`: `string`;
-     `promptVersion`: `string`;
-  \};
-  `sectionId`: `string`;
-  `summary`: `string`;
-  `uses`: `object`[];
+\| \{
+`bookId`: `string`;
+`defines`: `object`[];
+`flags`: \{
+`algorithm`: `boolean`;
+`architecture`: `boolean`;
+`codeHeavy`: `boolean`;
+`dataStructure`: `boolean`;
+`math`: `boolean`;
+`narrative`: `boolean`;
+`protocol`: `boolean`;
+`stateMachine`: `boolean`;
+\};
+`indexedWith`: \{
+`model`: `string`;
+`promptVersion`: `string`;
+\};
+`sectionId`: `string`;
+`summary`: `string`;
+`uses`: `object`[];
 \}
-  \| `undefined`)[]\>
+\| `undefined`)[]\>
 
 ####### Inherited from
 
@@ -8959,9 +9638,9 @@ bulkPut(values): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `values` | readonly `object`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `values`  | readonly `object`[] |
 
 ####### Returns
 
@@ -8979,9 +9658,9 @@ countByBook(bookId): Promise<number>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `bookId`  | `string` |
 
 ####### Returns
 
@@ -8995,9 +9674,9 @@ delete(key): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
@@ -9015,9 +9694,9 @@ deleteByBook(bookId): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `bookId`  | `string` |
 
 ####### Returns
 
@@ -9057,35 +9736,35 @@ get(key): Promise<
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
 `Promise`\<
-  \| \{
-  `bookId`: `string`;
-  `defines`: `object`[];
-  `flags`: \{
-     `algorithm`: `boolean`;
-     `architecture`: `boolean`;
-     `codeHeavy`: `boolean`;
-     `dataStructure`: `boolean`;
-     `math`: `boolean`;
-     `narrative`: `boolean`;
-     `protocol`: `boolean`;
-     `stateMachine`: `boolean`;
-  \};
-  `indexedWith`: \{
-     `model`: `string`;
-     `promptVersion`: `string`;
-  \};
-  `sectionId`: `string`;
-  `summary`: `string`;
-  `uses`: `object`[];
+\| \{
+`bookId`: `string`;
+`defines`: `object`[];
+`flags`: \{
+`algorithm`: `boolean`;
+`architecture`: `boolean`;
+`codeHeavy`: `boolean`;
+`dataStructure`: `boolean`;
+`math`: `boolean`;
+`narrative`: `boolean`;
+`protocol`: `boolean`;
+`stateMachine`: `boolean`;
+\};
+`indexedWith`: \{
+`model`: `string`;
+`promptVersion`: `string`;
+\};
+`sectionId`: `string`;
+`summary`: `string`;
+`uses`: `object`[];
 \}
-  \| `undefined`\>
+\| `undefined`\>
 
 ####### Inherited from
 
@@ -9099,9 +9778,9 @@ listByBook(bookId): Promise<object[]>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `bookId`  | `string` |
 
 ####### Returns
 
@@ -9115,26 +9794,26 @@ put(value): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `value` | \{ `bookId`: `string`; `defines`: `object`[]; `flags`: \{ `algorithm`: `boolean`; `architecture`: `boolean`; `codeHeavy`: `boolean`; `dataStructure`: `boolean`; `math`: `boolean`; `narrative`: `boolean`; `protocol`: `boolean`; `stateMachine`: `boolean`; \}; `indexedWith`: \{ `model`: `string`; `promptVersion`: `string`; \}; `sectionId`: `string`; `summary`: `string`; `uses`: `object`[]; \} |
-| `value.bookId` | `string` |
-| `value.defines` | `object`[] |
-| `value.flags` | \{ `algorithm`: `boolean`; `architecture`: `boolean`; `codeHeavy`: `boolean`; `dataStructure`: `boolean`; `math`: `boolean`; `narrative`: `boolean`; `protocol`: `boolean`; `stateMachine`: `boolean`; \} |
-| `value.flags.algorithm` | `boolean` |
-| `value.flags.architecture` | `boolean` |
-| `value.flags.codeHeavy` | `boolean` |
-| `value.flags.dataStructure` | `boolean` |
-| `value.flags.math` | `boolean` |
-| `value.flags.narrative` | `boolean` |
-| `value.flags.protocol` | `boolean` |
-| `value.flags.stateMachine` | `boolean` |
-| `value.indexedWith` | \{ `model`: `string`; `promptVersion`: `string`; \} |
-| `value.indexedWith.model` | `string` |
-| `value.indexedWith.promptVersion` | `string` |
-| `value.sectionId` | `string` |
-| `value.summary` | `string` |
-| `value.uses` | `object`[] |
+| Parameter                         | Type                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `value`                           | \{ `bookId`: `string`; `defines`: `object`[]; `flags`: \{ `algorithm`: `boolean`; `architecture`: `boolean`; `codeHeavy`: `boolean`; `dataStructure`: `boolean`; `math`: `boolean`; `narrative`: `boolean`; `protocol`: `boolean`; `stateMachine`: `boolean`; \}; `indexedWith`: \{ `model`: `string`; `promptVersion`: `string`; \}; `sectionId`: `string`; `summary`: `string`; `uses`: `object`[]; \} |
+| `value.bookId`                    | `string`                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `value.defines`                   | `object`[]                                                                                                                                                                                                                                                                                                                                                                                               |
+| `value.flags`                     | \{ `algorithm`: `boolean`; `architecture`: `boolean`; `codeHeavy`: `boolean`; `dataStructure`: `boolean`; `math`: `boolean`; `narrative`: `boolean`; `protocol`: `boolean`; `stateMachine`: `boolean`; \}                                                                                                                                                                                                |
+| `value.flags.algorithm`           | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                |
+| `value.flags.architecture`        | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                |
+| `value.flags.codeHeavy`           | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                |
+| `value.flags.dataStructure`       | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                |
+| `value.flags.math`                | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                |
+| `value.flags.narrative`           | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                |
+| `value.flags.protocol`            | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                |
+| `value.flags.stateMachine`        | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                |
+| `value.indexedWith`               | \{ `model`: `string`; `promptVersion`: `string`; \}                                                                                                                                                                                                                                                                                                                                                      |
+| `value.indexedWith.model`         | `string`                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `value.indexedWith.promptVersion` | `string`                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `value.sectionId`                 | `string`                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `value.summary`                   | `string`                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `value.uses`                      | `object`[]                                                                                                                                                                                                                                                                                                                                                                                               |
 
 ####### Returns
 
@@ -9144,7 +9823,7 @@ put(value): Promise<void>;
 
 [`KeyedRepo`](#keyedrepo).[`put`](#put-4)
 
-***
+---
 
 #### SectionsRepo
 
@@ -9184,33 +9863,33 @@ bulkGet(keys): Promise<(
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `keys` | readonly `string`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `keys`    | readonly `string`[] |
 
 ####### Returns
 
 `Promise`\<(
-  \| \{
-  `blockIds`: `string`[];
-  `bookId`: `string`;
-  `cfiEnd`: `string`;
-  `cfiStart`: `string`;
-  `childIds`: `string`[];
-  `contentHash`: `string`;
-  `headingPath`: `string`[];
-  `level`: `1` \| `2` \| `3` \| `4`;
-  `mergedInto?`: `string`;
-  `number?`: `string`;
-  `ordinal`: `number`;
-  `parentId?`: `string`;
-  `sectionId`: `string`;
-  `spineHref`: `string`;
-  `spineIndex`: `number`;
-  `title`: `string`;
-  `tokenEstimate`: `number`;
+\| \{
+`blockIds`: `string`[];
+`bookId`: `string`;
+`cfiEnd`: `string`;
+`cfiStart`: `string`;
+`childIds`: `string`[];
+`contentHash`: `string`;
+`headingPath`: `string`[];
+`level`: `1` \| `2` \| `3` \| `4`;
+`mergedInto?`: `string`;
+`number?`: `string`;
+`ordinal`: `number`;
+`parentId?`: `string`;
+`sectionId`: `string`;
+`spineHref`: `string`;
+`spineIndex`: `number`;
+`title`: `string`;
+`tokenEstimate`: `number`;
 \}
-  \| `undefined`)[]\>
+\| `undefined`)[]\>
 
 ####### Inherited from
 
@@ -9224,9 +9903,9 @@ bulkPut(values): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `values` | readonly `object`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `values`  | readonly `object`[] |
 
 ####### Returns
 
@@ -9244,9 +9923,9 @@ delete(key): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
@@ -9264,9 +9943,9 @@ deleteByBook(bookId): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `bookId`  | `string` |
 
 ####### Returns
 
@@ -9304,33 +9983,33 @@ get(key): Promise<
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
 `Promise`\<
-  \| \{
-  `blockIds`: `string`[];
-  `bookId`: `string`;
-  `cfiEnd`: `string`;
-  `cfiStart`: `string`;
-  `childIds`: `string`[];
-  `contentHash`: `string`;
-  `headingPath`: `string`[];
-  `level`: `1` \| `2` \| `3` \| `4`;
-  `mergedInto?`: `string`;
-  `number?`: `string`;
-  `ordinal`: `number`;
-  `parentId?`: `string`;
-  `sectionId`: `string`;
-  `spineHref`: `string`;
-  `spineIndex`: `number`;
-  `title`: `string`;
-  `tokenEstimate`: `number`;
+\| \{
+`blockIds`: `string`[];
+`bookId`: `string`;
+`cfiEnd`: `string`;
+`cfiStart`: `string`;
+`childIds`: `string`[];
+`contentHash`: `string`;
+`headingPath`: `string`[];
+`level`: `1` \| `2` \| `3` \| `4`;
+`mergedInto?`: `string`;
+`number?`: `string`;
+`ordinal`: `number`;
+`parentId?`: `string`;
+`sectionId`: `string`;
+`spineHref`: `string`;
+`spineIndex`: `number`;
+`title`: `string`;
+`tokenEstimate`: `number`;
 \}
-  \| `undefined`\>
+\| `undefined`\>
 
 ####### Inherited from
 
@@ -9364,34 +10043,34 @@ getByOrdinal(bookId, ordinal): Promise<
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `bookId`  | `string` |
 | `ordinal` | `number` |
 
 ####### Returns
 
 `Promise`\<
-  \| \{
-  `blockIds`: `string`[];
-  `bookId`: `string`;
-  `cfiEnd`: `string`;
-  `cfiStart`: `string`;
-  `childIds`: `string`[];
-  `contentHash`: `string`;
-  `headingPath`: `string`[];
-  `level`: `1` \| `2` \| `3` \| `4`;
-  `mergedInto?`: `string`;
-  `number?`: `string`;
-  `ordinal`: `number`;
-  `parentId?`: `string`;
-  `sectionId`: `string`;
-  `spineHref`: `string`;
-  `spineIndex`: `number`;
-  `title`: `string`;
-  `tokenEstimate`: `number`;
+\| \{
+`blockIds`: `string`[];
+`bookId`: `string`;
+`cfiEnd`: `string`;
+`cfiStart`: `string`;
+`childIds`: `string`[];
+`contentHash`: `string`;
+`headingPath`: `string`[];
+`level`: `1` \| `2` \| `3` \| `4`;
+`mergedInto?`: `string`;
+`number?`: `string`;
+`ordinal`: `number`;
+`parentId?`: `string`;
+`sectionId`: `string`;
+`spineHref`: `string`;
+`spineIndex`: `number`;
+`title`: `string`;
+`tokenEstimate`: `number`;
 \}
-  \| `undefined`\>
+\| `undefined`\>
 
 ###### listByBook()
 
@@ -9403,9 +10082,9 @@ All sections of a book in reading order (`[bookId+ordinal]`).
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `bookId`  | `string` |
 
 ####### Returns
 
@@ -9419,26 +10098,26 @@ put(value): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type | Description |
-| ------ | ------ | ------ |
-| `value` | \{ `blockIds`: `string`[]; `bookId`: `string`; `cfiEnd`: `string`; `cfiStart`: `string`; `childIds`: `string`[]; `contentHash`: `string`; `headingPath`: `string`[]; `level`: `1` \| `2` \| `3` \| `4`; `mergedInto?`: `string`; `number?`: `string`; `ordinal`: `number`; `parentId?`: `string`; `sectionId`: `string`; `spineHref`: `string`; `spineIndex`: `number`; `title`: `string`; `tokenEstimate`: `number`; \} | - |
-| `value.blockIds` | `string`[] | - |
-| `value.bookId` | `string` | - |
-| `value.cfiEnd` | `string` | - |
-| `value.cfiStart` | `string` | - |
-| `value.childIds` | `string`[] | - |
-| `value.contentHash` | `string` | - |
-| `value.headingPath` | `string`[] | - |
-| `value.level` | `1` \| `2` \| `3` \| `4` | - |
-| `value.mergedInto?` | `string` | Set on tiny sections (< 80 tokens) generated together with their first child (§6 step 12, §15 step 1). |
-| `value.number?` | `string` | '5.3.2' when the heading carries a number. |
-| `value.ordinal` | `number` | Global reading-order integer across the book. |
-| `value.parentId?` | `string` | - |
-| `value.sectionId` | `string` | - |
-| `value.spineHref` | `string` | - |
-| `value.spineIndex` | `number` | - |
-| `value.title` | `string` | - |
-| `value.tokenEstimate` | `number` | - |
+| Parameter             | Type                                                                                                                                                                                                                                                                                                                                                                                                                     | Description                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `value`               | \{ `blockIds`: `string`[]; `bookId`: `string`; `cfiEnd`: `string`; `cfiStart`: `string`; `childIds`: `string`[]; `contentHash`: `string`; `headingPath`: `string`[]; `level`: `1` \| `2` \| `3` \| `4`; `mergedInto?`: `string`; `number?`: `string`; `ordinal`: `number`; `parentId?`: `string`; `sectionId`: `string`; `spineHref`: `string`; `spineIndex`: `number`; `title`: `string`; `tokenEstimate`: `number`; \} | -                                                                                                      |
+| `value.blockIds`      | `string`[]                                                                                                                                                                                                                                                                                                                                                                                                               | -                                                                                                      |
+| `value.bookId`        | `string`                                                                                                                                                                                                                                                                                                                                                                                                                 | -                                                                                                      |
+| `value.cfiEnd`        | `string`                                                                                                                                                                                                                                                                                                                                                                                                                 | -                                                                                                      |
+| `value.cfiStart`      | `string`                                                                                                                                                                                                                                                                                                                                                                                                                 | -                                                                                                      |
+| `value.childIds`      | `string`[]                                                                                                                                                                                                                                                                                                                                                                                                               | -                                                                                                      |
+| `value.contentHash`   | `string`                                                                                                                                                                                                                                                                                                                                                                                                                 | -                                                                                                      |
+| `value.headingPath`   | `string`[]                                                                                                                                                                                                                                                                                                                                                                                                               | -                                                                                                      |
+| `value.level`         | `1` \| `2` \| `3` \| `4`                                                                                                                                                                                                                                                                                                                                                                                                 | -                                                                                                      |
+| `value.mergedInto?`   | `string`                                                                                                                                                                                                                                                                                                                                                                                                                 | Set on tiny sections (< 80 tokens) generated together with their first child (§6 step 12, §15 step 1). |
+| `value.number?`       | `string`                                                                                                                                                                                                                                                                                                                                                                                                                 | '5.3.2' when the heading carries a number.                                                             |
+| `value.ordinal`       | `number`                                                                                                                                                                                                                                                                                                                                                                                                                 | Global reading-order integer across the book.                                                          |
+| `value.parentId?`     | `string`                                                                                                                                                                                                                                                                                                                                                                                                                 | -                                                                                                      |
+| `value.sectionId`     | `string`                                                                                                                                                                                                                                                                                                                                                                                                                 | -                                                                                                      |
+| `value.spineHref`     | `string`                                                                                                                                                                                                                                                                                                                                                                                                                 | -                                                                                                      |
+| `value.spineIndex`    | `number`                                                                                                                                                                                                                                                                                                                                                                                                                 | -                                                                                                      |
+| `value.title`         | `string`                                                                                                                                                                                                                                                                                                                                                                                                                 | -                                                                                                      |
+| `value.tokenEstimate` | `number`                                                                                                                                                                                                                                                                                                                                                                                                                 | -                                                                                                      |
 
 ####### Returns
 
@@ -9448,7 +10127,7 @@ put(value): Promise<void>;
 
 [`KeyedRepo`](#keyedrepo).[`put`](#put-4)
 
-***
+---
 
 #### SettingsRepo
 
@@ -9462,9 +10141,9 @@ delete(key): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
@@ -9479,14 +10158,14 @@ get<T>(key): Promise<T | undefined>;
 ####### Type Parameters
 
 | Type Parameter | Default type |
-| ------ | ------ |
-| `T` | `unknown` |
+| -------------- | ------------ |
+| `T`            | `unknown`    |
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
@@ -9510,24 +10189,24 @@ set(key, value): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
-| `value` | `unknown` |
+| Parameter | Type      |
+| --------- | --------- |
+| `key`     | `string`  |
+| `value`   | `unknown` |
 
 ####### Returns
 
 `Promise`\<`void`\>
 
-***
+---
 
 #### TemplateRegistry
 
 ##### Type Parameters
 
-| Type Parameter | Default type |
-| ------ | ------ |
-| `T` *extends* [`TemplateSpec`](#templatespec) | [`TemplateSpec`](#templatespec) |
+| Type Parameter                                | Default type                    |
+| --------------------------------------------- | ------------------------------- |
+| `T` _extends_ [`TemplateSpec`](#templatespec) | [`TemplateSpec`](#templatespec) |
 
 ##### Methods
 
@@ -9539,9 +10218,9 @@ getTemplate(id): T | undefined;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `id` | \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"` |
+| Parameter | Type                                                                                                                                                                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`      | \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"` |
 
 ####### Returns
 
@@ -9557,7 +10236,7 @@ listTemplates(): readonly T[];
 
 readonly `T`[]
 
-***
+---
 
 #### TemplateSpec
 
@@ -9567,19 +10246,19 @@ The DOM-free part of a template (§10). `@illus/render` extends it with `layout(
 ##### Type Parameters
 
 | Type Parameter | Default type |
-| ------ | ------ |
-| `P` | `unknown` |
+| -------------- | ------------ |
+| `P`            | `unknown`    |
 
 ##### Properties
 
-| Property | Type |
-| ------ | ------ |
-| <a id="property-description"></a> `description` | `string` |
-| <a id="property-example"></a> `example` | `P` |
-| <a id="property-id"></a> `id` | \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"` |
-| <a id="property-propsschema"></a> `propsSchema` | `ZodType`\<`P`\> |
-| <a id="property-supportedactions"></a> `supportedActions` | readonly ( \| `"set"` \| `"focus"` \| `"highlight"` \| `"unhighlight"` \| `"reveal"` \| `"hide"` \| `"swap"` \| `"pointer"` \| `"push"` \| `"enqueue"` \| `"pop"` \| `"dequeue"` \| `"add"` \| `"remove"` \| `"token"` \| `"annotate"`)[] |
-| <a id="property-whentouse"></a> `whenToUse` | `string` |
+| Property                                                  | Type                                                                                                                                                                                                                                       |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| <a id="property-description"></a> `description`           | `string`                                                                                                                                                                                                                                   |
+| <a id="property-example"></a> `example`                   | `P`                                                                                                                                                                                                                                        |
+| <a id="property-id"></a> `id`                             | \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"` |
+| <a id="property-propsschema"></a> `propsSchema`           | `ZodType`\<`P`\>                                                                                                                                                                                                                           |
+| <a id="property-supportedactions"></a> `supportedActions` | readonly ( \| `"set"` \| `"focus"` \| `"highlight"` \| `"unhighlight"` \| `"reveal"` \| `"hide"` \| `"swap"` \| `"pointer"` \| `"push"` \| `"enqueue"` \| `"pop"` \| `"dequeue"` \| `"add"` \| `"remove"` \| `"token"` \| `"annotate"`)[]  |
+| <a id="property-whentouse"></a> `whenToUse`               | `string`                                                                                                                                                                                                                                   |
 
 ##### Methods
 
@@ -9594,8 +10273,8 @@ Semantic invariants (BST order, heap order, pointers in range…); returns viola
 ####### Parameters
 
 | Parameter | Type |
-| ------ | ------ |
-| `props` | `P` |
+| --------- | ---- |
+| `props`   | `P`  |
 
 ####### Returns
 
@@ -9613,10 +10292,10 @@ Must not mutate `props`. Without it, an ungrounded element fails the report inst
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `props` | `P` |
-| `path` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `props`   | `P`      |
+| `path`    | `string` |
 
 ####### Returns
 
@@ -9635,8 +10314,8 @@ by W5 are `stack`, `queue`, `frames` and `order`. Must not mutate or retain muta
 ####### Parameters
 
 | Parameter | Type |
-| ------ | ------ |
-| `props` | `P` |
+| --------- | ---- |
+| `props`   | `P`  |
 
 ####### Returns
 
@@ -9654,46 +10333,46 @@ Positions stay addressable while `swap` exchanges their contents. Pure and DOM-f
 ####### Parameters
 
 | Parameter | Type |
-| ------ | ------ |
-| `props` | `P` |
+| --------- | ---- |
+| `props`   | `P`  |
 
 ####### Returns
 
 `string`[]
 
-***
+---
 
 #### TraceKeyInput
 
 ##### Properties
 
-| Property | Type |
-| ------ | ------ |
-| <a id="property-codesource"></a> `codeSource` | `string` |
-| <a id="property-tracerversion"></a> `tracerVersion` | `string` \| `number` |
-| <a id="property-translator"></a> `translator` | [`RoleRun`](#rolerun) |
+| Property                                            | Type                  |
+| --------------------------------------------------- | --------------------- |
+| <a id="property-codesource"></a> `codeSource`       | `string`              |
+| <a id="property-tracerversion"></a> `tracerVersion` | `string` \| `number`  |
+| <a id="property-translator"></a> `translator`       | [`RoleRun`](#rolerun) |
 
-***
+---
 
 #### TraceRunInput
 
 ##### Properties
 
-| Property | Type | Description |
-| ------ | ------ | ------ |
-| <a id="property-codeblockid"></a> `codeBlockId` | `string` | - |
-| <a id="property-translation"></a> `translation` | `object` | - |
-| `translation.assumptions` | `string`[] | Semantic gaps between the original language and Python, always shown to the reader. |
-| `translation.focusFunctions` | `string`[] | Traced line by line; other calls are stepped over. |
-| `translation.inputRationale` | `string` | Why these inputs show the behaviour. |
-| `translation.lineMap` | `object`[] | Every executable Python line maps to ≥ 1 original line. |
-| `translation.python` | `string` | Stdlib only; imports limited to `ALLOWED_PYTHON_IMPORTS`. |
-| `translation.reason?` | `string` | - |
-| `translation.scenarios` | `object`[] | 1–2 scenarios, e.g. `{ label: 'found', entry: 'binary_search([1,3,5,7,9], 7)' }`. |
-| `translation.traceable` | `boolean` | - |
-| `translation.vizHints` | `object`[] | - |
+| Property                                        | Type       | Description                                                                         |
+| ----------------------------------------------- | ---------- | ----------------------------------------------------------------------------------- |
+| <a id="property-codeblockid"></a> `codeBlockId` | `string`   | -                                                                                   |
+| <a id="property-translation"></a> `translation` | `object`   | -                                                                                   |
+| `translation.assumptions`                       | `string`[] | Semantic gaps between the original language and Python, always shown to the reader. |
+| `translation.focusFunctions`                    | `string`[] | Traced line by line; other calls are stepped over.                                  |
+| `translation.inputRationale`                    | `string`   | Why these inputs show the behaviour.                                                |
+| `translation.lineMap`                           | `object`[] | Every executable Python line maps to ≥ 1 original line.                             |
+| `translation.python`                            | `string`   | Stdlib only; imports limited to `ALLOWED_PYTHON_IMPORTS`.                           |
+| `translation.reason?`                           | `string`   | -                                                                                   |
+| `translation.scenarios`                         | `object`[] | 1–2 scenarios, e.g. `{ label: 'found', entry: 'binary_search([1,3,5,7,9], 7)' }`.   |
+| `translation.traceable`                         | `boolean`  | -                                                                                   |
+| `translation.vizHints`                          | `object`[] | -                                                                                   |
 
-***
+---
 
 #### TraceRunner
 
@@ -9710,17 +10389,17 @@ runTrace(input, opts?): Promise<object[]>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `input` | [`TraceRunInput`](#traceruninput) |
-| `opts?` | \{ `signal?`: `AbortSignal`; \} |
-| `opts.signal?` | `AbortSignal` |
+| Parameter      | Type                              |
+| -------------- | --------------------------------- |
+| `input`        | [`TraceRunInput`](#traceruninput) |
+| `opts?`        | \{ `signal?`: `AbortSignal`; \}   |
+| `opts.signal?` | `AbortSignal`                     |
 
 ####### Returns
 
 `Promise`\<`object`[]\>
 
-***
+---
 
 #### TracesRepo
 
@@ -9764,37 +10443,37 @@ bulkGet(keys): Promise<(
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `keys` | readonly `string`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `keys`    | readonly `string`[] |
 
 ####### Returns
 
 `Promise`\<(
-  \| \{
-  `bookId`: `string`;
-  `cacheKey`: `string`;
-  `codeBlockId`: `string`;
-  `createdAt`: `number`;
-  `efforts`: `Record`\<`string`, `"low"` \| `"medium"` \| `"high"`\>;
-  `mode`: `"simulated"` \| `"executed"`;
-  `models`: `Record`\<`string`, `string`\>;
-  `promptVersions`: `Record`\<`string`, `string`\>;
-  `scenarios`: `object`[];
-  `stale`: `boolean`;
-  `translation`: \{
-     `assumptions`: `string`[];
-     `focusFunctions`: `string`[];
-     `inputRationale`: `string`;
-     `lineMap`: `object`[];
-     `python`: `string`;
-     `reason?`: `string`;
-     `scenarios`: `object`[];
-     `traceable`: `boolean`;
-     `vizHints`: `object`[];
-  \};
+\| \{
+`bookId`: `string`;
+`cacheKey`: `string`;
+`codeBlockId`: `string`;
+`createdAt`: `number`;
+`efforts`: `Record`\<`string`, `"low"` \| `"medium"` \| `"high"`\>;
+`mode`: `"simulated"` \| `"executed"`;
+`models`: `Record`\<`string`, `string`\>;
+`promptVersions`: `Record`\<`string`, `string`\>;
+`scenarios`: `object`[];
+`stale`: `boolean`;
+`translation`: \{
+`assumptions`: `string`[];
+`focusFunctions`: `string`[];
+`inputRationale`: `string`;
+`lineMap`: `object`[];
+`python`: `string`;
+`reason?`: `string`;
+`scenarios`: `object`[];
+`traceable`: `boolean`;
+`vizHints`: `object`[];
+\};
 \}
-  \| `undefined`)[]\>
+\| `undefined`)[]\>
 
 ####### Inherited from
 
@@ -9808,9 +10487,9 @@ bulkPut(values): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `values` | readonly `object`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `values`  | readonly `object`[] |
 
 ####### Returns
 
@@ -9828,9 +10507,9 @@ delete(key): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
@@ -9848,9 +10527,9 @@ deleteByBook(bookId): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `bookId`  | `string` |
 
 ####### Returns
 
@@ -9892,37 +10571,37 @@ get(key): Promise<
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
 `Promise`\<
-  \| \{
-  `bookId`: `string`;
-  `cacheKey`: `string`;
-  `codeBlockId`: `string`;
-  `createdAt`: `number`;
-  `efforts`: `Record`\<`string`, `"low"` \| `"medium"` \| `"high"`\>;
-  `mode`: `"simulated"` \| `"executed"`;
-  `models`: `Record`\<`string`, `string`\>;
-  `promptVersions`: `Record`\<`string`, `string`\>;
-  `scenarios`: `object`[];
-  `stale`: `boolean`;
-  `translation`: \{
-     `assumptions`: `string`[];
-     `focusFunctions`: `string`[];
-     `inputRationale`: `string`;
-     `lineMap`: `object`[];
-     `python`: `string`;
-     `reason?`: `string`;
-     `scenarios`: `object`[];
-     `traceable`: `boolean`;
-     `vizHints`: `object`[];
-  \};
+\| \{
+`bookId`: `string`;
+`cacheKey`: `string`;
+`codeBlockId`: `string`;
+`createdAt`: `number`;
+`efforts`: `Record`\<`string`, `"low"` \| `"medium"` \| `"high"`\>;
+`mode`: `"simulated"` \| `"executed"`;
+`models`: `Record`\<`string`, `string`\>;
+`promptVersions`: `Record`\<`string`, `string`\>;
+`scenarios`: `object`[];
+`stale`: `boolean`;
+`translation`: \{
+`assumptions`: `string`[];
+`focusFunctions`: `string`[];
+`inputRationale`: `string`;
+`lineMap`: `object`[];
+`python`: `string`;
+`reason?`: `string`;
+`scenarios`: `object`[];
+`traceable`: `boolean`;
+`vizHints`: `object`[];
+\};
 \}
-  \| `undefined`\>
+\| `undefined`\>
 
 ####### Inherited from
 
@@ -9936,8 +10615,8 @@ listByCodeBlock(codeBlockId): Promise<object[]>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
+| Parameter     | Type     |
+| ------------- | -------- |
 | `codeBlockId` | `string` |
 
 ####### Returns
@@ -9952,29 +10631,29 @@ put(value): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type | Description |
-| ------ | ------ | ------ |
-| `value` | \{ `bookId`: `string`; `cacheKey`: `string`; `codeBlockId`: `string`; `createdAt`: `number`; `efforts`: `Record`\<`string`, `"low"` \| `"medium"` \| `"high"`\>; `mode`: `"simulated"` \| `"executed"`; `models`: `Record`\<`string`, `string`\>; `promptVersions`: `Record`\<`string`, `string`\>; `scenarios`: `object`[]; `stale`: `boolean`; `translation`: \{ `assumptions`: `string`[]; `focusFunctions`: `string`[]; `inputRationale`: `string`; `lineMap`: `object`[]; `python`: `string`; `reason?`: `string`; `scenarios`: `object`[]; `traceable`: `boolean`; `vizHints`: `object`[]; \}; \} | - |
-| `value.bookId` | `string` | - |
-| `value.cacheKey` | `string` | - |
-| `value.codeBlockId` | `string` | - |
-| `value.createdAt` | `number` | - |
-| `value.efforts` | `Record`\<`string`, `"low"` \| `"medium"` \| `"high"`\> | - |
-| `value.mode` | `"simulated"` \| `"executed"` | `executed` for real Pyodide runs; `simulated` for the animator fallback (§12 step 5). |
-| `value.models` | `Record`\<`string`, `string`\> | - |
-| `value.promptVersions` | `Record`\<`string`, `string`\> | - |
-| `value.scenarios` | `object`[] | - |
-| `value.stale` | `boolean` | - |
-| `value.translation` | \{ `assumptions`: `string`[]; `focusFunctions`: `string`[]; `inputRationale`: `string`; `lineMap`: `object`[]; `python`: `string`; `reason?`: `string`; `scenarios`: `object`[]; `traceable`: `boolean`; `vizHints`: `object`[]; \} | - |
-| `value.translation.assumptions` | `string`[] | Semantic gaps between the original language and Python, always shown to the reader. |
-| `value.translation.focusFunctions` | `string`[] | Traced line by line; other calls are stepped over. |
-| `value.translation.inputRationale` | `string` | Why these inputs show the behaviour. |
-| `value.translation.lineMap` | `object`[] | Every executable Python line maps to ≥ 1 original line. |
-| `value.translation.python` | `string` | Stdlib only; imports limited to `ALLOWED_PYTHON_IMPORTS`. |
-| `value.translation.reason?` | `string` | - |
-| `value.translation.scenarios` | `object`[] | 1–2 scenarios, e.g. `{ label: 'found', entry: 'binary_search([1,3,5,7,9], 7)' }`. |
-| `value.translation.traceable` | `boolean` | - |
-| `value.translation.vizHints` | `object`[] | - |
+| Parameter                          | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Description                                                                           |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `value`                            | \{ `bookId`: `string`; `cacheKey`: `string`; `codeBlockId`: `string`; `createdAt`: `number`; `efforts`: `Record`\<`string`, `"low"` \| `"medium"` \| `"high"`\>; `mode`: `"simulated"` \| `"executed"`; `models`: `Record`\<`string`, `string`\>; `promptVersions`: `Record`\<`string`, `string`\>; `scenarios`: `object`[]; `stale`: `boolean`; `translation`: \{ `assumptions`: `string`[]; `focusFunctions`: `string`[]; `inputRationale`: `string`; `lineMap`: `object`[]; `python`: `string`; `reason?`: `string`; `scenarios`: `object`[]; `traceable`: `boolean`; `vizHints`: `object`[]; \}; \} | -                                                                                     |
+| `value.bookId`                     | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | -                                                                                     |
+| `value.cacheKey`                   | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | -                                                                                     |
+| `value.codeBlockId`                | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | -                                                                                     |
+| `value.createdAt`                  | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | -                                                                                     |
+| `value.efforts`                    | `Record`\<`string`, `"low"` \| `"medium"` \| `"high"`\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | -                                                                                     |
+| `value.mode`                       | `"simulated"` \| `"executed"`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `executed` for real Pyodide runs; `simulated` for the animator fallback (§12 step 5). |
+| `value.models`                     | `Record`\<`string`, `string`\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | -                                                                                     |
+| `value.promptVersions`             | `Record`\<`string`, `string`\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | -                                                                                     |
+| `value.scenarios`                  | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | -                                                                                     |
+| `value.stale`                      | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | -                                                                                     |
+| `value.translation`                | \{ `assumptions`: `string`[]; `focusFunctions`: `string`[]; `inputRationale`: `string`; `lineMap`: `object`[]; `python`: `string`; `reason?`: `string`; `scenarios`: `object`[]; `traceable`: `boolean`; `vizHints`: `object`[]; \}                                                                                                                                                                                                                                                                                                                                                                     | -                                                                                     |
+| `value.translation.assumptions`    | `string`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Semantic gaps between the original language and Python, always shown to the reader.   |
+| `value.translation.focusFunctions` | `string`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Traced line by line; other calls are stepped over.                                    |
+| `value.translation.inputRationale` | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Why these inputs show the behaviour.                                                  |
+| `value.translation.lineMap`        | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Every executable Python line maps to ≥ 1 original line.                               |
+| `value.translation.python`         | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Stdlib only; imports limited to `ALLOWED_PYTHON_IMPORTS`.                             |
+| `value.translation.reason?`        | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | -                                                                                     |
+| `value.translation.scenarios`      | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | 1–2 scenarios, e.g. `{ label: 'found', entry: 'binary_search([1,3,5,7,9], 7)' }`.     |
+| `value.translation.traceable`      | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | -                                                                                     |
+| `value.translation.vizHints`       | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | -                                                                                     |
 
 ####### Returns
 
@@ -9984,66 +10663,66 @@ put(value): Promise<void>;
 
 [`KeyedRepo`](#keyedrepo).[`put`](#put-4)
 
-***
+---
 
 #### ValidationContext
 
 ##### Properties
 
-| Property | Type | Description |
-| ------ | ------ | ------ |
-| <a id="property-aliases-1"></a> `aliases?` | `ReadonlyMap`\<`string`, readonly `string`[]\> | Canonical name → aliases, for the relevance check. |
-| <a id="property-blocks-2"></a> `blocks` | `ReadonlyMap`\<`string`, \{ `blockId`: `string`; `cfiRange`: `string`; `code?`: \{ `langHint?`: `string`; `source`: `string`; \}; `figure?`: \{ `alt?`: `string`; `caption?`: `string`; `imgHref?`: `string`; \}; `kind`: \| `"quote"` \| `"paragraph"` \| `"code"` \| `"figure"` \| `"table"` \| `"math"` \| `"list"` \| `"aside"`; `label?`: `string`; `math?`: \{ `mathml?`: `string`; `tex?`: `string`; \}; `sectionId`: `string`; `table?`: \{ `html`: `string`; `rows`: `string`[][]; \}; `text`: `string`; \}\> | - |
-| <a id="property-ground"></a> `ground` | [`GroundingFn`](#groundingfn) | - |
-| <a id="property-templates-1"></a> `templates?` | [`TemplateRegistry`](#templateregistry)\<[`TemplateSpec`](#templatespec)\<`unknown`\>\> | Template registry, for `template` IRs. |
+| Property                                       | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Description                                        |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| <a id="property-aliases-1"></a> `aliases?`     | `ReadonlyMap`\<`string`, readonly `string`[]\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Canonical name → aliases, for the relevance check. |
+| <a id="property-blocks-2"></a> `blocks`        | `ReadonlyMap`\<`string`, \{ `blockId`: `string`; `cfiRange`: `string`; `code?`: \{ `langHint?`: `string`; `source`: `string`; \}; `figure?`: \{ `alt?`: `string`; `caption?`: `string`; `imgHref?`: `string`; \}; `kind`: \| `"quote"` \| `"paragraph"` \| `"code"` \| `"figure"` \| `"table"` \| `"math"` \| `"list"` \| `"aside"`; `label?`: `string`; `math?`: \{ `mathml?`: `string`; `tex?`: `string`; \}; `sectionId`: `string`; `table?`: \{ `html`: `string`; `rows`: `string`[][]; \}; `text`: `string`; \}\> | -                                                  |
+| <a id="property-ground"></a> `ground`          | [`GroundingFn`](#groundingfn)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | -                                                  |
+| <a id="property-templates-1"></a> `templates?` | [`TemplateRegistry`](#templateregistry)\<[`TemplateSpec`](#templatespec)\<`unknown`\>\>                                                                                                                                                                                                                                                                                                                                                                                                                                | Template registry, for `template` IRs.             |
 
-***
+---
 
 #### ValidationResult
 
 ##### Type Parameters
 
 | Type Parameter | Default type |
-| ------ | ------ |
-| `T` | `unknown` |
+| -------------- | ------------ |
+| `T`            | `unknown`    |
 
 ##### Properties
 
-| Property | Type | Description |
-| ------ | ------ | ------ |
-| <a id="property-ir-2"></a> `ir` | `T` | The IR after dropping ungrounded/dangling elements and safe auto-fixes. |
-| <a id="property-report"></a> `report` | `object` | - |
-| `report.counts` | `object` | - |
-| `report.counts.dropped` | `number` | - |
-| `report.counts.fuzzy` | `number` | - |
-| `report.counts.grounded` | `number` | - |
-| `report.counts.halfGrounded` | `number` | - |
-| `report.counts.total` | `number` | - |
-| `report.dropped` | `string`[] | Ids of elements removed because their evidence failed or they dangled. |
-| `report.escalated` | `boolean` | The model tier was escalated once (§8, §9). |
-| `report.groundingScore` | `number` | - |
-| `report.issues` | `object`[] | - |
-| `report.ok` | `boolean` | - |
-| `report.retried` | `boolean` | The extractor was re-run once with this report attached (§8 stage 3 step 3). |
+| Property                              | Type       | Description                                                                  |
+| ------------------------------------- | ---------- | ---------------------------------------------------------------------------- |
+| <a id="property-ir-2"></a> `ir`       | `T`        | The IR after dropping ungrounded/dangling elements and safe auto-fixes.      |
+| <a id="property-report"></a> `report` | `object`   | -                                                                            |
+| `report.counts`                       | `object`   | -                                                                            |
+| `report.counts.dropped`               | `number`   | -                                                                            |
+| `report.counts.fuzzy`                 | `number`   | -                                                                            |
+| `report.counts.grounded`              | `number`   | -                                                                            |
+| `report.counts.halfGrounded`          | `number`   | -                                                                            |
+| `report.counts.total`                 | `number`   | -                                                                            |
+| `report.dropped`                      | `string`[] | Ids of elements removed because their evidence failed or they dangled.       |
+| `report.escalated`                    | `boolean`  | The model tier was escalated once (§8, §9).                                  |
+| `report.groundingScore`               | `number`   | -                                                                            |
+| `report.issues`                       | `object`[] | -                                                                            |
+| `report.ok`                           | `boolean`  | -                                                                            |
+| `report.retried`                      | `boolean`  | The extractor was re-run once with this report attached (§8 stage 3 step 3). |
 
-***
+---
 
 #### VisualKeyInput
 
 ##### Properties
 
-| Property | Type | Description |
-| ------ | ------ | ------ |
-| <a id="property-compilerversion"></a> `compilerVersion` | `string` \| `number` | - |
-| <a id="property-extractor"></a> `extractor` | [`RoleRun`](#rolerun) | - |
-| <a id="property-instruction"></a> `instruction?` | `string` | "Regenerate with instruction" (§8): appended only when non-empty, so the new result is a new record. |
-| <a id="property-planitem"></a> `planItem` | `object` | - |
-| `planItem.intent` | `string` | - |
-| `planItem.kind` | \| `"math"` \| `"html"` \| `"graph"` \| `"sequence"` \| `"state"` \| `"class"` \| `"er"` \| `"template"` \| `"chart"` \| `"trace"` \| `"timeline"` | - |
-| `planItem.templateId?` | \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"` | - |
-| <a id="property-plankey"></a> `planKey` | `string` | - |
+| Property                                                | Type                                                                                                                                                                                                                                       | Description                                                                                          |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| <a id="property-compilerversion"></a> `compilerVersion` | `string` \| `number`                                                                                                                                                                                                                       | -                                                                                                    |
+| <a id="property-extractor"></a> `extractor`             | [`RoleRun`](#rolerun)                                                                                                                                                                                                                      | -                                                                                                    |
+| <a id="property-instruction"></a> `instruction?`        | `string`                                                                                                                                                                                                                                   | "Regenerate with instruction" (§8): appended only when non-empty, so the new result is a new record. |
+| <a id="property-planitem"></a> `planItem`               | `object`                                                                                                                                                                                                                                   | -                                                                                                    |
+| `planItem.intent`                                       | `string`                                                                                                                                                                                                                                   | -                                                                                                    |
+| `planItem.kind`                                         | \| `"math"` \| `"html"` \| `"graph"` \| `"sequence"` \| `"state"` \| `"class"` \| `"er"` \| `"template"` \| `"chart"` \| `"trace"` \| `"timeline"`                                                                                         | -                                                                                                    |
+| `planItem.templateId?`                                  | \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"` | -                                                                                                    |
+| <a id="property-plankey"></a> `planKey`                 | `string`                                                                                                                                                                                                                                   | -                                                                                                    |
 
-***
+---
 
 #### VisualsRepo
 
@@ -10132,82 +10811,82 @@ bulkGet(keys): Promise<(
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `keys` | readonly `string`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `keys`    | readonly `string`[] |
 
 ####### Returns
 
 `Promise`\<(
-  \| \{
-  `animation?`: \{
-     `initialHidden`: (
-        \| `` `node:${string}` ``
-        \| `` `edge:${string}` ``
-        \| `` `group:${string}` ``
-        \| `` `msg:${string}` ``
-        \| `` `cell:${string}[${number}]` ``
-       \| `` `item:${string}` ``)[];
-     `planItemId`: `string`;
-     `steps`: `object`[];
-  \};
-  `bookId`: `string`;
-  `cacheKey`: `string`;
-  `createdAt`: `number`;
-  `critic?`: \{
-     `issues`: `object`[];
-     `pass`: `boolean`;
-     `scores`: \{
-        `clutter`: `1` \| `2` \| `3` \| `4` \| `5`;
-        `intentMatch`: `1` \| `2` \| `3` \| `4` \| `5`;
-        `legibility`: `1` \| `2` \| `3` \| `4` \| `5`;
-     \};
-  \};
-  `elementReports?`: `object`[];
-  `feedback?`: \{
-     `note?`: `string`;
-     `vote`: `"up"` \| `"down"`;
-  \};
-  `instruction?`: `string`;
-  `ir`: `unknown`;
-  `kind`:   \| `"math"`
-     \| `"html"`
-     \| `"graph"`
-     \| `"sequence"`
-     \| `"state"`
-     \| `"class"`
-     \| `"er"`
-     \| `"template"`
-     \| `"chart"`
-     \| `"trace"`
-     \| `"timeline"`;
-  `layout?`: `unknown`;
-  `models`: `Record`\<`string`, `string`\>;
-  `pinned?`: `boolean`;
-  `planItemId`: `string`;
-  `promptVersions`: `Record`\<`string`, `string`\>;
-  `sectionId`: `string`;
-  `spec`: `unknown`;
-  `stale`: `boolean`;
-  `traceKey?`: `string`;
-  `usageTokens`: `number`;
-  `validation`: \{
-     `counts`: \{
-        `dropped`: `number`;
-        `fuzzy`: `number`;
-        `grounded`: `number`;
-        `halfGrounded`: `number`;
-        `total`: `number`;
-     \};
-     `dropped`: `string`[];
-     `escalated`: `boolean`;
-     `groundingScore`: `number`;
-     `issues`: `object`[];
-     `ok`: `boolean`;
-     `retried`: `boolean`;
-  \};
+\| \{
+`animation?`: \{
+`initialHidden`: (
+\| `` `node:${string}` ``
+\| `` `edge:${string}` ``
+\| `` `group:${string}` ``
+\| `` `msg:${string}` ``
+\| `` `cell:${string}[${number}]` ``
+\| `` `item:${string}` ``)[];
+`planItemId`: `string`;
+`steps`: `object`[];
+\};
+`bookId`: `string`;
+`cacheKey`: `string`;
+`createdAt`: `number`;
+`critic?`: \{
+`issues`: `object`[];
+`pass`: `boolean`;
+`scores`: \{
+`clutter`: `1` \| `2` \| `3` \| `4` \| `5`;
+`intentMatch`: `1` \| `2` \| `3` \| `4` \| `5`;
+`legibility`: `1` \| `2` \| `3` \| `4` \| `5`;
+\};
+\};
+`elementReports?`: `object`[];
+`feedback?`: \{
+`note?`: `string`;
+`vote`: `"up"` \| `"down"`;
+\};
+`instruction?`: `string`;
+`ir`: `unknown`;
+`kind`: \| `"math"`
+\| `"html"`
+\| `"graph"`
+\| `"sequence"`
+\| `"state"`
+\| `"class"`
+\| `"er"`
+\| `"template"`
+\| `"chart"`
+\| `"trace"`
+\| `"timeline"`;
+`layout?`: `unknown`;
+`models`: `Record`\<`string`, `string`\>;
+`pinned?`: `boolean`;
+`planItemId`: `string`;
+`promptVersions`: `Record`\<`string`, `string`\>;
+`sectionId`: `string`;
+`spec`: `unknown`;
+`stale`: `boolean`;
+`traceKey?`: `string`;
+`usageTokens`: `number`;
+`validation`: \{
+`counts`: \{
+`dropped`: `number`;
+`fuzzy`: `number`;
+`grounded`: `number`;
+`halfGrounded`: `number`;
+`total`: `number`;
+\};
+`dropped`: `string`[];
+`escalated`: `boolean`;
+`groundingScore`: `number`;
+`issues`: `object`[];
+`ok`: `boolean`;
+`retried`: `boolean`;
+\};
 \}
-  \| `undefined`)[]\>
+\| `undefined`)[]\>
 
 ####### Inherited from
 
@@ -10221,9 +10900,9 @@ bulkPut(values): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `values` | readonly `object`[] |
+| Parameter | Type                |
+| --------- | ------------------- |
+| `values`  | readonly `object`[] |
 
 ####### Returns
 
@@ -10241,9 +10920,9 @@ delete(key): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
@@ -10261,9 +10940,9 @@ deleteByBook(bookId): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `bookId`  | `string` |
 
 ####### Returns
 
@@ -10350,82 +11029,82 @@ get(key): Promise<
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `key` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `key`     | `string` |
 
 ####### Returns
 
 `Promise`\<
-  \| \{
-  `animation?`: \{
-     `initialHidden`: (
-        \| `` `node:${string}` ``
-        \| `` `edge:${string}` ``
-        \| `` `group:${string}` ``
-        \| `` `msg:${string}` ``
-        \| `` `cell:${string}[${number}]` ``
-       \| `` `item:${string}` ``)[];
-     `planItemId`: `string`;
-     `steps`: `object`[];
-  \};
-  `bookId`: `string`;
-  `cacheKey`: `string`;
-  `createdAt`: `number`;
-  `critic?`: \{
-     `issues`: `object`[];
-     `pass`: `boolean`;
-     `scores`: \{
-        `clutter`: `1` \| `2` \| `3` \| `4` \| `5`;
-        `intentMatch`: `1` \| `2` \| `3` \| `4` \| `5`;
-        `legibility`: `1` \| `2` \| `3` \| `4` \| `5`;
-     \};
-  \};
-  `elementReports?`: `object`[];
-  `feedback?`: \{
-     `note?`: `string`;
-     `vote`: `"up"` \| `"down"`;
-  \};
-  `instruction?`: `string`;
-  `ir`: `unknown`;
-  `kind`:   \| `"math"`
-     \| `"html"`
-     \| `"graph"`
-     \| `"sequence"`
-     \| `"state"`
-     \| `"class"`
-     \| `"er"`
-     \| `"template"`
-     \| `"chart"`
-     \| `"trace"`
-     \| `"timeline"`;
-  `layout?`: `unknown`;
-  `models`: `Record`\<`string`, `string`\>;
-  `pinned?`: `boolean`;
-  `planItemId`: `string`;
-  `promptVersions`: `Record`\<`string`, `string`\>;
-  `sectionId`: `string`;
-  `spec`: `unknown`;
-  `stale`: `boolean`;
-  `traceKey?`: `string`;
-  `usageTokens`: `number`;
-  `validation`: \{
-     `counts`: \{
-        `dropped`: `number`;
-        `fuzzy`: `number`;
-        `grounded`: `number`;
-        `halfGrounded`: `number`;
-        `total`: `number`;
-     \};
-     `dropped`: `string`[];
-     `escalated`: `boolean`;
-     `groundingScore`: `number`;
-     `issues`: `object`[];
-     `ok`: `boolean`;
-     `retried`: `boolean`;
-  \};
+\| \{
+`animation?`: \{
+`initialHidden`: (
+\| `` `node:${string}` ``
+\| `` `edge:${string}` ``
+\| `` `group:${string}` ``
+\| `` `msg:${string}` ``
+\| `` `cell:${string}[${number}]` ``
+\| `` `item:${string}` ``)[];
+`planItemId`: `string`;
+`steps`: `object`[];
+\};
+`bookId`: `string`;
+`cacheKey`: `string`;
+`createdAt`: `number`;
+`critic?`: \{
+`issues`: `object`[];
+`pass`: `boolean`;
+`scores`: \{
+`clutter`: `1` \| `2` \| `3` \| `4` \| `5`;
+`intentMatch`: `1` \| `2` \| `3` \| `4` \| `5`;
+`legibility`: `1` \| `2` \| `3` \| `4` \| `5`;
+\};
+\};
+`elementReports?`: `object`[];
+`feedback?`: \{
+`note?`: `string`;
+`vote`: `"up"` \| `"down"`;
+\};
+`instruction?`: `string`;
+`ir`: `unknown`;
+`kind`: \| `"math"`
+\| `"html"`
+\| `"graph"`
+\| `"sequence"`
+\| `"state"`
+\| `"class"`
+\| `"er"`
+\| `"template"`
+\| `"chart"`
+\| `"trace"`
+\| `"timeline"`;
+`layout?`: `unknown`;
+`models`: `Record`\<`string`, `string`\>;
+`pinned?`: `boolean`;
+`planItemId`: `string`;
+`promptVersions`: `Record`\<`string`, `string`\>;
+`sectionId`: `string`;
+`spec`: `unknown`;
+`stale`: `boolean`;
+`traceKey?`: `string`;
+`usageTokens`: `number`;
+`validation`: \{
+`counts`: \{
+`dropped`: `number`;
+`fuzzy`: `number`;
+`grounded`: `number`;
+`halfGrounded`: `number`;
+`total`: `number`;
+\};
+`dropped`: `string`[];
+`escalated`: `boolean`;
+`groundingScore`: `number`;
+`issues`: `object`[];
+`ok`: `boolean`;
+`retried`: `boolean`;
+\};
 \}
-  \| `undefined`\>
+\| `undefined`\>
 
 ####### Inherited from
 
@@ -10439,8 +11118,8 @@ listByPlanItem(planItemId): Promise<object[]>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
+| Parameter    | Type     |
+| ------------ | -------- |
 | `planItemId` | `string` |
 
 ####### Returns
@@ -10455,9 +11134,9 @@ listBySection(bookId, sectionId): Promise<object[]>;
 
 ####### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter   | Type     |
+| ----------- | -------- |
+| `bookId`    | `string` |
 | `sectionId` | `string` |
 
 ####### Returns
@@ -10472,53 +11151,53 @@ put(value): Promise<void>;
 
 ####### Parameters
 
-| Parameter | Type | Description |
-| ------ | ------ | ------ |
-| `value` | \{ `animation?`: \{ `initialHidden`: ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]; `planItemId`: `string`; `steps`: `object`[]; \}; `bookId`: `string`; `cacheKey`: `string`; `createdAt`: `number`; `critic?`: \{ `issues`: `object`[]; `pass`: `boolean`; `scores`: \{ `clutter`: `1` \| `2` \| `3` \| `4` \| `5`; `intentMatch`: `1` \| `2` \| `3` \| `4` \| `5`; `legibility`: `1` \| `2` \| `3` \| `4` \| `5`; \}; \}; `elementReports?`: `object`[]; `feedback?`: \{ `note?`: `string`; `vote`: `"up"` \| `"down"`; \}; `instruction?`: `string`; `ir`: `unknown`; `kind`: \| `"math"` \| `"html"` \| `"graph"` \| `"sequence"` \| `"state"` \| `"class"` \| `"er"` \| `"template"` \| `"chart"` \| `"trace"` \| `"timeline"`; `layout?`: `unknown`; `models`: `Record`\<`string`, `string`\>; `pinned?`: `boolean`; `planItemId`: `string`; `promptVersions`: `Record`\<`string`, `string`\>; `sectionId`: `string`; `spec`: `unknown`; `stale`: `boolean`; `traceKey?`: `string`; `usageTokens`: `number`; `validation`: \{ `counts`: \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \}; `dropped`: `string`[]; `escalated`: `boolean`; `groundingScore`: `number`; `issues`: `object`[]; `ok`: `boolean`; `retried`: `boolean`; \}; \} | - |
-| `value.animation?` | \{ `initialHidden`: ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]; `planItemId`: `string`; `steps`: `object`[]; \} | - |
-| `value.animation.initialHidden` | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[] | Elements revealed by later steps (progressive build-up). |
-| `value.animation.planItemId` | `string` | - |
-| `value.animation.steps` | `object`[] | - |
-| `value.bookId` | `string` | - |
-| `value.cacheKey` | `string` | - |
-| `value.createdAt` | `number` | - |
-| `value.critic?` | \{ `issues`: `object`[]; `pass`: `boolean`; `scores`: \{ `clutter`: `1` \| `2` \| `3` \| `4` \| `5`; `intentMatch`: `1` \| `2` \| `3` \| `4` \| `5`; `legibility`: `1` \| `2` \| `3` \| `4` \| `5`; \}; \} | - |
-| `value.critic.issues` | `object`[] | - |
-| `value.critic.pass` | `boolean` | - |
-| `value.critic.scores` | \{ `clutter`: `1` \| `2` \| `3` \| `4` \| `5`; `intentMatch`: `1` \| `2` \| `3` \| `4` \| `5`; `legibility`: `1` \| `2` \| `3` \| `4` \| `5`; \} | - |
-| `value.critic.scores.clutter` | `1` \| `2` \| `3` \| `4` \| `5` | - |
-| `value.critic.scores.intentMatch` | `1` \| `2` \| `3` \| `4` \| `5` | - |
-| `value.critic.scores.legibility` | `1` \| `2` \| `3` \| `4` \| `5` | - |
-| `value.elementReports?` | `object`[] | - |
-| `value.feedback?` | \{ `note?`: `string`; `vote`: `"up"` \| `"down"`; \} | - |
-| `value.feedback.note?` | `string` | - |
-| `value.feedback.vote` | `"up"` \| `"down"` | - |
-| `value.instruction?` | `string` | "Regenerate with instruction" text, ≤ 300 characters (§8). |
-| `value.ir` | `unknown` | The validated IR (`IR`), or `null` for `trace` visuals, which point at `traceKey`. |
-| `value.kind` | \| `"math"` \| `"html"` \| `"graph"` \| `"sequence"` \| `"state"` \| `"class"` \| `"er"` \| `"template"` \| `"chart"` \| `"trace"` \| `"timeline"` | - |
-| `value.layout?` | `unknown` | Cached graph layout (ELK result) so revisits skip layout (§10); written from the renderer's `onLayout`. |
-| `value.models` | `Record`\<`string`, `string`\> | Role → `model@effort` actually used (§9: both are part of the cache key). |
-| `value.pinned?` | `boolean` | The reader pinned it; pinned records are evicted last (§14, §15). |
-| `value.planItemId` | `string` | - |
-| `value.promptVersions` | `Record`\<`string`, `string`\> | Role → prompt version used. |
-| `value.sectionId` | `string` | - |
-| `value.spec` | `unknown` | For IR kinds: `null`, or the IR again. `@illus/render` turns the validated IR into engine input itself (v1.1, ADR 0008); the graph layout is cached in `layout`. Template and HTML kinds keep whatever their renderer needs. |
-| `value.stale` | `boolean` | - |
-| `value.traceKey?` | `string` | - |
-| `value.usageTokens` | `number` | - |
-| `value.validation` | \{ `counts`: \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \}; `dropped`: `string`[]; `escalated`: `boolean`; `groundingScore`: `number`; `issues`: `object`[]; `ok`: `boolean`; `retried`: `boolean`; \} | - |
-| `value.validation.counts` | \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \} | - |
-| `value.validation.counts.dropped` | `number` | - |
-| `value.validation.counts.fuzzy` | `number` | - |
-| `value.validation.counts.grounded` | `number` | - |
-| `value.validation.counts.halfGrounded` | `number` | - |
-| `value.validation.counts.total` | `number` | - |
-| `value.validation.dropped` | `string`[] | Ids of elements removed because their evidence failed or they dangled. |
-| `value.validation.escalated` | `boolean` | The model tier was escalated once (§8, §9). |
-| `value.validation.groundingScore` | `number` | - |
-| `value.validation.issues` | `object`[] | - |
-| `value.validation.ok` | `boolean` | - |
-| `value.validation.retried` | `boolean` | The extractor was re-run once with this report attached (§8 stage 3 step 3). |
+| Parameter                              | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Description                                                                                                                                                                                                                  |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `value`                                | \{ `animation?`: \{ `initialHidden`: ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]; `planItemId`: `string`; `steps`: `object`[]; \}; `bookId`: `string`; `cacheKey`: `string`; `createdAt`: `number`; `critic?`: \{ `issues`: `object`[]; `pass`: `boolean`; `scores`: \{ `clutter`: `1` \| `2` \| `3` \| `4` \| `5`; `intentMatch`: `1` \| `2` \| `3` \| `4` \| `5`; `legibility`: `1` \| `2` \| `3` \| `4` \| `5`; \}; \}; `elementReports?`: `object`[]; `feedback?`: \{ `note?`: `string`; `vote`: `"up"` \| `"down"`; \}; `instruction?`: `string`; `ir`: `unknown`; `kind`: \| `"math"` \| `"html"` \| `"graph"` \| `"sequence"` \| `"state"` \| `"class"` \| `"er"` \| `"template"` \| `"chart"` \| `"trace"` \| `"timeline"`; `layout?`: `unknown`; `models`: `Record`\<`string`, `string`\>; `pinned?`: `boolean`; `planItemId`: `string`; `promptVersions`: `Record`\<`string`, `string`\>; `sectionId`: `string`; `spec`: `unknown`; `stale`: `boolean`; `traceKey?`: `string`; `usageTokens`: `number`; `validation`: \{ `counts`: \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \}; `dropped`: `string`[]; `escalated`: `boolean`; `groundingScore`: `number`; `issues`: `object`[]; `ok`: `boolean`; `retried`: `boolean`; \}; \} | -                                                                                                                                                                                                                            |
+| `value.animation?`                     | \{ `initialHidden`: ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]; `planItemId`: `string`; `steps`: `object`[]; \}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | -                                                                                                                                                                                                                            |
+| `value.animation.initialHidden`        | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Elements revealed by later steps (progressive build-up).                                                                                                                                                                     |
+| `value.animation.planItemId`           | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | -                                                                                                                                                                                                                            |
+| `value.animation.steps`                | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                                                                                                                                                            |
+| `value.bookId`                         | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | -                                                                                                                                                                                                                            |
+| `value.cacheKey`                       | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | -                                                                                                                                                                                                                            |
+| `value.createdAt`                      | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | -                                                                                                                                                                                                                            |
+| `value.critic?`                        | \{ `issues`: `object`[]; `pass`: `boolean`; `scores`: \{ `clutter`: `1` \| `2` \| `3` \| `4` \| `5`; `intentMatch`: `1` \| `2` \| `3` \| `4` \| `5`; `legibility`: `1` \| `2` \| `3` \| `4` \| `5`; \}; \}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                                                                                                                                                            |
+| `value.critic.issues`                  | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                                                                                                                                                            |
+| `value.critic.pass`                    | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | -                                                                                                                                                                                                                            |
+| `value.critic.scores`                  | \{ `clutter`: `1` \| `2` \| `3` \| `4` \| `5`; `intentMatch`: `1` \| `2` \| `3` \| `4` \| `5`; `legibility`: `1` \| `2` \| `3` \| `4` \| `5`; \}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | -                                                                                                                                                                                                                            |
+| `value.critic.scores.clutter`          | `1` \| `2` \| `3` \| `4` \| `5`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | -                                                                                                                                                                                                                            |
+| `value.critic.scores.intentMatch`      | `1` \| `2` \| `3` \| `4` \| `5`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | -                                                                                                                                                                                                                            |
+| `value.critic.scores.legibility`       | `1` \| `2` \| `3` \| `4` \| `5`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | -                                                                                                                                                                                                                            |
+| `value.elementReports?`                | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                                                                                                                                                            |
+| `value.feedback?`                      | \{ `note?`: `string`; `vote`: `"up"` \| `"down"`; \}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | -                                                                                                                                                                                                                            |
+| `value.feedback.note?`                 | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | -                                                                                                                                                                                                                            |
+| `value.feedback.vote`                  | `"up"` \| `"down"`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | -                                                                                                                                                                                                                            |
+| `value.instruction?`                   | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | "Regenerate with instruction" text, ≤ 300 characters (§8).                                                                                                                                                                   |
+| `value.ir`                             | `unknown`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | The validated IR (`IR`), or `null` for `trace` visuals, which point at `traceKey`.                                                                                                                                           |
+| `value.kind`                           | \| `"math"` \| `"html"` \| `"graph"` \| `"sequence"` \| `"state"` \| `"class"` \| `"er"` \| `"template"` \| `"chart"` \| `"trace"` \| `"timeline"`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | -                                                                                                                                                                                                                            |
+| `value.layout?`                        | `unknown`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Cached graph layout (ELK result) so revisits skip layout (§10); written from the renderer's `onLayout`.                                                                                                                      |
+| `value.models`                         | `Record`\<`string`, `string`\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Role → `model@effort` actually used (§9: both are part of the cache key).                                                                                                                                                    |
+| `value.pinned?`                        | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | The reader pinned it; pinned records are evicted last (§14, §15).                                                                                                                                                            |
+| `value.planItemId`                     | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | -                                                                                                                                                                                                                            |
+| `value.promptVersions`                 | `Record`\<`string`, `string`\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Role → prompt version used.                                                                                                                                                                                                  |
+| `value.sectionId`                      | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | -                                                                                                                                                                                                                            |
+| `value.spec`                           | `unknown`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | For IR kinds: `null`, or the IR again. `@illus/render` turns the validated IR into engine input itself (v1.1, ADR 0008); the graph layout is cached in `layout`. Template and HTML kinds keep whatever their renderer needs. |
+| `value.stale`                          | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | -                                                                                                                                                                                                                            |
+| `value.traceKey?`                      | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | -                                                                                                                                                                                                                            |
+| `value.usageTokens`                    | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | -                                                                                                                                                                                                                            |
+| `value.validation`                     | \{ `counts`: \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \}; `dropped`: `string`[]; `escalated`: `boolean`; `groundingScore`: `number`; `issues`: `object`[]; `ok`: `boolean`; `retried`: `boolean`; \}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | -                                                                                                                                                                                                                            |
+| `value.validation.counts`              | \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | -                                                                                                                                                                                                                            |
+| `value.validation.counts.dropped`      | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | -                                                                                                                                                                                                                            |
+| `value.validation.counts.fuzzy`        | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | -                                                                                                                                                                                                                            |
+| `value.validation.counts.grounded`     | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | -                                                                                                                                                                                                                            |
+| `value.validation.counts.halfGrounded` | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | -                                                                                                                                                                                                                            |
+| `value.validation.counts.total`        | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | -                                                                                                                                                                                                                            |
+| `value.validation.dropped`             | `string`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Ids of elements removed because their evidence failed or they dangled.                                                                                                                                                       |
+| `value.validation.escalated`           | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | The model tier was escalated once (§8, §9).                                                                                                                                                                                  |
+| `value.validation.groundingScore`      | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | -                                                                                                                                                                                                                            |
+| `value.validation.issues`              | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                                                                                                                                                            |
+| `value.validation.ok`                  | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | -                                                                                                                                                                                                                            |
+| `value.validation.retried`             | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | The extractor was re-run once with this report attached (§8 stage 3 step 3).                                                                                                                                                 |
 
 ####### Returns
 
@@ -10533,35 +11212,35 @@ put(value): Promise<void>;
 #### Action
 
 ```ts
-type Action = z.infer<typeof Action>;
+type Action = z.infer<typeof Action>
 ```
 
 One animation action (§11). Unknown targets or unsupported actions fail at frame-build time.
 
-***
+---
 
 #### ActionOp
 
 ```ts
-type ActionOp = Action["op"];
+type ActionOp = Action['op']
 ```
 
-***
+---
 
 #### AnimationIR
 
 ```ts
-type AnimationIR = z.infer<typeof AnimationIR>;
+type AnimationIR = z.infer<typeof AnimationIR>
 ```
 
 Output of the `animator` role (§11): 2–40 steps over an already-validated IR.
 
-***
+---
 
 #### Block
 
 ```ts
-type Block = z.infer<typeof Block>;
+type Block = z.infer<typeof Block>
 ```
 
 One block of book text. `text` is normalised plain text: NFC, soft hyphens removed, whitespace collapsed
@@ -10569,272 +11248,272 @@ One block of book text. `text` is normalised plain text: NFC, soft hyphens remov
 (tabs included); only trailing whitespace on each line and blank lines at the start and end are trimmed.
 Grounding stays whitespace-insensitive: §16 collapses whitespace in quote and block before matching.
 
-***
+---
 
 #### BlockKind
 
 ```ts
-type BlockKind = z.infer<typeof BlockKind>;
+type BlockKind = z.infer<typeof BlockKind>
 ```
 
 Typed piece of a section (§5, classification rules in §6 step 6).
 
-***
+---
 
 #### BookMeta
 
 ```ts
-type BookMeta = z.infer<typeof BookMeta>;
+type BookMeta = z.infer<typeof BookMeta>
 ```
 
 Record of the `books` store (§5). `bookId` = first 16 hex of SHA-256 of the EPUB bytes.
 
-***
+---
 
 #### BookSummary
 
 ```ts
-type BookSummary = z.infer<typeof BookSummary>;
+type BookSummary = z.infer<typeof BookSummary>
 ```
 
 150-word book summary plus naming conventions, the cached prompt prefix (§6 phase B step 6).
 
-***
+---
 
 #### ChartFn
 
 ```ts
-type ChartFn = z.infer<typeof ChartFn>;
+type ChartFn = z.infer<typeof ChartFn>
 ```
 
-***
+---
 
 #### ChartIR
 
 ```ts
-type ChartIR = z.infer<typeof ChartIR>;
+type ChartIR = z.infer<typeof ChartIR>
 ```
 
 Growth rates and numbers stated in the text; compiled to Vega-Lite (§8, §10). ≤ 4 series.
 
-***
+---
 
 #### ChartSeries
 
 ```ts
-type ChartSeries = z.infer<typeof ChartSeries>;
+type ChartSeries = z.infer<typeof ChartSeries>
 ```
 
-***
+---
 
 #### ClassCardinality
 
 ```ts
-type ClassCardinality = z.infer<typeof ClassCardinality>;
+type ClassCardinality = z.infer<typeof ClassCardinality>
 ```
 
 Multiplicity at one end of a class relation (the allowed set of §16 "Class / ER").
 
-***
+---
 
 #### ClassField
 
 ```ts
-type ClassField = z.infer<typeof ClassField>;
+type ClassField = z.infer<typeof ClassField>
 ```
 
-***
+---
 
 #### ClassIR
 
 ```ts
-type ClassIR = z.infer<typeof ClassIR>;
+type ClassIR = z.infer<typeof ClassIR>
 ```
 
 Types, inheritance, composition; Mermaid classDiagram (§8). ≤ 12 classes, ≤ 18 relations (ADR 0003).
 
-***
+---
 
 #### ClassMethod
 
 ```ts
-type ClassMethod = z.infer<typeof ClassMethod>;
+type ClassMethod = z.infer<typeof ClassMethod>
 ```
 
-***
+---
 
 #### ClassNode
 
 ```ts
-type ClassNode = z.infer<typeof ClassNode>;
+type ClassNode = z.infer<typeof ClassNode>
 ```
 
-***
+---
 
 #### ClassRelation
 
 ```ts
-type ClassRelation = z.infer<typeof ClassRelation>;
+type ClassRelation = z.infer<typeof ClassRelation>
 ```
 
-***
+---
 
 #### Concept
 
 ```ts
-type Concept = z.infer<typeof Concept>;
+type Concept = z.infer<typeof Concept>
 ```
 
 A concept in the book-wide registry (§5).
 
-***
+---
 
 #### ConceptMerge
 
 ```ts
-type ConceptMerge = z.infer<typeof ConceptMerge>;
+type ConceptMerge = z.infer<typeof ConceptMerge>
 ```
 
 One merged cluster from the `glossary` role: a canonical name and its aliases (§6 phase B step 5).
 
-***
+---
 
 #### ConceptModel
 
 ```ts
-type ConceptModel = z.infer<typeof ConceptModel>;
+type ConceptModel = z.infer<typeof ConceptModel>
 ```
 
 Record of the `conceptModels` store (§5). Patches are sorted by `sectionOrdinal`.
 
-***
+---
 
 #### ConceptModelKind
 
 ```ts
-type ConceptModelKind = z.infer<typeof ConceptModelKind>;
+type ConceptModelKind = z.infer<typeof ConceptModelKind>
 ```
 
 Kinds that may extend or start a concept model in v1 (§13).
 
-***
+---
 
 #### CriticReport
 
 ```ts
-type CriticReport = z.infer<typeof CriticReport>;
+type CriticReport = z.infer<typeof CriticReport>
 ```
 
 Output of the `critic` role (§16).
 
-***
+---
 
 #### CrossRef
 
 ```ts
-type CrossRef = z.infer<typeof CrossRef>;
+type CrossRef = z.infer<typeof CrossRef>
 ```
 
 A link or textual reference from a block to a section or block (§5, §6 step 13).
 
-***
+---
 
 #### ElementReport
 
 ```ts
-type ElementReport = z.infer<typeof ElementReport>;
+type ElementReport = z.infer<typeof ElementReport>
 ```
 
 Element-level "This is wrong" report from the pane (§16 human feedback).
 
-***
+---
 
 #### ErAttribute
 
 ```ts
-type ErAttribute = z.infer<typeof ErAttribute>;
+type ErAttribute = z.infer<typeof ErAttribute>
 ```
 
-***
+---
 
 #### ErCardinality
 
 ```ts
-type ErCardinality = z.infer<typeof ErCardinality>;
+type ErCardinality = z.infer<typeof ErCardinality>
 ```
 
 Cardinality at one end of an ER relationship (Mermaid crow's foot: |o, ||, }o, }|).
 
-***
+---
 
 #### ErEntity
 
 ```ts
-type ErEntity = z.infer<typeof ErEntity>;
+type ErEntity = z.infer<typeof ErEntity>
 ```
 
-***
+---
 
 #### ErIR
 
 ```ts
-type ErIR = z.infer<typeof ErIR>;
+type ErIR = z.infer<typeof ErIR>
 ```
 
 Tables, keys, relationships in a data model; Mermaid erDiagram (§8). ≤ 12 entities, ≤ 18 relationships.
 
-***
+---
 
 #### ErRelationship
 
 ```ts
-type ErRelationship = z.infer<typeof ErRelationship>;
+type ErRelationship = z.infer<typeof ErRelationship>
 ```
 
-***
+---
 
 #### Evidence
 
 ```ts
-type Evidence = z.infer<typeof Evidence>;
+type Evidence = z.infer<typeof Evidence>
 ```
 
 Evidence: a verbatim quote of at most 30 words from one block, justifying one IR element (§5, §16).
 `start`/`end` are filled by the grounding matcher (offsets into the block's text); `fuzzy` is set when
 the match needed the Levenshtein fallback (§16 step 4).
 
-***
+---
 
 #### FlagName
 
 ```ts
-type FlagName = z.infer<typeof FlagName>;
+type FlagName = z.infer<typeof FlagName>
 ```
 
-***
+---
 
 #### FlagOverrides
 
 ```ts
-type FlagOverrides = z.infer<typeof FlagOverrides>;
+type FlagOverrides = z.infer<typeof FlagOverrides>
 ```
 
 Partial overrides as stored in the `settings` store under key `flags`; unknown keys are ignored.
 
-***
+---
 
 #### Flags
 
 ```ts
-type Flags = Readonly<Record<FlagName, boolean>>;
+type Flags = Readonly<Record<FlagName, boolean>>
 ```
 
-***
+---
 
 #### FrameState
 
 ```ts
-type FrameState = z.infer<typeof FrameState>;
+type FrameState = z.infer<typeof FrameState>
 ```
 
 Precomputed state of one animation frame (§11 reducer). `frames[0]` is the base spec with
@@ -10844,852 +11523,853 @@ Persistence follows §11: highlights persist until `unhighlight`; pointers persi
 `null` (then the key is removed); `annotations` and `tokens` hold only the current step's. Records are
 keyed by `Target` string (or pointer name / container id) so frames stay JSON-serialisable.
 
-***
+---
 
 #### GlossaryOutput
 
 ```ts
-type GlossaryOutput = z.infer<typeof GlossaryOutput>;
+type GlossaryOutput = z.infer<typeof GlossaryOutput>
 ```
 
 Output of the `glossary` role (`ConceptMerge[]` wrapped in an object, ADR 0003).
 
-***
+---
 
 #### GraphEdge
 
 ```ts
-type GraphEdge = z.infer<typeof GraphEdge>;
+type GraphEdge = z.infer<typeof GraphEdge>
 ```
 
-***
+---
 
 #### GraphGroup
 
 ```ts
-type GraphGroup = z.infer<typeof GraphGroup>;
+type GraphGroup = z.infer<typeof GraphGroup>
 ```
 
-***
+---
 
 #### GraphIR
 
 ```ts
-type GraphIR = z.infer<typeof GraphIR>;
+type GraphIR = z.infer<typeof GraphIR>
 ```
 
 Components and what calls what; layered with ELK (§8, §10). ≤ 12 nodes, ≤ 18 edges.
 
-***
+---
 
 #### GraphNode
 
 ```ts
-type GraphNode = z.infer<typeof GraphNode>;
+type GraphNode = z.infer<typeof GraphNode>
 ```
 
-***
+---
 
 #### GraphNodeShape
 
 ```ts
-type GraphNodeShape = z.infer<typeof GraphNodeShape>;
+type GraphNodeShape = z.infer<typeof GraphNodeShape>
 ```
 
-***
+---
 
 #### GroundingFn
 
 ```ts
-type GroundingFn = (evidence, ctx) => GroundingResult;
+type GroundingFn = (evidence, ctx) => GroundingResult
 ```
 
 The grounding matcher (§16). Pure and synchronous. Implemented by `ground()` in `@illus/core/grounding`.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `evidence` | [`Evidence`](#evidence) |
-| `ctx` | [`GroundingContext`](#groundingcontext) |
+| Parameter  | Type                                    |
+| ---------- | --------------------------------------- |
+| `evidence` | [`Evidence`](#evidence)                 |
+| `ctx`      | [`GroundingContext`](#groundingcontext) |
 
 ##### Returns
 
 [`GroundingResult`](#groundingresult)
 
-***
+---
 
 #### GroundingStatus
 
 ```ts
-type GroundingStatus = "grounded" | "half-grounded" | "failed";
+type GroundingStatus = 'grounded' | 'half-grounded' | 'failed'
 ```
 
-***
+---
 
 #### HeapObj
 
 ```ts
-type HeapObj = z.infer<typeof HeapObj>;
+type HeapObj = z.infer<typeof HeapObj>
 ```
 
 A heap object reachable from locals, identified by Python `id()` (§12).
 
-***
+---
 
 #### HighlightTone
 
 ```ts
-type HighlightTone = z.infer<typeof HighlightTone>;
+type HighlightTone = z.infer<typeof HighlightTone>
 ```
 
-***
+---
 
 #### HtmlIR
 
 ```ts
-type HtmlIR = z.infer<typeof HtmlIR>;
+type HtmlIR = z.infer<typeof HtmlIR>
 ```
 
 Last-resort self-contained HTML explainer, behind the `htmlFallback` flag only (§10, §17).
 
-***
+---
 
 #### IndexerOutput
 
 ```ts
-type IndexerOutput = z.infer<typeof IndexerOutput>;
+type IndexerOutput = z.infer<typeof IndexerOutput>
 ```
 
 Output of the `indexer` role: one entry per section in the batch (≤ 8 sections, §6 phase B step 3).
 Wrapped in an object because structured outputs need an object at the root (ADR 0003).
 
-***
+---
 
 #### IndexStatus
 
 ```ts
-type IndexStatus = z.infer<typeof IndexStatus>;
+type IndexStatus = z.infer<typeof IndexStatus>
 ```
 
 Indexing progress of a book (§6): `structural` after phase A, `complete` after phase B.
 
-***
+---
 
 #### IR
 
 ```ts
-type IR = z.infer<typeof IR>;
+type IR = z.infer<typeof IR>
 ```
 
 Any extractor IR, discriminated by `type`. `trace` visuals use `Trace` instead of an IR.
 
-***
+---
 
 #### IrId
 
 ```ts
-type IrId = z.infer<typeof IrId>;
+type IrId = z.infer<typeof IrId>
 ```
 
 Id of an element inside one IR (node, edge, message, state, class…). Model-generated, so it is
 constrained to a short slug that is safe as a Mermaid id and as a `data-ir-id` value (§10, §13).
 
-***
+---
 
 #### IrKind
 
 ```ts
-type IrKind = IR["type"];
+type IrKind = IR['type']
 ```
 
 IR kinds (every `VisualKind` except `trace`).
 
-***
+---
 
 #### IrOf
 
 ```ts
-type IrOf<K> = Extract<IR, {
-  type: K;
-}>;
+type IrOf<K> = Extract<
+  IR,
+  {
+    type: K
+  }
+>
 ```
 
 The IR type for one kind, e.g. `IrOf<'graph'>` is `GraphIR`.
 
 ##### Type Parameters
 
-| Type Parameter |
-| ------ |
-| `K` *extends* [`IrKind`](#irkind) |
+| Type Parameter                    |
+| --------------------------------- |
+| `K` _extends_ [`IrKind`](#irkind) |
 
-***
+---
 
 #### Label
 
 ```ts
-type Label = z.infer<typeof Label>;
+type Label = z.infer<typeof Label>
 ```
 
 Display label: at most 40 characters, using the book's own terms (§8).
 
-***
+---
 
 #### LayoutGraphFn
 
 ```ts
-type LayoutGraphFn = (input, opts?) => Promise<LayoutGraphResult>;
+type LayoutGraphFn = (input, opts?) => Promise<LayoutGraphResult>
 ```
 
 ELK layout in a Web Worker (§10). Implemented by `layoutGraph()` in `@illus/render`.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `input` | [`LayoutGraphInput`](#layoutgraphinput) |
-| `opts?` | \{ `signal?`: `AbortSignal`; \} |
-| `opts.signal?` | `AbortSignal` |
+| Parameter      | Type                                    |
+| -------------- | --------------------------------------- |
+| `input`        | [`LayoutGraphInput`](#layoutgraphinput) |
+| `opts?`        | \{ `signal?`: `AbortSignal`; \}         |
+| `opts.signal?` | `AbortSignal`                           |
 
 ##### Returns
 
 `Promise`\<[`LayoutGraphResult`](#layoutgraphresult)\>
 
-***
+---
 
 #### LlmErrorCode
 
 ```ts
-type LlmErrorCode = z.infer<typeof LlmErrorCode>;
+type LlmErrorCode = z.infer<typeof LlmErrorCode>
 ```
 
 Error codes of the gateway (§9).
 
-***
+---
 
 #### LlmImage
 
 ```ts
-type LlmImage = z.infer<typeof LlmImage>;
+type LlmImage = z.infer<typeof LlmImage>
 ```
 
-***
+---
 
 #### LlmLogEntry
 
 ```ts
-type LlmLogEntry = z.infer<typeof LlmLogEntry>;
+type LlmLogEntry = z.infer<typeof LlmLogEntry>
 ```
 
 Row of the `llmLog` store (§9 client): one per call. Prompts only when `debugPrompts` is on.
 
-***
+---
 
 #### LlmOutcome
 
 ```ts
-type LlmOutcome = z.infer<typeof LlmOutcome>;
+type LlmOutcome = z.infer<typeof LlmOutcome>
 ```
 
 Outcome of one model call: `ok` or the gateway error code (§9).
 
-***
+---
 
 #### LlmRequest
 
 ```ts
-type LlmRequest = z.infer<typeof LlmRequest>;
+type LlmRequest = z.infer<typeof LlmRequest>
 ```
 
 Request body of `POST /api/llm` (§9).
 
-***
+---
 
 #### LlmResponse
 
 ```ts
-type LlmResponse = z.infer<typeof LlmResponse>;
+type LlmResponse = z.infer<typeof LlmResponse>
 ```
 
 Response body of `POST /api/llm` (§9). `effort` is the effort actually sent (ADR 0003).
 
-***
+---
 
 #### LlmUsage
 
 ```ts
-type LlmUsage = z.infer<typeof LlmUsage>;
+type LlmUsage = z.infer<typeof LlmUsage>
 ```
 
-***
+---
 
 #### MathIR
 
 ```ts
-type MathIR = z.infer<typeof MathIR>;
+type MathIR = z.infer<typeof MathIR>
 ```
 
 Term meanings for a formula; the formula itself always comes from the book block (§5, §10).
 
-***
+---
 
 #### MathTerm
 
 ```ts
-type MathTerm = z.infer<typeof MathTerm>;
+type MathTerm = z.infer<typeof MathTerm>
 ```
 
-***
+---
 
 #### Patch
 
 ```ts
-type Patch = z.infer<typeof Patch>;
+type Patch = z.infer<typeof Patch>
 ```
 
 A stored patch (§5). Patch 0 of a model is its base.
 
-***
+---
 
 #### PatchOp
 
 ```ts
-type PatchOp = z.infer<typeof PatchOp>;
+type PatchOp = z.infer<typeof PatchOp>
 ```
 
 One patch operation (§13). The spec's `item: unknown` add-ops are typed per kind here.
 
-***
+---
 
 #### PatchOutput
 
 ```ts
-type PatchOutput = z.infer<typeof PatchOutput>;
+type PatchOutput = z.infer<typeof PatchOutput>
 ```
 
 Output of the `patcher` role: at most 8 ops for one section (§13).
 
-***
+---
 
 #### PlanItem
 
 ```ts
-type PlanItem = z.infer<typeof PlanItem>;
+type PlanItem = z.infer<typeof PlanItem>
 ```
 
 One visual the planner wants for a section (§5).
 
-***
+---
 
 #### PlanRecord
 
 ```ts
-type PlanRecord = z.infer<typeof PlanRecord>;
+type PlanRecord = z.infer<typeof PlanRecord>
 ```
 
 Record of the `plans` store (§5), keyed by the plan cache key.
 
-***
+---
 
 #### ProducedWith
 
 ```ts
-type ProducedWith = z.infer<typeof ProducedWith>;
+type ProducedWith = z.infer<typeof ProducedWith>
 ```
 
 Which model and prompt version produced a record (`indexedWith`, `createdWith`, §5).
 
-***
+---
 
 #### RawTrace
 
 ```ts
-type RawTrace = z.infer<typeof RawTrace>;
+type RawTrace = z.infer<typeof RawTrace>
 ```
 
 What the trace worker returns for one run, before compression (§12 trace worker API).
 
-***
+---
 
 #### ReasoningEffort
 
 ```ts
-type ReasoningEffort = z.infer<typeof ReasoningEffort>;
+type ReasoningEffort = z.infer<typeof ReasoningEffort>
 ```
 
 Reasoning effort sent on every model call. v1 allows only these three (§9).
 
-***
+---
 
 #### RepairFinding
 
 ```ts
-type RepairFinding =
-  | ValidationIssue
-  | CriticReport["issues"][number];
+type RepairFinding = ValidationIssue | CriticReport['issues'][number]
 ```
 
 A finding to fix: a validation/render issue or a critic issue.
 
-***
+---
 
 #### RoleName
 
 ```ts
-type RoleName = z.infer<typeof RoleName>;
+type RoleName = z.infer<typeof RoleName>
 ```
 
-***
+---
 
 #### RoleOutput
 
 ```ts
-type RoleOutput<R> = SchemaOutput<RoleSchemaName<R>>;
+type RoleOutput<R> = SchemaOutput<RoleSchemaName<R>>
 ```
 
 Parsed output of a role (union when the role has several schemas).
 
 ##### Type Parameters
 
-| Type Parameter |
-| ------ |
-| `R` *extends* [`RoleName`](#rolename) |
+| Type Parameter                        |
+| ------------------------------------- |
+| `R` _extends_ [`RoleName`](#rolename) |
 
-***
+---
 
 #### RoleSchemaName
 
 ```ts
-type RoleSchemaName<R> = typeof ROLES[R]["schemas"][number];
+type RoleSchemaName<R> = typeof ROLES[R]['schemas'][number]
 ```
 
 Schema names a role may return.
 
 ##### Type Parameters
 
-| Type Parameter |
-| ------ |
-| `R` *extends* [`RoleName`](#rolename) |
+| Type Parameter                        |
+| ------------------------------------- |
+| `R` _extends_ [`RoleName`](#rolename) |
 
-***
+---
 
 #### ScenarioTrace
 
 ```ts
-type ScenarioTrace = z.infer<typeof ScenarioTrace>;
+type ScenarioTrace = z.infer<typeof ScenarioTrace>
 ```
 
 A trace with the label of the scenario it ran (scenario tabs in the trace view).
 
-***
+---
 
 #### SchemaName
 
 ```ts
-type SchemaName = z.infer<typeof SchemaName>;
+type SchemaName = z.infer<typeof SchemaName>
 ```
 
-***
+---
 
 #### SchemaOutput
 
 ```ts
-type SchemaOutput<S> = z.infer<typeof SCHEMAS[S]>;
+type SchemaOutput<S> = z.infer<typeof SCHEMAS[S]>
 ```
 
 Parsed output type of a schema name.
 
 ##### Type Parameters
 
-| Type Parameter |
-| ------ |
-| `S` *extends* [`SchemaName`](#schemaname) |
+| Type Parameter                            |
+| ----------------------------------------- |
+| `S` _extends_ [`SchemaName`](#schemaname) |
 
-***
+---
 
 #### SectionFlags
 
 ```ts
-type SectionFlags = z.infer<typeof SectionFlags>;
+type SectionFlags = z.infer<typeof SectionFlags>
 ```
 
 Content flags the indexer sets per section (§5).
 
-***
+---
 
 #### SectionIndex
 
 ```ts
-type SectionIndex = z.infer<typeof SectionIndex>;
+type SectionIndex = z.infer<typeof SectionIndex>
 ```
 
 Per-section concept index (§5).
 
-***
+---
 
 #### SectionIndexOutput
 
 ```ts
-type SectionIndexOutput = z.infer<typeof SectionIndexOutput>;
+type SectionIndexOutput = z.infer<typeof SectionIndexOutput>
 ```
 
 What the `indexer` model returns for one section; the client adds `indexedWith`.
 
-***
+---
 
 #### SectionIndexRecord
 
 ```ts
-type SectionIndexRecord = z.infer<typeof SectionIndexRecord>;
+type SectionIndexRecord = z.infer<typeof SectionIndexRecord>
 ```
 
 Record of the `sectionIndex` store: a `SectionIndex` plus its `bookId` (store index, §5).
 
-***
+---
 
 #### SectionLevel
 
 ```ts
-type SectionLevel = z.infer<typeof SectionLevel>;
+type SectionLevel = z.infer<typeof SectionLevel>
 ```
 
 Heading level that starts a section (h1–h4, §6 step 4).
 
-***
+---
 
 #### SectionNode
 
 ```ts
-type SectionNode = z.infer<typeof SectionNode>;
+type SectionNode = z.infer<typeof SectionNode>
 ```
 
 A heading-delimited unit inside a spine item; the unit of generation (§5).
 
-***
+---
 
 #### SequenceIR
 
 ```ts
-type SequenceIR = z.infer<typeof SequenceIR>;
+type SequenceIR = z.infer<typeof SequenceIR>
 ```
 
 Messages between parties over time; Mermaid (§8). ≤ 6 participants, ≤ 20 messages.
 
-***
+---
 
 #### SequenceMessage
 
 ```ts
-type SequenceMessage = z.infer<typeof SequenceMessage>;
+type SequenceMessage = z.infer<typeof SequenceMessage>
 ```
 
-***
+---
 
 #### SequenceParticipant
 
 ```ts
-type SequenceParticipant = z.infer<typeof SequenceParticipant>;
+type SequenceParticipant = z.infer<typeof SequenceParticipant>
 ```
 
-***
+---
 
 #### SettingRecord
 
 ```ts
-type SettingRecord = z.infer<typeof SettingRecord>;
+type SettingRecord = z.infer<typeof SettingRecord>
 ```
 
 Row of the `settings` store (§5): a key and a JSON value.
 
-***
+---
 
 #### Sha256Hex
 
 ```ts
-type Sha256Hex = z.infer<typeof Sha256Hex>;
+type Sha256Hex = z.infer<typeof Sha256Hex>
 ```
 
 SHA-256 as 64 lowercase hex characters.
 
-***
+---
 
 #### StateIR
 
 ```ts
-type StateIR = z.infer<typeof StateIR>;
+type StateIR = z.infer<typeof StateIR>
 ```
 
 Modes, lifecycles, transitions on events; Mermaid (§8). ≤ 10 states.
 
-***
+---
 
 #### StateNode
 
 ```ts
-type StateNode = z.infer<typeof StateNode>;
+type StateNode = z.infer<typeof StateNode>
 ```
 
-***
+---
 
 #### StateTransition
 
 ```ts
-type StateTransition = z.infer<typeof StateTransition>;
+type StateTransition = z.infer<typeof StateTransition>
 ```
 
-***
+---
 
 #### Step
 
 ```ts
-type Step = z.infer<typeof Step>;
+type Step = z.infer<typeof Step>
 ```
 
 One step: narration ≤ 140 characters, grounded, ≤ 6 actions (§11).
 
-***
+---
 
 #### StoreName
 
 ```ts
-type StoreName = typeof STORE_NAMES[number];
+type StoreName = typeof STORE_NAMES[number]
 ```
 
-***
+---
 
 #### Target
 
 ```ts
-type Target = z.infer<typeof Target>;
+type Target = z.infer<typeof Target>
 ```
 
 An addressable element of a validated IR or template instance (§11).
 
-***
+---
 
 #### TemplateEvidence
 
 ```ts
-type TemplateEvidence = z.infer<typeof TemplateEvidence>;
+type TemplateEvidence = z.infer<typeof TemplateEvidence>
 ```
 
 Evidence for one element of a template's props, addressed by element path, e.g. 'nodes.3' (§5).
 
-***
+---
 
 #### TemplateId
 
 ```ts
-type TemplateId = z.infer<typeof TemplateId>;
+type TemplateId = z.infer<typeof TemplateId>
 ```
 
 The 16 templates of the template library (§10).
 
-***
+---
 
 #### TemplateIR
 
 ```ts
-type TemplateIR = z.infer<typeof TemplateIR>;
+type TemplateIR = z.infer<typeof TemplateIR>
 ```
 
 Data-structure template instance (§5, §10). `props` is validated by the template's own schema from
 the template registry. `evidence` is a list keyed by element path instead of the spec's
 `Record<string, Evidence>` so it fits strict structured outputs (ADR 0003).
 
-***
+---
 
 #### ThemeTokens
 
 ```ts
-type ThemeTokens = z.infer<typeof ThemeTokens>;
+type ThemeTokens = z.infer<typeof ThemeTokens>
 ```
 
 Theme tokens derived from Flow's active theme, exposed as `--illus-*` CSS variables (§10).
 
-***
+---
 
 #### Tier
 
 ```ts
-type Tier = z.infer<typeof Tier>;
+type Tier = z.infer<typeof Tier>
 ```
 
 Model tier a role runs on (§9).
 
-***
+---
 
 #### TimelineEvent
 
 ```ts
-type TimelineEvent = z.infer<typeof TimelineEvent>;
+type TimelineEvent = z.infer<typeof TimelineEvent>
 ```
 
-***
+---
 
 #### TimelineIR
 
 ```ts
-type TimelineIR = z.infer<typeof TimelineIR>;
+type TimelineIR = z.infer<typeof TimelineIR>
 ```
 
 Concurrency lanes and events; always a simulated timeline (§2 D9, §10).
 
-***
+---
 
 #### TimelineLane
 
 ```ts
-type TimelineLane = z.infer<typeof TimelineLane>;
+type TimelineLane = z.infer<typeof TimelineLane>
 ```
 
-***
+---
 
 #### Timestamp
 
 ```ts
-type Timestamp = z.infer<typeof Timestamp>;
+type Timestamp = z.infer<typeof Timestamp>
 ```
 
 Milliseconds since the Unix epoch.
 
-***
+---
 
 #### Trace
 
 ```ts
-type Trace = z.infer<typeof Trace>;
+type Trace = z.infer<typeof Trace>
 ```
 
 A compressed, stored trace of one scenario (§5, §12). `input` is the scenario's entry call.
 
-***
+---
 
 #### TraceRecord
 
 ```ts
-type TraceRecord = z.infer<typeof TraceRecord>;
+type TraceRecord = z.infer<typeof TraceRecord>
 ```
 
 Record of the `traces` store (§5), keyed by the trace cache key.
 
-***
+---
 
 #### TraceStep
 
 ```ts
-type TraceStep = z.infer<typeof TraceStep>;
+type TraceStep = z.infer<typeof TraceStep>
 ```
 
 One recorded execution event (§12). Frames are innermost last.
 
-***
+---
 
 #### Translation
 
 ```ts
-type Translation = z.infer<typeof Translation>;
+type Translation = z.infer<typeof Translation>
 ```
 
 Output of the `translator` and `trace-fixer` roles (§12).
 
-***
+---
 
 #### ValidationIssue
 
 ```ts
-type ValidationIssue = z.infer<typeof ValidationIssue>;
+type ValidationIssue = z.infer<typeof ValidationIssue>
 ```
 
-***
+---
 
 #### ValidationLayer
 
 ```ts
-type ValidationLayer = z.infer<typeof ValidationLayer>;
+type ValidationLayer = z.infer<typeof ValidationLayer>
 ```
 
 Validation layer that raised an issue (§16 table: L1 schema … L4 render; animation is §11).
 
-***
+---
 
 #### ValidationReport
 
 ```ts
-type ValidationReport = z.infer<typeof ValidationReport>;
+type ValidationReport = z.infer<typeof ValidationReport>
 ```
 
 Outcome of the deterministic checks on one IR (§16 L1–L4). Not defined in the spec; W0 draft.
 `groundingScore` = (grounded + 0.5 × halfGrounded) / total (§16).
 
-***
+---
 
 #### Validator
 
 ```ts
-type Validator = (kind, ir, ctx) => ValidationResult;
+type Validator = (kind, ir, ctx) => ValidationResult
 ```
 
 Schema + grounding + structural checks for one IR (§16 L1–L3). Implemented by `validate()` (W10).
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `kind` | [`VisualKind`](#visualkind) |
-| `ir` | `unknown` |
-| `ctx` | [`ValidationContext`](#validationcontext) |
+| Parameter | Type                                      |
+| --------- | ----------------------------------------- |
+| `kind`    | [`VisualKind`](#visualkind)               |
+| `ir`      | `unknown`                                 |
+| `ctx`     | [`ValidationContext`](#validationcontext) |
 
 ##### Returns
 
 [`ValidationResult`](#validationresult)
 
-***
+---
 
 #### ValueRef
 
 ```ts
-type ValueRef = z.infer<typeof ValueRef>;
+type ValueRef = z.infer<typeof ValueRef>
 ```
 
 A primitive value or a reference into the step's heap (§12).
 
-***
+---
 
 #### Visibility
 
 ```ts
-type Visibility = z.infer<typeof Visibility>;
+type Visibility = z.infer<typeof Visibility>
 ```
 
 UML visibility marker as Mermaid writes it: + public, - private, # protected, ~ package.
 
-***
+---
 
 #### VisualKind
 
 ```ts
-type VisualKind = z.infer<typeof VisualKind>;
+type VisualKind = z.infer<typeof VisualKind>
 ```
 
 The visual families a plan item can request (§5, kind guide in §8).
 
-***
+---
 
 #### VisualPlan
 
 ```ts
-type VisualPlan = z.infer<typeof VisualPlan>;
+type VisualPlan = z.infer<typeof VisualPlan>
 ```
 
 Output of the `planner` role (§5, §8 stage 1): at most 3 items, none when no visual is needed.
 
-***
+---
 
 #### VisualRecord
 
 ```ts
-type VisualRecord = z.infer<typeof VisualRecord>;
+type VisualRecord = z.infer<typeof VisualRecord>
 ```
 
 Record of the `visuals` store (§5), keyed by the visual cache key.
@@ -11699,47 +12379,106 @@ Record of the `visuals` store (§5), keyed by the visual cache key.
 #### Action
 
 ```ts
-const Action: ZodDiscriminatedUnion<[ZodObject<{
-  op: ZodLiteral<"highlight">;
-  target: ZodUnion<readonly [ZodTemplateLiteral<`node:${string}`>, ZodTemplateLiteral<`edge:${string}`>, ZodTemplateLiteral<`group:${string}`>, ZodTemplateLiteral<`msg:${string}`>, ZodTemplateLiteral<`cell:${string}[${number}]`>, ZodTemplateLiteral<`item:${string}`>]>;
-  tone: ZodEnum<{
-     focus: "focus";
-     muted: "muted";
-     success: "success";
-     warning: "warning";
-  }>;
-}, $strip>, ZodObject<{
-  op: ZodLiteral<"unhighlight">;
-  target: ZodUnion<readonly [ZodUnion<readonly [ZodTemplateLiteral<`node:${string}`>, ZodTemplateLiteral<`edge:${string}`>, ZodTemplateLiteral<`group:${string}`>, ZodTemplateLiteral<`msg:${string}`>, ZodTemplateLiteral<`cell:${string}[${number}]`>, ZodTemplateLiteral<`item:${string}`>]>, ZodLiteral<"all">]>;
-}, $strip>, ZodObject<{
-  op: ZodLiteral<"reveal">;
-  target: ZodUnion<readonly [ZodTemplateLiteral<`node:${string}`>, ZodTemplateLiteral<`edge:${string}`>, ZodTemplateLiteral<`group:${string}`>, ZodTemplateLiteral<`msg:${string}`>, ZodTemplateLiteral<`cell:${string}[${number}]`>, ZodTemplateLiteral<`item:${string}`>]>;
-}, $strip>], "op">;
+const Action: ZodDiscriminatedUnion<
+  [
+    ZodObject<
+      {
+        op: ZodLiteral<'highlight'>
+        target: ZodUnion<
+          readonly [
+            ZodTemplateLiteral<`node:${string}`>,
+            ZodTemplateLiteral<`edge:${string}`>,
+            ZodTemplateLiteral<`group:${string}`>,
+            ZodTemplateLiteral<`msg:${string}`>,
+            ZodTemplateLiteral<`cell:${string}[${number}]`>,
+            ZodTemplateLiteral<`item:${string}`>,
+          ]
+        >
+        tone: ZodEnum<{
+          focus: 'focus'
+          muted: 'muted'
+          success: 'success'
+          warning: 'warning'
+        }>
+      },
+      $strip
+    >,
+    ZodObject<
+      {
+        op: ZodLiteral<'unhighlight'>
+        target: ZodUnion<
+          readonly [
+            ZodUnion<
+              readonly [
+                ZodTemplateLiteral<`node:${string}`>,
+                ZodTemplateLiteral<`edge:${string}`>,
+                ZodTemplateLiteral<`group:${string}`>,
+                ZodTemplateLiteral<`msg:${string}`>,
+                ZodTemplateLiteral<`cell:${string}[${number}]`>,
+                ZodTemplateLiteral<`item:${string}`>,
+              ]
+            >,
+            ZodLiteral<'all'>,
+          ]
+        >
+      },
+      $strip
+    >,
+    ZodObject<
+      {
+        op: ZodLiteral<'reveal'>
+        target: ZodUnion<
+          readonly [
+            ZodTemplateLiteral<`node:${string}`>,
+            ZodTemplateLiteral<`edge:${string}`>,
+            ZodTemplateLiteral<`group:${string}`>,
+            ZodTemplateLiteral<`msg:${string}`>,
+            ZodTemplateLiteral<`cell:${string}[${number}]`>,
+            ZodTemplateLiteral<`item:${string}`>,
+          ]
+        >
+      },
+      $strip
+    >,
+  ],
+  'op'
+>
 ```
 
 One animation action (§11). Unknown targets or unsupported actions fail at frame-build time.
 
-***
+---
 
-#### ACTION\_OPS
+#### ACTION_OPS
 
 ```ts
-const ACTION_OPS: readonly ActionOp[];
+const ACTION_OPS: readonly ActionOp[]
 ```
 
 All action ops, for templates' `supportedActions` lists.
 
-***
+---
 
-#### ALLOWED\_PYTHON\_IMPORTS
+#### ALLOWED_PYTHON_IMPORTS
 
 ```ts
-const ALLOWED_PYTHON_IMPORTS: readonly ["collections", "heapq", "bisect", "math", "itertools", "functools", "dataclasses", "typing", "string", "random"];
+const ALLOWED_PYTHON_IMPORTS: readonly [
+  'collections',
+  'heapq',
+  'bisect',
+  'math',
+  'itertools',
+  'functools',
+  'dataclasses',
+  'typing',
+  'string',
+  'random',
+]
 ```
 
 Imports the translated Python may use (§12 translator rules).
 
-***
+---
 
 #### AnimationIR
 
@@ -11774,45 +12513,68 @@ const AnimationIR: ZodObject<{
 
 Output of the `animator` role (§11): 2–40 steps over an already-validated IR.
 
-***
+---
 
 #### Block
 
 ```ts
-const Block: ZodObject<{
-  blockId: ZodString;
-  cfiRange: ZodString;
-  code: ZodOptional<ZodObject<{
-     langHint: ZodOptional<ZodString>;
-     source: ZodString;
-  }, $strip>>;
-  figure: ZodOptional<ZodObject<{
-     alt: ZodOptional<ZodString>;
-     caption: ZodOptional<ZodString>;
-     imgHref: ZodOptional<ZodString>;
-  }, $strip>>;
-  kind: ZodEnum<{
-     aside: "aside";
-     code: "code";
-     figure: "figure";
-     list: "list";
-     math: "math";
-     paragraph: "paragraph";
-     quote: "quote";
-     table: "table";
-  }>;
-  label: ZodOptional<ZodString>;
-  math: ZodOptional<ZodObject<{
-     mathml: ZodOptional<ZodString>;
-     tex: ZodOptional<ZodString>;
-  }, $strip>>;
-  sectionId: ZodString;
-  table: ZodOptional<ZodObject<{
-     html: ZodString;
-     rows: ZodArray<ZodArray<ZodString>>;
-  }, $strip>>;
-  text: ZodString;
-}, $strip>;
+const Block: ZodObject<
+  {
+    blockId: ZodString
+    cfiRange: ZodString
+    code: ZodOptional<
+      ZodObject<
+        {
+          langHint: ZodOptional<ZodString>
+          source: ZodString
+        },
+        $strip
+      >
+    >
+    figure: ZodOptional<
+      ZodObject<
+        {
+          alt: ZodOptional<ZodString>
+          caption: ZodOptional<ZodString>
+          imgHref: ZodOptional<ZodString>
+        },
+        $strip
+      >
+    >
+    kind: ZodEnum<{
+      aside: 'aside'
+      code: 'code'
+      figure: 'figure'
+      list: 'list'
+      math: 'math'
+      paragraph: 'paragraph'
+      quote: 'quote'
+      table: 'table'
+    }>
+    label: ZodOptional<ZodString>
+    math: ZodOptional<
+      ZodObject<
+        {
+          mathml: ZodOptional<ZodString>
+          tex: ZodOptional<ZodString>
+        },
+        $strip
+      >
+    >
+    sectionId: ZodString
+    table: ZodOptional<
+      ZodObject<
+        {
+          html: ZodString
+          rows: ZodArray<ZodArray<ZodString>>
+        },
+        $strip
+      >
+    >
+    text: ZodString
+  },
+  $strip
+>
 ```
 
 One block of book text. `text` is normalised plain text: NFC, soft hyphens removed, whitespace collapsed
@@ -11820,145 +12582,177 @@ One block of book text. `text` is normalised plain text: NFC, soft hyphens remov
 (tabs included); only trailing whitespace on each line and blank lines at the start and end are trimmed.
 Grounding stays whitespace-insensitive: §16 collapses whitespace in quote and block before matching.
 
-***
+---
 
 #### BlockKind
 
 ```ts
 const BlockKind: ZodEnum<{
-  aside: "aside";
-  code: "code";
-  figure: "figure";
-  list: "list";
-  math: "math";
-  paragraph: "paragraph";
-  quote: "quote";
-  table: "table";
-}>;
+  aside: 'aside'
+  code: 'code'
+  figure: 'figure'
+  list: 'list'
+  math: 'math'
+  paragraph: 'paragraph'
+  quote: 'quote'
+  table: 'table'
+}>
 ```
 
 Typed piece of a section (§5, classification rules in §6 step 6).
 
-***
+---
 
 #### BookMeta
 
 ```ts
-const BookMeta: ZodObject<{
-  bookId: ZodString;
-  createdAt: ZodNumber;
-  indexStatus: ZodEnum<{
-     complete: "complete";
-     none: "none";
-     structural: "structural";
-  }>;
-  indexVersion: ZodNumber;
-  sectionCount: ZodOptional<ZodNumber>;
-  summary: ZodOptional<ZodObject<{
-     conventions: ZodArray<ZodString>;
-     summary: ZodString;
-  }, $strip>>;
-  title: ZodString;
-  updatedAt: ZodNumber;
-}, $strip>;
+const BookMeta: ZodObject<
+  {
+    bookId: ZodString
+    createdAt: ZodNumber
+    indexStatus: ZodEnum<{
+      complete: 'complete'
+      none: 'none'
+      structural: 'structural'
+    }>
+    indexVersion: ZodNumber
+    sectionCount: ZodOptional<ZodNumber>
+    summary: ZodOptional<
+      ZodObject<
+        {
+          conventions: ZodArray<ZodString>
+          summary: ZodString
+        },
+        $strip
+      >
+    >
+    title: ZodString
+    updatedAt: ZodNumber
+  },
+  $strip
+>
 ```
 
 Record of the `books` store (§5). `bookId` = first 16 hex of SHA-256 of the EPUB bytes.
 
-***
+---
 
 #### BookSummary
 
 ```ts
-const BookSummary: ZodObject<{
-  conventions: ZodArray<ZodString>;
-  summary: ZodString;
-}, $strip>;
+const BookSummary: ZodObject<
+  {
+    conventions: ZodArray<ZodString>
+    summary: ZodString
+  },
+  $strip
+>
 ```
 
 150-word book summary plus naming conventions, the cached prompt prefix (§6 phase B step 6).
 
-***
+---
 
 #### ChartFn
 
 ```ts
 const ChartFn: ZodEnum<{
-  constant: "constant";
-  cubic: "cubic";
-  exponential: "exponential";
-  linear: "linear";
-  log: "log";
-  nlogn: "nlogn";
-  quadratic: "quadratic";
-}>;
+  constant: 'constant'
+  cubic: 'cubic'
+  exponential: 'exponential'
+  linear: 'linear'
+  log: 'log'
+  nlogn: 'nlogn'
+  quadratic: 'quadratic'
+}>
 ```
 
-***
+---
 
 #### ChartIR
 
 ```ts
-const ChartIR: ZodObject<{
-  domain: ZodTuple<[ZodNumber, ZodNumber], null>;
-  logY: ZodBoolean;
-  series: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     fn: ZodOptional<ZodEnum<{
-        constant: "constant";
-        cubic: "cubic";
-        exponential: "exponential";
-        linear: "linear";
-        log: "log";
-        nlogn: "nlogn";
-        quadratic: "quadratic";
-     }>>;
-     name: ZodString;
-     points: ZodOptional<ZodArray<ZodTuple<[ZodNumber, ZodNumber], null>>>;
-  }, $strip>>;
-  title: ZodString;
-  type: ZodLiteral<"chart">;
-  xLabel: ZodString;
-  yLabel: ZodString;
-}, $strip>;
+const ChartIR: ZodObject<
+  {
+    domain: ZodTuple<[ZodNumber, ZodNumber], null>
+    logY: ZodBoolean
+    series: ZodArray<
+      ZodObject<
+        {
+          evidence: ZodObject<
+            {
+              blockId: ZodString
+              end: ZodOptional<ZodNumber>
+              fuzzy: ZodOptional<ZodBoolean>
+              quote: ZodString
+              start: ZodOptional<ZodNumber>
+            },
+            $strip
+          >
+          fn: ZodOptional<
+            ZodEnum<{
+              constant: 'constant'
+              cubic: 'cubic'
+              exponential: 'exponential'
+              linear: 'linear'
+              log: 'log'
+              nlogn: 'nlogn'
+              quadratic: 'quadratic'
+            }>
+          >
+          name: ZodString
+          points: ZodOptional<ZodArray<ZodTuple<[ZodNumber, ZodNumber], null>>>
+        },
+        $strip
+      >
+    >
+    title: ZodString
+    type: ZodLiteral<'chart'>
+    xLabel: ZodString
+    yLabel: ZodString
+  },
+  $strip
+>
 ```
 
 Growth rates and numbers stated in the text; compiled to Vega-Lite (§8, §10). ≤ 4 series.
 
-***
+---
 
 #### ChartSeries
 
 ```ts
-const ChartSeries: ZodObject<{
-  evidence: ZodObject<{
-     blockId: ZodString;
-     end: ZodOptional<ZodNumber>;
-     fuzzy: ZodOptional<ZodBoolean>;
-     quote: ZodString;
-     start: ZodOptional<ZodNumber>;
-  }, $strip>;
-  fn: ZodOptional<ZodEnum<{
-     constant: "constant";
-     cubic: "cubic";
-     exponential: "exponential";
-     linear: "linear";
-     log: "log";
-     nlogn: "nlogn";
-     quadratic: "quadratic";
-  }>>;
-  name: ZodString;
-  points: ZodOptional<ZodArray<ZodTuple<[ZodNumber, ZodNumber], null>>>;
-}, $strip>;
+const ChartSeries: ZodObject<
+  {
+    evidence: ZodObject<
+      {
+        blockId: ZodString
+        end: ZodOptional<ZodNumber>
+        fuzzy: ZodOptional<ZodBoolean>
+        quote: ZodString
+        start: ZodOptional<ZodNumber>
+      },
+      $strip
+    >
+    fn: ZodOptional<
+      ZodEnum<{
+        constant: 'constant'
+        cubic: 'cubic'
+        exponential: 'exponential'
+        linear: 'linear'
+        log: 'log'
+        nlogn: 'nlogn'
+        quadratic: 'quadratic'
+      }>
+    >
+    name: ZodString
+    points: ZodOptional<ZodArray<ZodTuple<[ZodNumber, ZodNumber], null>>>
+  },
+  $strip
+>
 ```
 
-***
+---
 
 #### ClassCardinality
 
@@ -11975,7 +12769,7 @@ const ClassCardinality: ZodEnum<{
 
 Multiplicity at one end of a class relation (the allowed set of §16 "Class / ER").
 
-***
+---
 
 #### ClassField
 
@@ -12000,7 +12794,7 @@ const ClassField: ZodObject<{
 }, $strip>;
 ```
 
-***
+---
 
 #### ClassIR
 
@@ -12105,7 +12899,7 @@ const ClassIR: ZodObject<{
 
 Types, inheritance, composition; Mermaid classDiagram (§8). ≤ 12 classes, ≤ 18 relations (ADR 0003).
 
-***
+---
 
 #### ClassMethod
 
@@ -12132,7 +12926,7 @@ const ClassMethod: ZodObject<{
 }, $strip>;
 ```
 
-***
+---
 
 #### ClassNode
 
@@ -12194,7 +12988,7 @@ const ClassNode: ZodObject<{
 }, $strip>;
 ```
 
-***
+---
 
 #### ClassRelation
 
@@ -12238,56 +13032,67 @@ const ClassRelation: ZodObject<{
 }, $strip>;
 ```
 
-***
+---
 
-#### COMPILER\_VERSION
+#### COMPILER_VERSION
 
 ```ts
-const COMPILER_VERSION: 1 = 1;
+const COMPILER_VERSION: 1 = 1
 ```
 
 `COMPILER_VERSION` of the visual cache key (§5).
 
-***
+---
 
 #### Concept
 
 ```ts
-const Concept: ZodObject<{
-  aliases: ZodArray<ZodString>;
-  bookId: ZodString;
-  canonical: ZodString;
-  conceptId: ZodString;
-  definedInSectionId: ZodOptional<ZodString>;
-  definition: ZodOptional<ZodObject<{
-     blockId: ZodString;
-     end: ZodOptional<ZodNumber>;
-     fuzzy: ZodOptional<ZodBoolean>;
-     quote: ZodString;
-     start: ZodOptional<ZodNumber>;
-  }, $strip>>;
-  firstOrdinal: ZodNumber;
-  spanning: ZodBoolean;
-  usedInSectionIds: ZodArray<ZodString>;
-}, $strip>;
+const Concept: ZodObject<
+  {
+    aliases: ZodArray<ZodString>
+    bookId: ZodString
+    canonical: ZodString
+    conceptId: ZodString
+    definedInSectionId: ZodOptional<ZodString>
+    definition: ZodOptional<
+      ZodObject<
+        {
+          blockId: ZodString
+          end: ZodOptional<ZodNumber>
+          fuzzy: ZodOptional<ZodBoolean>
+          quote: ZodString
+          start: ZodOptional<ZodNumber>
+        },
+        $strip
+      >
+    >
+    firstOrdinal: ZodNumber
+    spanning: ZodBoolean
+    usedInSectionIds: ZodArray<ZodString>
+  },
+  $strip
+>
 ```
 
 A concept in the book-wide registry (§5).
 
-***
+---
 
 #### ConceptMerge
 
 ```ts
-const ConceptMerge: ZodObject<{
-  aliases: ZodArray<ZodString>;
-  canonical: ZodString;
-}, $strip>;
+const ConceptMerge: ZodObject<
+  {
+    aliases: ZodArray<ZodString>
+    canonical: ZodString
+  },
+  $strip
+>
 ```
 
 One merged cluster from the `glossary` role: a canonical name and its aliases (§6 phase B step 5).
 
-***
+---
 
 #### ConceptModel
 
@@ -12331,31 +13136,31 @@ const ConceptModel: ZodObject<{
 
 Record of the `conceptModels` store (§5). Patches are sorted by `sectionOrdinal`.
 
-***
+---
 
 #### ConceptModelKind
 
 ```ts
 const ConceptModelKind: ZodEnum<{
-  graph: "graph";
-  sequence: "sequence";
-  state: "state";
-}>;
+  graph: 'graph'
+  sequence: 'sequence'
+  state: 'state'
+}>
 ```
 
 Kinds that may extend or start a concept model in v1 (§13).
 
-***
+---
 
-#### CONTRACTS\_VERSION
+#### CONTRACTS_VERSION
 
 ```ts
-const CONTRACTS_VERSION: "1.3.0" = '1.3.0';
+const CONTRACTS_VERSION: '1.3.0' = '1.3.0'
 ```
 
 Version of the published contracts (docs/contracts.md).
 
-***
+---
 
 #### CriticReport
 
@@ -12385,80 +13190,99 @@ const CriticReport: ZodObject<{
 
 Output of the `critic` role (§16).
 
-***
+---
 
 #### CrossRef
 
 ```ts
-const CrossRef: ZodObject<{
-  fromBlockId: ZodString;
-  id: ZodOptional<ZodNumber>;
-  kind: ZodEnum<{
-     link: "link";
-     textual: "textual";
-  }>;
-  label: ZodOptional<ZodString>;
-  resolved: ZodBoolean;
-  targetBlockId: ZodOptional<ZodString>;
-  targetSectionId: ZodOptional<ZodString>;
-}, $strip>;
+const CrossRef: ZodObject<
+  {
+    fromBlockId: ZodString
+    id: ZodOptional<ZodNumber>
+    kind: ZodEnum<{
+      link: 'link'
+      textual: 'textual'
+    }>
+    label: ZodOptional<ZodString>
+    resolved: ZodBoolean
+    targetBlockId: ZodOptional<ZodString>
+    targetSectionId: ZodOptional<ZodString>
+  },
+  $strip
+>
 ```
 
 A link or textual reference from a block to a section or block (§5, §6 step 13).
 
-***
+---
 
-#### DEFAULT\_FLAGS
+#### DEFAULT_FLAGS
 
 ```ts
-const DEFAULT_FLAGS: Flags;
+const DEFAULT_FLAGS: Flags
 ```
 
-***
+---
 
 #### ElementReport
 
 ```ts
-const ElementReport: ZodObject<{
-  createdAt: ZodNumber;
-  elementId: ZodString;
-  evidence: ZodOptional<ZodObject<{
-     blockId: ZodString;
-     end: ZodOptional<ZodNumber>;
-     fuzzy: ZodOptional<ZodBoolean>;
-     quote: ZodString;
-     start: ZodOptional<ZodNumber>;
-  }, $strip>>;
-  note: ZodString;
-}, $strip>;
+const ElementReport: ZodObject<
+  {
+    createdAt: ZodNumber
+    elementId: ZodString
+    evidence: ZodOptional<
+      ZodObject<
+        {
+          blockId: ZodString
+          end: ZodOptional<ZodNumber>
+          fuzzy: ZodOptional<ZodBoolean>
+          quote: ZodString
+          start: ZodOptional<ZodNumber>
+        },
+        $strip
+      >
+    >
+    note: ZodString
+  },
+  $strip
+>
 ```
 
 Element-level "This is wrong" report from the pane (§16 human feedback).
 
-***
+---
 
 #### ErAttribute
 
 ```ts
-const ErAttribute: ZodObject<{
-  evidence: ZodObject<{
-     blockId: ZodString;
-     end: ZodOptional<ZodNumber>;
-     fuzzy: ZodOptional<ZodBoolean>;
-     quote: ZodString;
-     start: ZodOptional<ZodNumber>;
-  }, $strip>;
-  key: ZodOptional<ZodEnum<{
-     FK: "FK";
-     PK: "PK";
-     UK: "UK";
-  }>>;
-  name: ZodString;
-  type: ZodOptional<ZodString>;
-}, $strip>;
+const ErAttribute: ZodObject<
+  {
+    evidence: ZodObject<
+      {
+        blockId: ZodString
+        end: ZodOptional<ZodNumber>
+        fuzzy: ZodOptional<ZodBoolean>
+        quote: ZodString
+        start: ZodOptional<ZodNumber>
+      },
+      $strip
+    >
+    key: ZodOptional<
+      ZodEnum<{
+        FK: 'FK'
+        PK: 'PK'
+        UK: 'UK'
+      }>
+    >
+    name: ZodString
+    type: ZodOptional<ZodString>
+  },
+  $strip
+>
 ```
 
-***
+---
 
 #### ErCardinality
 
@@ -12473,41 +13297,57 @@ const ErCardinality: ZodEnum<{
 
 Cardinality at one end of an ER relationship (Mermaid crow's foot: |o, ||, }o, }|).
 
-***
+---
 
 #### ErEntity
 
 ```ts
-const ErEntity: ZodObject<{
-  attributes: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     key: ZodOptional<ZodEnum<{
-        FK: "FK";
-        PK: "PK";
-        UK: "UK";
-     }>>;
-     name: ZodString;
-     type: ZodOptional<ZodString>;
-  }, $strip>>;
-  evidence: ZodObject<{
-     blockId: ZodString;
-     end: ZodOptional<ZodNumber>;
-     fuzzy: ZodOptional<ZodBoolean>;
-     quote: ZodString;
-     start: ZodOptional<ZodNumber>;
-  }, $strip>;
-  id: ZodString;
-  label: ZodString;
-}, $strip>;
+const ErEntity: ZodObject<
+  {
+    attributes: ZodArray<
+      ZodObject<
+        {
+          evidence: ZodObject<
+            {
+              blockId: ZodString
+              end: ZodOptional<ZodNumber>
+              fuzzy: ZodOptional<ZodBoolean>
+              quote: ZodString
+              start: ZodOptional<ZodNumber>
+            },
+            $strip
+          >
+          key: ZodOptional<
+            ZodEnum<{
+              FK: 'FK'
+              PK: 'PK'
+              UK: 'UK'
+            }>
+          >
+          name: ZodString
+          type: ZodOptional<ZodString>
+        },
+        $strip
+      >
+    >
+    evidence: ZodObject<
+      {
+        blockId: ZodString
+        end: ZodOptional<ZodNumber>
+        fuzzy: ZodOptional<ZodBoolean>
+        quote: ZodString
+        start: ZodOptional<ZodNumber>
+      },
+      $strip
+    >
+    id: ZodString
+    label: ZodString
+  },
+  $strip
+>
 ```
 
-***
+---
 
 #### ErIR
 
@@ -12573,7 +13413,7 @@ const ErIR: ZodObject<{
 
 Tables, keys, relationships in a data model; Mermaid erDiagram (§8). ≤ 12 entities, ≤ 18 relationships.
 
-***
+---
 
 #### ErRelationship
 
@@ -12606,111 +13446,209 @@ const ErRelationship: ZodObject<{
 }, $strip>;
 ```
 
-***
+---
 
 #### Evidence
 
 ```ts
-const Evidence: ZodObject<{
-  blockId: ZodString;
-  end: ZodOptional<ZodNumber>;
-  fuzzy: ZodOptional<ZodBoolean>;
-  quote: ZodString;
-  start: ZodOptional<ZodNumber>;
-}, $strip>;
+const Evidence: ZodObject<
+  {
+    blockId: ZodString
+    end: ZodOptional<ZodNumber>
+    fuzzy: ZodOptional<ZodBoolean>
+    quote: ZodString
+    start: ZodOptional<ZodNumber>
+  },
+  $strip
+>
 ```
 
 Evidence: a verbatim quote of at most 30 words from one block, justifying one IR element (§5, §16).
 `start`/`end` are filled by the grounding matcher (offsets into the block's text); `fuzzy` is set when
 the match needed the Levenshtein fallback (§16 step 4).
 
-***
+---
 
-#### FLAG\_OWNERS
+#### FLAG_OWNERS
 
 ```ts
-const FLAG_OWNERS: Readonly<Record<FlagName, string>>;
+const FLAG_OWNERS: Readonly<Record<FlagName, string>>
 ```
 
 Owner of each flag, for the settings page and the build log.
 
-***
+---
 
 #### FlagName
 
 ```ts
 const FlagName: ZodEnum<{
-  animations: "animations";
-  conceptModels: "conceptModels";
-  critic: "critic";
-  htmlFallback: "htmlFallback";
-  templates: "templates";
-  tracer: "tracer";
-}>;
+  animations: 'animations'
+  conceptModels: 'conceptModels'
+  critic: 'critic'
+  htmlFallback: 'htmlFallback'
+  templates: 'templates'
+  tracer: 'tracer'
+}>
 ```
 
-***
+---
 
 #### FlagOverrides
 
 ```ts
-const FlagOverrides: ZodRecord<ZodEnum<{
-  animations: "animations";
-  conceptModels: "conceptModels";
-  critic: "critic";
-  htmlFallback: "htmlFallback";
-  templates: "templates";
-  tracer: "tracer";
-}> & $partial, ZodBoolean>;
+const FlagOverrides: ZodRecord<
+  ZodEnum<{
+    animations: 'animations'
+    conceptModels: 'conceptModels'
+    critic: 'critic'
+    htmlFallback: 'htmlFallback'
+    templates: 'templates'
+    tracer: 'tracer'
+  }> &
+    $partial,
+  ZodBoolean
+>
 ```
 
 Partial overrides as stored in the `settings` store under key `flags`; unknown keys are ignored.
 
-***
+---
 
 #### FrameState
 
 ```ts
-const FrameState: ZodObject<{
-  added: ZodArray<ZodObject<{
-     id: ZodString;
-     label: ZodString;
-     parent: ZodOptional<ZodString>;
-  }, $strip>>;
-  annotations: ZodRecord<ZodString, ZodString>;
-  containers: ZodRecord<ZodString, ZodArray<ZodObject<{
-     id: ZodString;
-     value: ZodUnion<readonly [ZodString, ZodNumber]>;
-  }, $strip>>>;
-  evidence: ZodOptional<ZodObject<{
-     blockId: ZodString;
-     end: ZodOptional<ZodNumber>;
-     fuzzy: ZodOptional<ZodBoolean>;
-     quote: ZodString;
-     start: ZodOptional<ZodNumber>;
-  }, $strip>>;
-  focus: ZodNullable<ZodUnion<readonly [ZodUnion<readonly [ZodTemplateLiteral<`node:${string}`>, ZodTemplateLiteral<`edge:${string}`>, ZodTemplateLiteral<`group:${string}`>, ZodTemplateLiteral<`msg:${string}`>, ZodTemplateLiteral<`cell:${string}[${number}]`>, ZodTemplateLiteral<`item:${string}`>]>, ZodLiteral<"all">]>>;
-  hidden: ZodArray<ZodUnion<readonly [ZodTemplateLiteral<`node:${string}`>, ZodTemplateLiteral<`edge:${string}`>, ZodTemplateLiteral<`group:${string}`>, ZodTemplateLiteral<`msg:${string}`>, ZodTemplateLiteral<`cell:${string}[${number}]`>, ZodTemplateLiteral<`item:${string}`>]>>;
-  highlights: ZodRecord<ZodString, ZodEnum<{
-     focus: "focus";
-     muted: "muted";
-     success: "success";
-     warning: "warning";
-  }>>;
-  narration: ZodOptional<ZodString>;
-  pointers: ZodRecord<ZodString, ZodUnion<readonly [ZodTemplateLiteral<`node:${string}`>, ZodTemplateLiteral<`edge:${string}`>, ZodTemplateLiteral<`group:${string}`>, ZodTemplateLiteral<`msg:${string}`>, ZodTemplateLiteral<`cell:${string}[${number}]`>, ZodTemplateLiteral<`item:${string}`>]>>;
-  relayout: ZodBoolean;
-  removed: ZodArray<ZodUnion<readonly [ZodTemplateLiteral<`node:${string}`>, ZodTemplateLiteral<`edge:${string}`>, ZodTemplateLiteral<`group:${string}`>, ZodTemplateLiteral<`msg:${string}`>, ZodTemplateLiteral<`cell:${string}[${number}]`>, ZodTemplateLiteral<`item:${string}`>]>>;
-  slots: ZodRecord<ZodString, ZodUnion<readonly [ZodTemplateLiteral<`node:${string}`>, ZodTemplateLiteral<`edge:${string}`>, ZodTemplateLiteral<`group:${string}`>, ZodTemplateLiteral<`msg:${string}`>, ZodTemplateLiteral<`cell:${string}[${number}]`>, ZodTemplateLiteral<`item:${string}`>]>>;
-  step: ZodNumber;
-  stepId: ZodOptional<ZodString>;
-  tokens: ZodArray<ZodObject<{
-     id: ZodString;
-     label: ZodOptional<ZodString>;
-     path: ZodArray<ZodString>;
-  }, $strip>>;
-  values: ZodRecord<ZodString, ZodUnion<readonly [ZodString, ZodNumber]>>;
-}, $strip>;
+const FrameState: ZodObject<
+  {
+    added: ZodArray<
+      ZodObject<
+        {
+          id: ZodString
+          label: ZodString
+          parent: ZodOptional<ZodString>
+        },
+        $strip
+      >
+    >
+    annotations: ZodRecord<ZodString, ZodString>
+    containers: ZodRecord<
+      ZodString,
+      ZodArray<
+        ZodObject<
+          {
+            id: ZodString
+            value: ZodUnion<readonly [ZodString, ZodNumber]>
+          },
+          $strip
+        >
+      >
+    >
+    evidence: ZodOptional<
+      ZodObject<
+        {
+          blockId: ZodString
+          end: ZodOptional<ZodNumber>
+          fuzzy: ZodOptional<ZodBoolean>
+          quote: ZodString
+          start: ZodOptional<ZodNumber>
+        },
+        $strip
+      >
+    >
+    focus: ZodNullable<
+      ZodUnion<
+        readonly [
+          ZodUnion<
+            readonly [
+              ZodTemplateLiteral<`node:${string}`>,
+              ZodTemplateLiteral<`edge:${string}`>,
+              ZodTemplateLiteral<`group:${string}`>,
+              ZodTemplateLiteral<`msg:${string}`>,
+              ZodTemplateLiteral<`cell:${string}[${number}]`>,
+              ZodTemplateLiteral<`item:${string}`>,
+            ]
+          >,
+          ZodLiteral<'all'>,
+        ]
+      >
+    >
+    hidden: ZodArray<
+      ZodUnion<
+        readonly [
+          ZodTemplateLiteral<`node:${string}`>,
+          ZodTemplateLiteral<`edge:${string}`>,
+          ZodTemplateLiteral<`group:${string}`>,
+          ZodTemplateLiteral<`msg:${string}`>,
+          ZodTemplateLiteral<`cell:${string}[${number}]`>,
+          ZodTemplateLiteral<`item:${string}`>,
+        ]
+      >
+    >
+    highlights: ZodRecord<
+      ZodString,
+      ZodEnum<{
+        focus: 'focus'
+        muted: 'muted'
+        success: 'success'
+        warning: 'warning'
+      }>
+    >
+    narration: ZodOptional<ZodString>
+    pointers: ZodRecord<
+      ZodString,
+      ZodUnion<
+        readonly [
+          ZodTemplateLiteral<`node:${string}`>,
+          ZodTemplateLiteral<`edge:${string}`>,
+          ZodTemplateLiteral<`group:${string}`>,
+          ZodTemplateLiteral<`msg:${string}`>,
+          ZodTemplateLiteral<`cell:${string}[${number}]`>,
+          ZodTemplateLiteral<`item:${string}`>,
+        ]
+      >
+    >
+    relayout: ZodBoolean
+    removed: ZodArray<
+      ZodUnion<
+        readonly [
+          ZodTemplateLiteral<`node:${string}`>,
+          ZodTemplateLiteral<`edge:${string}`>,
+          ZodTemplateLiteral<`group:${string}`>,
+          ZodTemplateLiteral<`msg:${string}`>,
+          ZodTemplateLiteral<`cell:${string}[${number}]`>,
+          ZodTemplateLiteral<`item:${string}`>,
+        ]
+      >
+    >
+    slots: ZodRecord<
+      ZodString,
+      ZodUnion<
+        readonly [
+          ZodTemplateLiteral<`node:${string}`>,
+          ZodTemplateLiteral<`edge:${string}`>,
+          ZodTemplateLiteral<`group:${string}`>,
+          ZodTemplateLiteral<`msg:${string}`>,
+          ZodTemplateLiteral<`cell:${string}[${number}]`>,
+          ZodTemplateLiteral<`item:${string}`>,
+        ]
+      >
+    >
+    step: ZodNumber
+    stepId: ZodOptional<ZodString>
+    tokens: ZodArray<
+      ZodObject<
+        {
+          id: ZodString
+          label: ZodOptional<ZodString>
+          path: ZodArray<ZodString>
+        },
+        $strip
+      >
+    >
+    values: ZodRecord<ZodString, ZodUnion<readonly [ZodString, ZodNumber]>>
+  },
+  $strip
+>
 ```
 
 Precomputed state of one animation frame (§11 reducer). `frames[0]` is the base spec with
@@ -12720,190 +13658,243 @@ Persistence follows §11: highlights persist until `unhighlight`; pointers persi
 `null` (then the key is removed); `annotations` and `tokens` hold only the current step's. Records are
 keyed by `Target` string (or pointer name / container id) so frames stay JSON-serialisable.
 
-***
+---
 
-#### FUZZY\_THRESHOLD
+#### FUZZY_THRESHOLD
 
 ```ts
-const FUZZY_THRESHOLD: 0.9 = 0.9;
+const FUZZY_THRESHOLD: 0.9 = 0.9
 ```
 
 Minimum normalised Levenshtein similarity for a fuzzy match (§16 step 4).
 
-***
+---
 
 #### GlossaryOutput
 
 ```ts
-const GlossaryOutput: ZodObject<{
-  merges: ZodArray<ZodObject<{
-     aliases: ZodArray<ZodString>;
-     canonical: ZodString;
-  }, $strip>>;
-}, $strip>;
+const GlossaryOutput: ZodObject<
+  {
+    merges: ZodArray<
+      ZodObject<
+        {
+          aliases: ZodArray<ZodString>
+          canonical: ZodString
+        },
+        $strip
+      >
+    >
+  },
+  $strip
+>
 ```
 
 Output of the `glossary` role (`ConceptMerge[]` wrapped in an object, ADR 0003).
 
-***
+---
 
 #### GraphEdge
 
 ```ts
-const GraphEdge: ZodObject<{
-  evidence: ZodObject<{
-     blockId: ZodString;
-     end: ZodOptional<ZodNumber>;
-     fuzzy: ZodOptional<ZodBoolean>;
-     quote: ZodString;
-     start: ZodOptional<ZodNumber>;
-  }, $strip>;
-  from: ZodString;
-  id: ZodString;
-  label: ZodOptional<ZodString>;
-  style: ZodEnum<{
-     dashed: "dashed";
-     solid: "solid";
-  }>;
-  to: ZodString;
-}, $strip>;
+const GraphEdge: ZodObject<
+  {
+    evidence: ZodObject<
+      {
+        blockId: ZodString
+        end: ZodOptional<ZodNumber>
+        fuzzy: ZodOptional<ZodBoolean>
+        quote: ZodString
+        start: ZodOptional<ZodNumber>
+      },
+      $strip
+    >
+    from: ZodString
+    id: ZodString
+    label: ZodOptional<ZodString>
+    style: ZodEnum<{
+      dashed: 'dashed'
+      solid: 'solid'
+    }>
+    to: ZodString
+  },
+  $strip
+>
 ```
 
-***
+---
 
 #### GraphGroup
 
 ```ts
-const GraphGroup: ZodObject<{
-  evidence: ZodObject<{
-     blockId: ZodString;
-     end: ZodOptional<ZodNumber>;
-     fuzzy: ZodOptional<ZodBoolean>;
-     quote: ZodString;
-     start: ZodOptional<ZodNumber>;
-  }, $strip>;
-  id: ZodString;
-  label: ZodString;
-  parent: ZodOptional<ZodString>;
-}, $strip>;
+const GraphGroup: ZodObject<
+  {
+    evidence: ZodObject<
+      {
+        blockId: ZodString
+        end: ZodOptional<ZodNumber>
+        fuzzy: ZodOptional<ZodBoolean>
+        quote: ZodString
+        start: ZodOptional<ZodNumber>
+      },
+      $strip
+    >
+    id: ZodString
+    label: ZodString
+    parent: ZodOptional<ZodString>
+  },
+  $strip
+>
 ```
 
-***
+---
 
 #### GraphIR
 
 ```ts
-const GraphIR: ZodObject<{
-  direction: ZodEnum<{
-     LR: "LR";
-     TB: "TB";
-  }>;
-  edges: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     from: ZodString;
-     id: ZodString;
-     label: ZodOptional<ZodString>;
-     style: ZodEnum<{
-        dashed: "dashed";
-        solid: "solid";
-     }>;
-     to: ZodString;
-  }, $strip>>;
-  groups: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     id: ZodString;
-     label: ZodString;
-     parent: ZodOptional<ZodString>;
-  }, $strip>>;
-  nodes: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     group: ZodOptional<ZodString>;
-     id: ZodString;
-     label: ZodString;
-     shape: ZodEnum<{
-        actor: "actor";
-        box: "box";
-        decision: "decision";
-        note: "note";
-        queue: "queue";
-        store: "store";
-     }>;
-     sublabel: ZodOptional<ZodString>;
-  }, $strip>>;
-  title: ZodString;
-  type: ZodLiteral<"graph">;
-}, $strip>;
+const GraphIR: ZodObject<
+  {
+    direction: ZodEnum<{
+      LR: 'LR'
+      TB: 'TB'
+    }>
+    edges: ZodArray<
+      ZodObject<
+        {
+          evidence: ZodObject<
+            {
+              blockId: ZodString
+              end: ZodOptional<ZodNumber>
+              fuzzy: ZodOptional<ZodBoolean>
+              quote: ZodString
+              start: ZodOptional<ZodNumber>
+            },
+            $strip
+          >
+          from: ZodString
+          id: ZodString
+          label: ZodOptional<ZodString>
+          style: ZodEnum<{
+            dashed: 'dashed'
+            solid: 'solid'
+          }>
+          to: ZodString
+        },
+        $strip
+      >
+    >
+    groups: ZodArray<
+      ZodObject<
+        {
+          evidence: ZodObject<
+            {
+              blockId: ZodString
+              end: ZodOptional<ZodNumber>
+              fuzzy: ZodOptional<ZodBoolean>
+              quote: ZodString
+              start: ZodOptional<ZodNumber>
+            },
+            $strip
+          >
+          id: ZodString
+          label: ZodString
+          parent: ZodOptional<ZodString>
+        },
+        $strip
+      >
+    >
+    nodes: ZodArray<
+      ZodObject<
+        {
+          evidence: ZodObject<
+            {
+              blockId: ZodString
+              end: ZodOptional<ZodNumber>
+              fuzzy: ZodOptional<ZodBoolean>
+              quote: ZodString
+              start: ZodOptional<ZodNumber>
+            },
+            $strip
+          >
+          group: ZodOptional<ZodString>
+          id: ZodString
+          label: ZodString
+          shape: ZodEnum<{
+            actor: 'actor'
+            box: 'box'
+            decision: 'decision'
+            note: 'note'
+            queue: 'queue'
+            store: 'store'
+          }>
+          sublabel: ZodOptional<ZodString>
+        },
+        $strip
+      >
+    >
+    title: ZodString
+    type: ZodLiteral<'graph'>
+  },
+  $strip
+>
 ```
 
 Components and what calls what; layered with ELK (§8, §10). ≤ 12 nodes, ≤ 18 edges.
 
-***
+---
 
 #### GraphNode
 
 ```ts
-const GraphNode: ZodObject<{
-  evidence: ZodObject<{
-     blockId: ZodString;
-     end: ZodOptional<ZodNumber>;
-     fuzzy: ZodOptional<ZodBoolean>;
-     quote: ZodString;
-     start: ZodOptional<ZodNumber>;
-  }, $strip>;
-  group: ZodOptional<ZodString>;
-  id: ZodString;
-  label: ZodString;
-  shape: ZodEnum<{
-     actor: "actor";
-     box: "box";
-     decision: "decision";
-     note: "note";
-     queue: "queue";
-     store: "store";
-  }>;
-  sublabel: ZodOptional<ZodString>;
-}, $strip>;
+const GraphNode: ZodObject<
+  {
+    evidence: ZodObject<
+      {
+        blockId: ZodString
+        end: ZodOptional<ZodNumber>
+        fuzzy: ZodOptional<ZodBoolean>
+        quote: ZodString
+        start: ZodOptional<ZodNumber>
+      },
+      $strip
+    >
+    group: ZodOptional<ZodString>
+    id: ZodString
+    label: ZodString
+    shape: ZodEnum<{
+      actor: 'actor'
+      box: 'box'
+      decision: 'decision'
+      note: 'note'
+      queue: 'queue'
+      store: 'store'
+    }>
+    sublabel: ZodOptional<ZodString>
+  },
+  $strip
+>
 ```
 
-***
+---
 
 #### GraphNodeShape
 
 ```ts
 const GraphNodeShape: ZodEnum<{
-  actor: "actor";
-  box: "box";
-  decision: "decision";
-  note: "note";
-  queue: "queue";
-  store: "store";
-}>;
+  actor: 'actor'
+  box: 'box'
+  decision: 'decision'
+  note: 'note'
+  queue: 'queue'
+  store: 'store'
+}>
 ```
 
-***
+---
 
 #### ground
 
 ```ts
-const ground: GroundingFn;
+const ground: GroundingFn
 ```
 
 The grounding matcher (§16). Locates an evidence quote in the permitted blocks: exact in the cited block,
@@ -12911,7 +13902,7 @@ else exact in another permitted block (re-attributed), else fuzzy (similarity �
 (offsets into the block's `text`) and `fuzzy`. A match whose label is not near the quote is
 `half-grounded`; a quote under 3 words or not found is `failed`.
 
-***
+---
 
 #### HeapObj
 
@@ -12950,34 +13941,37 @@ const HeapObj: ZodObject<{
 
 A heap object reachable from locals, identified by Python `id()` (§12).
 
-***
+---
 
 #### HighlightTone
 
 ```ts
 const HighlightTone: ZodEnum<{
-  focus: "focus";
-  muted: "muted";
-  success: "success";
-  warning: "warning";
-}>;
+  focus: 'focus'
+  muted: 'muted'
+  success: 'success'
+  warning: 'warning'
+}>
 ```
 
-***
+---
 
 #### HtmlIR
 
 ```ts
-const HtmlIR: ZodObject<{
-  html: ZodString;
-  reason: ZodString;
-  type: ZodLiteral<"html">;
-}, $strip>;
+const HtmlIR: ZodObject<
+  {
+    html: ZodString
+    reason: ZodString
+    type: ZodLiteral<'html'>
+  },
+  $strip
+>
 ```
 
 Last-resort self-contained HTML explainer, behind the `htmlFallback` flag only (§10, §17).
 
-***
+---
 
 #### IndexerOutput
 
@@ -13016,171 +14010,243 @@ const IndexerOutput: ZodObject<{
 Output of the `indexer` role: one entry per section in the batch (≤ 8 sections, §6 phase B step 3).
 Wrapped in an object because structured outputs need an object at the root (ADR 0003).
 
-***
+---
 
 #### IndexStatus
 
 ```ts
 const IndexStatus: ZodEnum<{
-  complete: "complete";
-  none: "none";
-  structural: "structural";
-}>;
+  complete: 'complete'
+  none: 'none'
+  structural: 'structural'
+}>
 ```
 
 Indexing progress of a book (§6): `structural` after phase A, `complete` after phase B.
 
-***
+---
 
 #### IR
 
 ```ts
-const IR: ZodDiscriminatedUnion<[ZodObject<{
-  direction: ZodEnum<{
-     LR: "LR";
-     TB: "TB";
-  }>;
-  edges: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     from: ZodString;
-     id: ZodString;
-     label: ZodOptional<ZodString>;
-     style: ZodEnum<{
-        dashed: "dashed";
-        solid: "solid";
-     }>;
-     to: ZodString;
-  }, $strip>>;
-  groups: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     id: ZodString;
-     label: ZodString;
-     parent: ZodOptional<ZodString>;
-  }, $strip>>;
-  nodes: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     group: ZodOptional<ZodString>;
-     id: ZodString;
-     label: ZodString;
-     shape: ZodEnum<{
-        actor: "actor";
-        box: "box";
-        decision: "decision";
-        note: "note";
-        queue: "queue";
-        store: "store";
-     }>;
-     sublabel: ZodOptional<ZodString>;
-  }, $strip>>;
-  title: ZodString;
-  type: ZodLiteral<"graph">;
-}, $strip>, ZodObject<{
-  messages: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     from: ZodString;
-     id: ZodString;
-     kind: ZodEnum<{
-        async: "async";
-        reply: "reply";
-        sync: "sync";
-     }>;
-     label: ZodString;
-     to: ZodString;
-  }, $strip>>;
-  participants: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     id: ZodString;
-     label: ZodString;
-  }, $strip>>;
-  title: ZodString;
-  type: ZodLiteral<"sequence">;
-}, $strip>, ZodObject<{
-  final: ZodArray<ZodString>;
-  initial: ZodString;
-  states: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     id: ZodString;
-     label: ZodString;
-  }, $strip>>;
-  title: ZodString;
-  transitions: ZodArray<ZodObject<{
-     event: ZodString;
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     from: ZodString;
-     guard: ZodOptional<ZodString>;
-     id: ZodString;
-     to: ZodString;
-  }, $strip>>;
-  type: ZodLiteral<"state">;
-}, $strip>], "type">;
+const IR: ZodDiscriminatedUnion<
+  [
+    ZodObject<
+      {
+        direction: ZodEnum<{
+          LR: 'LR'
+          TB: 'TB'
+        }>
+        edges: ZodArray<
+          ZodObject<
+            {
+              evidence: ZodObject<
+                {
+                  blockId: ZodString
+                  end: ZodOptional<ZodNumber>
+                  fuzzy: ZodOptional<ZodBoolean>
+                  quote: ZodString
+                  start: ZodOptional<ZodNumber>
+                },
+                $strip
+              >
+              from: ZodString
+              id: ZodString
+              label: ZodOptional<ZodString>
+              style: ZodEnum<{
+                dashed: 'dashed'
+                solid: 'solid'
+              }>
+              to: ZodString
+            },
+            $strip
+          >
+        >
+        groups: ZodArray<
+          ZodObject<
+            {
+              evidence: ZodObject<
+                {
+                  blockId: ZodString
+                  end: ZodOptional<ZodNumber>
+                  fuzzy: ZodOptional<ZodBoolean>
+                  quote: ZodString
+                  start: ZodOptional<ZodNumber>
+                },
+                $strip
+              >
+              id: ZodString
+              label: ZodString
+              parent: ZodOptional<ZodString>
+            },
+            $strip
+          >
+        >
+        nodes: ZodArray<
+          ZodObject<
+            {
+              evidence: ZodObject<
+                {
+                  blockId: ZodString
+                  end: ZodOptional<ZodNumber>
+                  fuzzy: ZodOptional<ZodBoolean>
+                  quote: ZodString
+                  start: ZodOptional<ZodNumber>
+                },
+                $strip
+              >
+              group: ZodOptional<ZodString>
+              id: ZodString
+              label: ZodString
+              shape: ZodEnum<{
+                actor: 'actor'
+                box: 'box'
+                decision: 'decision'
+                note: 'note'
+                queue: 'queue'
+                store: 'store'
+              }>
+              sublabel: ZodOptional<ZodString>
+            },
+            $strip
+          >
+        >
+        title: ZodString
+        type: ZodLiteral<'graph'>
+      },
+      $strip
+    >,
+    ZodObject<
+      {
+        messages: ZodArray<
+          ZodObject<
+            {
+              evidence: ZodObject<
+                {
+                  blockId: ZodString
+                  end: ZodOptional<ZodNumber>
+                  fuzzy: ZodOptional<ZodBoolean>
+                  quote: ZodString
+                  start: ZodOptional<ZodNumber>
+                },
+                $strip
+              >
+              from: ZodString
+              id: ZodString
+              kind: ZodEnum<{
+                async: 'async'
+                reply: 'reply'
+                sync: 'sync'
+              }>
+              label: ZodString
+              to: ZodString
+            },
+            $strip
+          >
+        >
+        participants: ZodArray<
+          ZodObject<
+            {
+              evidence: ZodObject<
+                {
+                  blockId: ZodString
+                  end: ZodOptional<ZodNumber>
+                  fuzzy: ZodOptional<ZodBoolean>
+                  quote: ZodString
+                  start: ZodOptional<ZodNumber>
+                },
+                $strip
+              >
+              id: ZodString
+              label: ZodString
+            },
+            $strip
+          >
+        >
+        title: ZodString
+        type: ZodLiteral<'sequence'>
+      },
+      $strip
+    >,
+    ZodObject<
+      {
+        final: ZodArray<ZodString>
+        initial: ZodString
+        states: ZodArray<
+          ZodObject<
+            {
+              evidence: ZodObject<
+                {
+                  blockId: ZodString
+                  end: ZodOptional<ZodNumber>
+                  fuzzy: ZodOptional<ZodBoolean>
+                  quote: ZodString
+                  start: ZodOptional<ZodNumber>
+                },
+                $strip
+              >
+              id: ZodString
+              label: ZodString
+            },
+            $strip
+          >
+        >
+        title: ZodString
+        transitions: ZodArray<
+          ZodObject<
+            {
+              event: ZodString
+              evidence: ZodObject<
+                {
+                  blockId: ZodString
+                  end: ZodOptional<ZodNumber>
+                  fuzzy: ZodOptional<ZodBoolean>
+                  quote: ZodString
+                  start: ZodOptional<ZodNumber>
+                },
+                $strip
+              >
+              from: ZodString
+              guard: ZodOptional<ZodString>
+              id: ZodString
+              to: ZodString
+            },
+            $strip
+          >
+        >
+        type: ZodLiteral<'state'>
+      },
+      $strip
+    >,
+  ],
+  'type'
+>
 ```
 
 Any extractor IR, discriminated by `type`. `trace` visuals use `Trace` instead of an IR.
 
-***
+---
 
 #### IrId
 
 ```ts
-const IrId: ZodString;
+const IrId: ZodString
 ```
 
 Id of an element inside one IR (node, edge, message, state, class…). Model-generated, so it is
 constrained to a short slug that is safe as a Mermaid id and as a `data-ir-id` value (§10, §13).
 
-***
+---
 
 #### Label
 
 ```ts
-const Label: ZodString;
+const Label: ZodString
 ```
 
 Display label: at most 40 characters, using the book's own terms (§8).
 
-***
+---
 
 #### LlmErrorCode
 
@@ -13197,18 +14263,21 @@ const LlmErrorCode: ZodEnum<{
 
 Error codes of the gateway (§9).
 
-***
+---
 
 #### LlmImage
 
 ```ts
-const LlmImage: ZodObject<{
-  base64: ZodString;
-  mediaType: ZodLiteral<"image/png">;
-}, $strip>;
+const LlmImage: ZodObject<
+  {
+    base64: ZodString
+    mediaType: ZodLiteral<'image/png'>
+  },
+  $strip
+>
 ```
 
-***
+---
 
 #### LlmLogEntry
 
@@ -13266,7 +14335,7 @@ const LlmLogEntry: ZodObject<{
 
 Row of the `llmLog` store (§9 client): one per call. Prompts only when `debugPrompts` is on.
 
-***
+---
 
 #### LlmOutcome
 
@@ -13283,7 +14352,7 @@ const LlmOutcome: ZodUnion<readonly [ZodLiteral<"ok">, ZodEnum<{
 
 Outcome of one model call: `ok` or the gateway error code (§9).
 
-***
+---
 
 #### LlmRequest
 
@@ -13360,7 +14429,7 @@ const LlmRequest: ZodObject<{
 
 Request body of `POST /api/llm` (§9).
 
-***
+---
 
 #### LlmResponse
 
@@ -13398,81 +14467,101 @@ const LlmResponse: ZodDiscriminatedUnion<[ZodObject<{
 
 Response body of `POST /api/llm` (§9). `effort` is the effort actually sent (ADR 0003).
 
-***
+---
 
 #### LlmUsage
 
 ```ts
-const LlmUsage: ZodObject<{
-  cachedInput: ZodNumber;
-  input: ZodNumber;
-  output: ZodNumber;
-}, $strip>;
+const LlmUsage: ZodObject<
+  {
+    cachedInput: ZodNumber
+    input: ZodNumber
+    output: ZodNumber
+  },
+  $strip
+>
 ```
 
-***
+---
 
 #### MathIR
 
 ```ts
-const MathIR: ZodObject<{
-  sourceBlockId: ZodString;
-  terms: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     meaning: ZodString;
-     symbol: ZodString;
-  }, $strip>>;
-  type: ZodLiteral<"math">;
-}, $strip>;
+const MathIR: ZodObject<
+  {
+    sourceBlockId: ZodString
+    terms: ZodArray<
+      ZodObject<
+        {
+          evidence: ZodObject<
+            {
+              blockId: ZodString
+              end: ZodOptional<ZodNumber>
+              fuzzy: ZodOptional<ZodBoolean>
+              quote: ZodString
+              start: ZodOptional<ZodNumber>
+            },
+            $strip
+          >
+          meaning: ZodString
+          symbol: ZodString
+        },
+        $strip
+      >
+    >
+    type: ZodLiteral<'math'>
+  },
+  $strip
+>
 ```
 
 Term meanings for a formula; the formula itself always comes from the book block (§5, §10).
 
-***
+---
 
 #### MathTerm
 
 ```ts
-const MathTerm: ZodObject<{
-  evidence: ZodObject<{
-     blockId: ZodString;
-     end: ZodOptional<ZodNumber>;
-     fuzzy: ZodOptional<ZodBoolean>;
-     quote: ZodString;
-     start: ZodOptional<ZodNumber>;
-  }, $strip>;
-  meaning: ZodString;
-  symbol: ZodString;
-}, $strip>;
+const MathTerm: ZodObject<
+  {
+    evidence: ZodObject<
+      {
+        blockId: ZodString
+        end: ZodOptional<ZodNumber>
+        fuzzy: ZodOptional<ZodBoolean>
+        quote: ZodString
+        start: ZodOptional<ZodNumber>
+      },
+      $strip
+    >
+    meaning: ZodString
+    symbol: ZodString
+  },
+  $strip
+>
 ```
 
-***
+---
 
-#### MAX\_DROPPED\_SHARE
+#### MAX_DROPPED_SHARE
 
 ```ts
-const MAX_DROPPED_SHARE: 0.3 = 0.3;
+const MAX_DROPPED_SHARE: 0.3 = 0.3
 ```
 
 Share of dropped elements above which the extractor is re-run once (§8 stage 3 step 3, §16 L2).
 
-***
+---
 
-#### MIN\_QUOTE\_WORDS
+#### MIN_QUOTE_WORDS
 
 ```ts
-const MIN_QUOTE_WORDS: 3 = 3;
+const MIN_QUOTE_WORDS: 3 = 3
 ```
 
 Quotes shorter than this many words fail (§16 step 6).
 
-***
+---
 
 #### Patch
 
@@ -13549,73 +14638,107 @@ const Patch: ZodObject<{
 
 A stored patch (§5). Patch 0 of a model is its base.
 
-***
+---
 
 #### PatchOp
 
 ```ts
-const PatchOp: ZodDiscriminatedUnion<[ZodObject<{
-  node: ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     group: ZodOptional<ZodString>;
-     id: ZodString;
-     label: ZodString;
-     shape: ZodEnum<{
-        actor: "actor";
-        box: "box";
-        decision: "decision";
-        note: "note";
-        queue: "queue";
-        store: "store";
-     }>;
-     sublabel: ZodOptional<ZodString>;
-  }, $strip>;
-  op: ZodLiteral<"addNode">;
-}, $strip>, ZodObject<{
-  edge: ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     from: ZodString;
-     id: ZodString;
-     label: ZodOptional<ZodString>;
-     style: ZodEnum<{
-        dashed: "dashed";
-        solid: "solid";
-     }>;
-     to: ZodString;
-  }, $strip>;
-  op: ZodLiteral<"addEdge">;
-}, $strip>, ZodObject<{
-  group: ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     id: ZodString;
-     label: ZodString;
-     parent: ZodOptional<ZodString>;
-  }, $strip>;
-  op: ZodLiteral<"addGroup">;
-}, $strip>], "op">;
+const PatchOp: ZodDiscriminatedUnion<
+  [
+    ZodObject<
+      {
+        node: ZodObject<
+          {
+            evidence: ZodObject<
+              {
+                blockId: ZodString
+                end: ZodOptional<ZodNumber>
+                fuzzy: ZodOptional<ZodBoolean>
+                quote: ZodString
+                start: ZodOptional<ZodNumber>
+              },
+              $strip
+            >
+            group: ZodOptional<ZodString>
+            id: ZodString
+            label: ZodString
+            shape: ZodEnum<{
+              actor: 'actor'
+              box: 'box'
+              decision: 'decision'
+              note: 'note'
+              queue: 'queue'
+              store: 'store'
+            }>
+            sublabel: ZodOptional<ZodString>
+          },
+          $strip
+        >
+        op: ZodLiteral<'addNode'>
+      },
+      $strip
+    >,
+    ZodObject<
+      {
+        edge: ZodObject<
+          {
+            evidence: ZodObject<
+              {
+                blockId: ZodString
+                end: ZodOptional<ZodNumber>
+                fuzzy: ZodOptional<ZodBoolean>
+                quote: ZodString
+                start: ZodOptional<ZodNumber>
+              },
+              $strip
+            >
+            from: ZodString
+            id: ZodString
+            label: ZodOptional<ZodString>
+            style: ZodEnum<{
+              dashed: 'dashed'
+              solid: 'solid'
+            }>
+            to: ZodString
+          },
+          $strip
+        >
+        op: ZodLiteral<'addEdge'>
+      },
+      $strip
+    >,
+    ZodObject<
+      {
+        group: ZodObject<
+          {
+            evidence: ZodObject<
+              {
+                blockId: ZodString
+                end: ZodOptional<ZodNumber>
+                fuzzy: ZodOptional<ZodBoolean>
+                quote: ZodString
+                start: ZodOptional<ZodNumber>
+              },
+              $strip
+            >
+            id: ZodString
+            label: ZodString
+            parent: ZodOptional<ZodString>
+          },
+          $strip
+        >
+        op: ZodLiteral<'addGroup'>
+      },
+      $strip
+    >,
+  ],
+  'op'
+>
 ```
 
 One patch operation (§13). The spec's `item: unknown` add-ops are typed per kind here.
 
-***
+---
 
 #### PatchOutput
 
@@ -13683,7 +14806,7 @@ const PatchOutput: ZodObject<{
 
 Output of the `patcher` role: at most 8 ops for one section (§13).
 
-***
+---
 
 #### PlanItem
 
@@ -13733,7 +14856,7 @@ const PlanItem: ZodObject<{
 
 One visual the planner wants for a section (§5).
 
-***
+---
 
 #### PlanRecord
 
@@ -13804,20 +14927,23 @@ const PlanRecord: ZodObject<{
 
 Record of the `plans` store (§5), keyed by the plan cache key.
 
-***
+---
 
 #### ProducedWith
 
 ```ts
-const ProducedWith: ZodObject<{
-  model: ZodString;
-  promptVersion: ZodString;
-}, $strip>;
+const ProducedWith: ZodObject<
+  {
+    model: ZodString
+    promptVersion: ZodString
+  },
+  $strip
+>
 ```
 
 Which model and prompt version produced a record (`indexedWith`, `createdWith`, §5).
 
-***
+---
 
 #### RawTrace
 
@@ -13869,21 +14995,21 @@ const RawTrace: ZodObject<{
 
 What the trace worker returns for one run, before compression (§12 trace worker API).
 
-***
+---
 
 #### ReasoningEffort
 
 ```ts
 const ReasoningEffort: ZodEnum<{
-  high: "high";
-  low: "low";
-  medium: "medium";
-}>;
+  high: 'high'
+  low: 'low'
+  medium: 'medium'
+}>
 ```
 
 Reasoning effort sent on every model call. v1 allows only these three (§9).
 
-***
+---
 
 #### RoleName
 
@@ -13909,12 +15035,12 @@ const RoleName: ZodEnum<{
 }>;
 ```
 
-***
+---
 
 #### ROLES
 
 ```ts
-const ROLES: object;
+const ROLES: object
 ```
 
 The §9 roles table. Owners of each prompt are listed in CLAUDE.md.
@@ -14389,7 +15515,7 @@ readonly schemas: readonly ["Translation"];
 readonly tier: "standard" = 'standard';
 ```
 
-***
+---
 
 #### ScenarioTrace
 
@@ -14442,49 +15568,49 @@ const ScenarioTrace: ZodObject<{
 
 A trace with the label of the scenario it ran (scenario tabs in the trace view).
 
-***
+---
 
-#### SCHEMA\_OF
+#### SCHEMA_OF
 
 ```ts
-const SCHEMA_OF: Record<IrKind, keyof typeof SCHEMAS>;
+const SCHEMA_OF: Record<IrKind, keyof typeof SCHEMAS>
 ```
 
 Output schema of each IR kind.
 
-***
+---
 
 #### SchemaName
 
 ```ts
 const SchemaName: ZodEnum<{
-  AnimationIR: "AnimationIR";
-  BookSummary: "BookSummary";
-  ChartIR: "ChartIR";
-  ClassIR: "ClassIR";
-  CriticReport: "CriticReport";
-  ErIR: "ErIR";
-  GlossaryOutput: "GlossaryOutput";
-  GraphIR: "GraphIR";
-  HtmlIR: "HtmlIR";
-  IndexerOutput: "IndexerOutput";
-  MathIR: "MathIR";
-  PatchOutput: "PatchOutput";
-  SequenceIR: "SequenceIR";
-  StateIR: "StateIR";
-  TemplateIR: "TemplateIR";
-  TimelineIR: "TimelineIR";
-  Translation: "Translation";
-  VisualPlan: "VisualPlan";
-}>;
+  AnimationIR: 'AnimationIR'
+  BookSummary: 'BookSummary'
+  ChartIR: 'ChartIR'
+  ClassIR: 'ClassIR'
+  CriticReport: 'CriticReport'
+  ErIR: 'ErIR'
+  GlossaryOutput: 'GlossaryOutput'
+  GraphIR: 'GraphIR'
+  HtmlIR: 'HtmlIR'
+  IndexerOutput: 'IndexerOutput'
+  MathIR: 'MathIR'
+  PatchOutput: 'PatchOutput'
+  SequenceIR: 'SequenceIR'
+  StateIR: 'StateIR'
+  TemplateIR: 'TemplateIR'
+  TimelineIR: 'TimelineIR'
+  Translation: 'Translation'
+  VisualPlan: 'VisualPlan'
+}>
 ```
 
-***
+---
 
 #### SCHEMAS
 
 ```ts
-const SCHEMAS: object;
+const SCHEMAS: object
 ```
 
 Every model output schema, by name. The gateway resolves `schemaName` through this map (§9).
@@ -15185,368 +16311,502 @@ VisualPlan: ZodObject<{
 
 Output of the `planner` role (§5, §8 stage 1): at most 3 items, none when no visual is needed.
 
-***
+---
 
 #### SectionFlags
 
 ```ts
-const SectionFlags: ZodObject<{
-  algorithm: ZodBoolean;
-  architecture: ZodBoolean;
-  codeHeavy: ZodBoolean;
-  dataStructure: ZodBoolean;
-  math: ZodBoolean;
-  narrative: ZodBoolean;
-  protocol: ZodBoolean;
-  stateMachine: ZodBoolean;
-}, $strip>;
+const SectionFlags: ZodObject<
+  {
+    algorithm: ZodBoolean
+    architecture: ZodBoolean
+    codeHeavy: ZodBoolean
+    dataStructure: ZodBoolean
+    math: ZodBoolean
+    narrative: ZodBoolean
+    protocol: ZodBoolean
+    stateMachine: ZodBoolean
+  },
+  $strip
+>
 ```
 
 Content flags the indexer sets per section (§5).
 
-***
+---
 
 #### SectionIndex
 
 ```ts
-const SectionIndex: ZodObject<{
-  defines: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     name: ZodString;
-  }, $strip>>;
-  flags: ZodObject<{
-     algorithm: ZodBoolean;
-     architecture: ZodBoolean;
-     codeHeavy: ZodBoolean;
-     dataStructure: ZodBoolean;
-     math: ZodBoolean;
-     narrative: ZodBoolean;
-     protocol: ZodBoolean;
-     stateMachine: ZodBoolean;
-  }, $strip>;
-  indexedWith: ZodObject<{
-     model: ZodString;
-     promptVersion: ZodString;
-  }, $strip>;
-  sectionId: ZodString;
-  summary: ZodString;
-  uses: ZodArray<ZodObject<{
-     name: ZodString;
-  }, $strip>>;
-}, $strip>;
+const SectionIndex: ZodObject<
+  {
+    defines: ZodArray<
+      ZodObject<
+        {
+          evidence: ZodObject<
+            {
+              blockId: ZodString
+              end: ZodOptional<ZodNumber>
+              fuzzy: ZodOptional<ZodBoolean>
+              quote: ZodString
+              start: ZodOptional<ZodNumber>
+            },
+            $strip
+          >
+          name: ZodString
+        },
+        $strip
+      >
+    >
+    flags: ZodObject<
+      {
+        algorithm: ZodBoolean
+        architecture: ZodBoolean
+        codeHeavy: ZodBoolean
+        dataStructure: ZodBoolean
+        math: ZodBoolean
+        narrative: ZodBoolean
+        protocol: ZodBoolean
+        stateMachine: ZodBoolean
+      },
+      $strip
+    >
+    indexedWith: ZodObject<
+      {
+        model: ZodString
+        promptVersion: ZodString
+      },
+      $strip
+    >
+    sectionId: ZodString
+    summary: ZodString
+    uses: ZodArray<
+      ZodObject<
+        {
+          name: ZodString
+        },
+        $strip
+      >
+    >
+  },
+  $strip
+>
 ```
 
 Per-section concept index (§5).
 
-***
+---
 
 #### SectionIndexOutput
 
 ```ts
-const SectionIndexOutput: ZodObject<{
-  defines: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     name: ZodString;
-  }, $strip>>;
-  flags: ZodObject<{
-     algorithm: ZodBoolean;
-     architecture: ZodBoolean;
-     codeHeavy: ZodBoolean;
-     dataStructure: ZodBoolean;
-     math: ZodBoolean;
-     narrative: ZodBoolean;
-     protocol: ZodBoolean;
-     stateMachine: ZodBoolean;
-  }, $strip>;
-  sectionId: ZodString;
-  summary: ZodString;
-  uses: ZodArray<ZodObject<{
-     name: ZodString;
-  }, $strip>>;
-}, $strip>;
+const SectionIndexOutput: ZodObject<
+  {
+    defines: ZodArray<
+      ZodObject<
+        {
+          evidence: ZodObject<
+            {
+              blockId: ZodString
+              end: ZodOptional<ZodNumber>
+              fuzzy: ZodOptional<ZodBoolean>
+              quote: ZodString
+              start: ZodOptional<ZodNumber>
+            },
+            $strip
+          >
+          name: ZodString
+        },
+        $strip
+      >
+    >
+    flags: ZodObject<
+      {
+        algorithm: ZodBoolean
+        architecture: ZodBoolean
+        codeHeavy: ZodBoolean
+        dataStructure: ZodBoolean
+        math: ZodBoolean
+        narrative: ZodBoolean
+        protocol: ZodBoolean
+        stateMachine: ZodBoolean
+      },
+      $strip
+    >
+    sectionId: ZodString
+    summary: ZodString
+    uses: ZodArray<
+      ZodObject<
+        {
+          name: ZodString
+        },
+        $strip
+      >
+    >
+  },
+  $strip
+>
 ```
 
 What the `indexer` model returns for one section; the client adds `indexedWith`.
 
-***
+---
 
 #### SectionIndexRecord
 
 ```ts
-const SectionIndexRecord: ZodObject<{
-  bookId: ZodString;
-  defines: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     name: ZodString;
-  }, $strip>>;
-  flags: ZodObject<{
-     algorithm: ZodBoolean;
-     architecture: ZodBoolean;
-     codeHeavy: ZodBoolean;
-     dataStructure: ZodBoolean;
-     math: ZodBoolean;
-     narrative: ZodBoolean;
-     protocol: ZodBoolean;
-     stateMachine: ZodBoolean;
-  }, $strip>;
-  indexedWith: ZodObject<{
-     model: ZodString;
-     promptVersion: ZodString;
-  }, $strip>;
-  sectionId: ZodString;
-  summary: ZodString;
-  uses: ZodArray<ZodObject<{
-     name: ZodString;
-  }, $strip>>;
-}, $strip>;
+const SectionIndexRecord: ZodObject<
+  {
+    bookId: ZodString
+    defines: ZodArray<
+      ZodObject<
+        {
+          evidence: ZodObject<
+            {
+              blockId: ZodString
+              end: ZodOptional<ZodNumber>
+              fuzzy: ZodOptional<ZodBoolean>
+              quote: ZodString
+              start: ZodOptional<ZodNumber>
+            },
+            $strip
+          >
+          name: ZodString
+        },
+        $strip
+      >
+    >
+    flags: ZodObject<
+      {
+        algorithm: ZodBoolean
+        architecture: ZodBoolean
+        codeHeavy: ZodBoolean
+        dataStructure: ZodBoolean
+        math: ZodBoolean
+        narrative: ZodBoolean
+        protocol: ZodBoolean
+        stateMachine: ZodBoolean
+      },
+      $strip
+    >
+    indexedWith: ZodObject<
+      {
+        model: ZodString
+        promptVersion: ZodString
+      },
+      $strip
+    >
+    sectionId: ZodString
+    summary: ZodString
+    uses: ZodArray<
+      ZodObject<
+        {
+          name: ZodString
+        },
+        $strip
+      >
+    >
+  },
+  $strip
+>
 ```
 
 Record of the `sectionIndex` store: a `SectionIndex` plus its `bookId` (store index, §5).
 
-***
+---
 
 #### SectionLevel
 
 ```ts
-const SectionLevel: ZodLiteral<1 | 2 | 3 | 4>;
+const SectionLevel: ZodLiteral<1 | 2 | 3 | 4>
 ```
 
 Heading level that starts a section (h1–h4, §6 step 4).
 
-***
+---
 
 #### SectionNode
 
 ```ts
-const SectionNode: ZodObject<{
-  blockIds: ZodArray<ZodString>;
-  bookId: ZodString;
-  cfiEnd: ZodString;
-  cfiStart: ZodString;
-  childIds: ZodArray<ZodString>;
-  contentHash: ZodString;
-  headingPath: ZodArray<ZodString>;
-  level: ZodLiteral<1 | 2 | 3 | 4>;
-  mergedInto: ZodOptional<ZodString>;
-  number: ZodOptional<ZodString>;
-  ordinal: ZodNumber;
-  parentId: ZodOptional<ZodString>;
-  sectionId: ZodString;
-  spineHref: ZodString;
-  spineIndex: ZodNumber;
-  title: ZodString;
-  tokenEstimate: ZodNumber;
-}, $strip>;
+const SectionNode: ZodObject<
+  {
+    blockIds: ZodArray<ZodString>
+    bookId: ZodString
+    cfiEnd: ZodString
+    cfiStart: ZodString
+    childIds: ZodArray<ZodString>
+    contentHash: ZodString
+    headingPath: ZodArray<ZodString>
+    level: ZodLiteral<1 | 2 | 3 | 4>
+    mergedInto: ZodOptional<ZodString>
+    number: ZodOptional<ZodString>
+    ordinal: ZodNumber
+    parentId: ZodOptional<ZodString>
+    sectionId: ZodString
+    spineHref: ZodString
+    spineIndex: ZodNumber
+    title: ZodString
+    tokenEstimate: ZodNumber
+  },
+  $strip
+>
 ```
 
 A heading-delimited unit inside a spine item; the unit of generation (§5).
 
-***
+---
 
 #### SequenceIR
 
 ```ts
-const SequenceIR: ZodObject<{
-  messages: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     from: ZodString;
-     id: ZodString;
-     kind: ZodEnum<{
-        async: "async";
-        reply: "reply";
-        sync: "sync";
-     }>;
-     label: ZodString;
-     to: ZodString;
-  }, $strip>>;
-  participants: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     id: ZodString;
-     label: ZodString;
-  }, $strip>>;
-  title: ZodString;
-  type: ZodLiteral<"sequence">;
-}, $strip>;
+const SequenceIR: ZodObject<
+  {
+    messages: ZodArray<
+      ZodObject<
+        {
+          evidence: ZodObject<
+            {
+              blockId: ZodString
+              end: ZodOptional<ZodNumber>
+              fuzzy: ZodOptional<ZodBoolean>
+              quote: ZodString
+              start: ZodOptional<ZodNumber>
+            },
+            $strip
+          >
+          from: ZodString
+          id: ZodString
+          kind: ZodEnum<{
+            async: 'async'
+            reply: 'reply'
+            sync: 'sync'
+          }>
+          label: ZodString
+          to: ZodString
+        },
+        $strip
+      >
+    >
+    participants: ZodArray<
+      ZodObject<
+        {
+          evidence: ZodObject<
+            {
+              blockId: ZodString
+              end: ZodOptional<ZodNumber>
+              fuzzy: ZodOptional<ZodBoolean>
+              quote: ZodString
+              start: ZodOptional<ZodNumber>
+            },
+            $strip
+          >
+          id: ZodString
+          label: ZodString
+        },
+        $strip
+      >
+    >
+    title: ZodString
+    type: ZodLiteral<'sequence'>
+  },
+  $strip
+>
 ```
 
 Messages between parties over time; Mermaid (§8). ≤ 6 participants, ≤ 20 messages.
 
-***
+---
 
 #### SequenceMessage
 
 ```ts
-const SequenceMessage: ZodObject<{
-  evidence: ZodObject<{
-     blockId: ZodString;
-     end: ZodOptional<ZodNumber>;
-     fuzzy: ZodOptional<ZodBoolean>;
-     quote: ZodString;
-     start: ZodOptional<ZodNumber>;
-  }, $strip>;
-  from: ZodString;
-  id: ZodString;
-  kind: ZodEnum<{
-     async: "async";
-     reply: "reply";
-     sync: "sync";
-  }>;
-  label: ZodString;
-  to: ZodString;
-}, $strip>;
+const SequenceMessage: ZodObject<
+  {
+    evidence: ZodObject<
+      {
+        blockId: ZodString
+        end: ZodOptional<ZodNumber>
+        fuzzy: ZodOptional<ZodBoolean>
+        quote: ZodString
+        start: ZodOptional<ZodNumber>
+      },
+      $strip
+    >
+    from: ZodString
+    id: ZodString
+    kind: ZodEnum<{
+      async: 'async'
+      reply: 'reply'
+      sync: 'sync'
+    }>
+    label: ZodString
+    to: ZodString
+  },
+  $strip
+>
 ```
 
-***
+---
 
 #### SequenceParticipant
 
 ```ts
-const SequenceParticipant: ZodObject<{
-  evidence: ZodObject<{
-     blockId: ZodString;
-     end: ZodOptional<ZodNumber>;
-     fuzzy: ZodOptional<ZodBoolean>;
-     quote: ZodString;
-     start: ZodOptional<ZodNumber>;
-  }, $strip>;
-  id: ZodString;
-  label: ZodString;
-}, $strip>;
+const SequenceParticipant: ZodObject<
+  {
+    evidence: ZodObject<
+      {
+        blockId: ZodString
+        end: ZodOptional<ZodNumber>
+        fuzzy: ZodOptional<ZodBoolean>
+        quote: ZodString
+        start: ZodOptional<ZodNumber>
+      },
+      $strip
+    >
+    id: ZodString
+    label: ZodString
+  },
+  $strip
+>
 ```
 
-***
+---
 
 #### SettingRecord
 
 ```ts
-const SettingRecord: ZodObject<{
-  key: ZodString;
-  value: ZodUnknown;
-}, $strip>;
+const SettingRecord: ZodObject<
+  {
+    key: ZodString
+    value: ZodUnknown
+  },
+  $strip
+>
 ```
 
 Row of the `settings` store (§5): a key and a JSON value.
 
-***
+---
 
 #### Sha256Hex
 
 ```ts
-const Sha256Hex: ZodString;
+const Sha256Hex: ZodString
 ```
 
 SHA-256 as 64 lowercase hex characters.
 
-***
+---
 
 #### StateIR
 
 ```ts
-const StateIR: ZodObject<{
-  final: ZodArray<ZodString>;
-  initial: ZodString;
-  states: ZodArray<ZodObject<{
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     id: ZodString;
-     label: ZodString;
-  }, $strip>>;
-  title: ZodString;
-  transitions: ZodArray<ZodObject<{
-     event: ZodString;
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     from: ZodString;
-     guard: ZodOptional<ZodString>;
-     id: ZodString;
-     to: ZodString;
-  }, $strip>>;
-  type: ZodLiteral<"state">;
-}, $strip>;
+const StateIR: ZodObject<
+  {
+    final: ZodArray<ZodString>
+    initial: ZodString
+    states: ZodArray<
+      ZodObject<
+        {
+          evidence: ZodObject<
+            {
+              blockId: ZodString
+              end: ZodOptional<ZodNumber>
+              fuzzy: ZodOptional<ZodBoolean>
+              quote: ZodString
+              start: ZodOptional<ZodNumber>
+            },
+            $strip
+          >
+          id: ZodString
+          label: ZodString
+        },
+        $strip
+      >
+    >
+    title: ZodString
+    transitions: ZodArray<
+      ZodObject<
+        {
+          event: ZodString
+          evidence: ZodObject<
+            {
+              blockId: ZodString
+              end: ZodOptional<ZodNumber>
+              fuzzy: ZodOptional<ZodBoolean>
+              quote: ZodString
+              start: ZodOptional<ZodNumber>
+            },
+            $strip
+          >
+          from: ZodString
+          guard: ZodOptional<ZodString>
+          id: ZodString
+          to: ZodString
+        },
+        $strip
+      >
+    >
+    type: ZodLiteral<'state'>
+  },
+  $strip
+>
 ```
 
 Modes, lifecycles, transitions on events; Mermaid (§8). ≤ 10 states.
 
-***
+---
 
 #### StateNode
 
 ```ts
-const StateNode: ZodObject<{
-  evidence: ZodObject<{
-     blockId: ZodString;
-     end: ZodOptional<ZodNumber>;
-     fuzzy: ZodOptional<ZodBoolean>;
-     quote: ZodString;
-     start: ZodOptional<ZodNumber>;
-  }, $strip>;
-  id: ZodString;
-  label: ZodString;
-}, $strip>;
+const StateNode: ZodObject<
+  {
+    evidence: ZodObject<
+      {
+        blockId: ZodString
+        end: ZodOptional<ZodNumber>
+        fuzzy: ZodOptional<ZodBoolean>
+        quote: ZodString
+        start: ZodOptional<ZodNumber>
+      },
+      $strip
+    >
+    id: ZodString
+    label: ZodString
+  },
+  $strip
+>
 ```
 
-***
+---
 
 #### StateTransition
 
 ```ts
-const StateTransition: ZodObject<{
-  event: ZodString;
-  evidence: ZodObject<{
-     blockId: ZodString;
-     end: ZodOptional<ZodNumber>;
-     fuzzy: ZodOptional<ZodBoolean>;
-     quote: ZodString;
-     start: ZodOptional<ZodNumber>;
-  }, $strip>;
-  from: ZodString;
-  guard: ZodOptional<ZodString>;
-  id: ZodString;
-  to: ZodString;
-}, $strip>;
+const StateTransition: ZodObject<
+  {
+    event: ZodString
+    evidence: ZodObject<
+      {
+        blockId: ZodString
+        end: ZodOptional<ZodNumber>
+        fuzzy: ZodOptional<ZodBoolean>
+        quote: ZodString
+        start: ZodOptional<ZodNumber>
+      },
+      $strip
+    >
+    from: ZodString
+    guard: ZodOptional<ZodString>
+    id: ZodString
+    to: ZodString
+  },
+  $strip
+>
 ```
 
-***
+---
 
 #### Step
 
@@ -15582,46 +16842,74 @@ const Step: ZodObject<{
 
 One step: narration ≤ 140 characters, grounded, ≤ 6 actions (§11).
 
-***
+---
 
-#### STORE\_NAMES
+#### STORE_NAMES
 
 ```ts
-const STORE_NAMES: readonly ["books", "sections", "blocks", "crossRefs", "sectionIndex", "concepts", "conceptModels", "plans", "visuals", "traces", "llmLog", "settings"];
+const STORE_NAMES: readonly [
+  'books',
+  'sections',
+  'blocks',
+  'crossRefs',
+  'sectionIndex',
+  'concepts',
+  'conceptModels',
+  'plans',
+  'visuals',
+  'traces',
+  'llmLog',
+  'settings',
+]
 ```
 
 Names of the stores in the `illus` database.
 
-***
+---
 
 #### Target
 
 ```ts
-const Target: ZodUnion<readonly [ZodTemplateLiteral<`node:${string}`>, ZodTemplateLiteral<`edge:${string}`>, ZodTemplateLiteral<`group:${string}`>, ZodTemplateLiteral<`msg:${string}`>, ZodTemplateLiteral<`cell:${string}[${number}]`>, ZodTemplateLiteral<`item:${string}`>]>;
+const Target: ZodUnion<
+  readonly [
+    ZodTemplateLiteral<`node:${string}`>,
+    ZodTemplateLiteral<`edge:${string}`>,
+    ZodTemplateLiteral<`group:${string}`>,
+    ZodTemplateLiteral<`msg:${string}`>,
+    ZodTemplateLiteral<`cell:${string}[${number}]`>,
+    ZodTemplateLiteral<`item:${string}`>,
+  ]
+>
 ```
 
 An addressable element of a validated IR or template instance (§11).
 
-***
+---
 
 #### TemplateEvidence
 
 ```ts
-const TemplateEvidence: ZodObject<{
-  evidence: ZodObject<{
-     blockId: ZodString;
-     end: ZodOptional<ZodNumber>;
-     fuzzy: ZodOptional<ZodBoolean>;
-     quote: ZodString;
-     start: ZodOptional<ZodNumber>;
-  }, $strip>;
-  path: ZodString;
-}, $strip>;
+const TemplateEvidence: ZodObject<
+  {
+    evidence: ZodObject<
+      {
+        blockId: ZodString
+        end: ZodOptional<ZodNumber>
+        fuzzy: ZodOptional<ZodBoolean>
+        quote: ZodString
+        start: ZodOptional<ZodNumber>
+      },
+      $strip
+    >
+    path: ZodString
+  },
+  $strip
+>
 ```
 
 Evidence for one element of a template's props, addressed by element path, e.g. 'nodes.3' (§5).
 
-***
+---
 
 #### TemplateId
 
@@ -15648,7 +16936,7 @@ const TemplateId: ZodEnum<{
 
 The 16 templates of the template library (§10).
 
-***
+---
 
 #### TemplateIR
 
@@ -15691,12 +16979,12 @@ Data-structure template instance (§5, §10). `props` is validated by the templa
 the template registry. `evidence` is a list keyed by element path instead of the spec's
 `Record<string, Evidence>` so it fits strict structured outputs (ADR 0003).
 
-***
+---
 
-#### THEME\_TOKEN\_VARS
+#### THEME_TOKEN_VARS
 
 ```ts
-const THEME_TOKEN_VARS: object;
+const THEME_TOKEN_VARS: object
 ```
 
 CSS variable name of each colour/font token.
@@ -15763,116 +17051,144 @@ readonly muted: "--illus-muted" = '--illus-muted';
 readonly new: "--illus-new" = '--illus-new';
 ```
 
-***
+---
 
 #### ThemeTokens
 
 ```ts
-const ThemeTokens: ZodObject<{
-  accent: ZodString;
-  bg: ZodString;
-  dark: ZodBoolean;
-  earlier: ZodString;
-  fg: ZodString;
-  font: ZodString;
-  highlight: ZodString;
-  line: ZodString;
-  mono: ZodString;
-  muted: ZodString;
-  new: ZodString;
-}, $strip>;
+const ThemeTokens: ZodObject<
+  {
+    accent: ZodString
+    bg: ZodString
+    dark: ZodBoolean
+    earlier: ZodString
+    fg: ZodString
+    font: ZodString
+    highlight: ZodString
+    line: ZodString
+    mono: ZodString
+    muted: ZodString
+    new: ZodString
+  },
+  $strip
+>
 ```
 
 Theme tokens derived from Flow's active theme, exposed as `--illus-*` CSS variables (§10).
 
-***
+---
 
 #### Tier
 
 ```ts
 const Tier: ZodEnum<{
-  deep: "deep";
-  fast: "fast";
-  standard: "standard";
-}>;
+  deep: 'deep'
+  fast: 'fast'
+  standard: 'standard'
+}>
 ```
 
 Model tier a role runs on (§9).
 
-***
+---
 
 #### TimelineEvent
 
 ```ts
-const TimelineEvent: ZodObject<{
-  at: ZodNumber;
-  evidence: ZodObject<{
-     blockId: ZodString;
-     end: ZodOptional<ZodNumber>;
-     fuzzy: ZodOptional<ZodBoolean>;
-     quote: ZodString;
-     start: ZodOptional<ZodNumber>;
-  }, $strip>;
-  id: ZodString;
-  label: ZodString;
-  lane: ZodString;
-  to: ZodOptional<ZodString>;
-}, $strip>;
+const TimelineEvent: ZodObject<
+  {
+    at: ZodNumber
+    evidence: ZodObject<
+      {
+        blockId: ZodString
+        end: ZodOptional<ZodNumber>
+        fuzzy: ZodOptional<ZodBoolean>
+        quote: ZodString
+        start: ZodOptional<ZodNumber>
+      },
+      $strip
+    >
+    id: ZodString
+    label: ZodString
+    lane: ZodString
+    to: ZodOptional<ZodString>
+  },
+  $strip
+>
 ```
 
-***
+---
 
 #### TimelineIR
 
 ```ts
-const TimelineIR: ZodObject<{
-  events: ZodArray<ZodObject<{
-     at: ZodNumber;
-     evidence: ZodObject<{
-        blockId: ZodString;
-        end: ZodOptional<ZodNumber>;
-        fuzzy: ZodOptional<ZodBoolean>;
-        quote: ZodString;
-        start: ZodOptional<ZodNumber>;
-     }, $strip>;
-     id: ZodString;
-     label: ZodString;
-     lane: ZodString;
-     to: ZodOptional<ZodString>;
-  }, $strip>>;
-  lanes: ZodArray<ZodObject<{
-     id: ZodString;
-     label: ZodString;
-  }, $strip>>;
-  simulated: ZodLiteral<true>;
-  type: ZodLiteral<"timeline">;
-}, $strip>;
+const TimelineIR: ZodObject<
+  {
+    events: ZodArray<
+      ZodObject<
+        {
+          at: ZodNumber
+          evidence: ZodObject<
+            {
+              blockId: ZodString
+              end: ZodOptional<ZodNumber>
+              fuzzy: ZodOptional<ZodBoolean>
+              quote: ZodString
+              start: ZodOptional<ZodNumber>
+            },
+            $strip
+          >
+          id: ZodString
+          label: ZodString
+          lane: ZodString
+          to: ZodOptional<ZodString>
+        },
+        $strip
+      >
+    >
+    lanes: ZodArray<
+      ZodObject<
+        {
+          id: ZodString
+          label: ZodString
+        },
+        $strip
+      >
+    >
+    simulated: ZodLiteral<true>
+    type: ZodLiteral<'timeline'>
+  },
+  $strip
+>
 ```
 
 Concurrency lanes and events; always a simulated timeline (§2 D9, §10).
 
-***
+---
 
 #### TimelineLane
 
 ```ts
-const TimelineLane: ZodObject<{
-  id: ZodString;
-  label: ZodString;
-}, $strip>;
+const TimelineLane: ZodObject<
+  {
+    id: ZodString
+    label: ZodString
+  },
+  $strip
+>
 ```
 
-***
+---
 
 #### Timestamp
 
 ```ts
-const Timestamp: ZodNumber;
+const Timestamp: ZodNumber
 ```
 
 Milliseconds since the Unix epoch.
 
-***
+---
 
 #### Trace
 
@@ -15932,7 +17248,7 @@ const Trace: ZodObject<{
 
 A compressed, stored trace of one scenario (§5, §12). `input` is the scenario's entry call.
 
-***
+---
 
 #### TraceRecord
 
@@ -16025,7 +17341,7 @@ const TraceRecord: ZodObject<{
 
 Record of the `traces` store (§5), keyed by the trace cache key.
 
-***
+---
 
 #### TraceStep
 
@@ -16085,7 +17401,7 @@ const TraceStep: ZodObject<{
 
 One recorded execution event (§12). Frames are innermost last.
 
-***
+---
 
 #### Translation
 
@@ -16133,102 +17449,127 @@ const Translation: ZodObject<{
 
 Output of the `translator` and `trace-fixer` roles (§12).
 
-***
+---
 
 #### ValidationIssue
 
 ```ts
-const ValidationIssue: ZodObject<{
-  autoFixed: ZodOptional<ZodBoolean>;
-  code: ZodString;
-  elementId: ZodOptional<ZodString>;
-  layer: ZodEnum<{
-     animation: "animation";
-     grounding: "grounding";
-     render: "render";
-     schema: "schema";
-     structure: "structure";
-  }>;
-  message: ZodString;
-  severity: ZodEnum<{
-     error: "error";
-     warning: "warning";
-  }>;
-}, $strip>;
+const ValidationIssue: ZodObject<
+  {
+    autoFixed: ZodOptional<ZodBoolean>
+    code: ZodString
+    elementId: ZodOptional<ZodString>
+    layer: ZodEnum<{
+      animation: 'animation'
+      grounding: 'grounding'
+      render: 'render'
+      schema: 'schema'
+      structure: 'structure'
+    }>
+    message: ZodString
+    severity: ZodEnum<{
+      error: 'error'
+      warning: 'warning'
+    }>
+  },
+  $strip
+>
 ```
 
-***
+---
 
 #### ValidationLayer
 
 ```ts
 const ValidationLayer: ZodEnum<{
-  animation: "animation";
-  grounding: "grounding";
-  render: "render";
-  schema: "schema";
-  structure: "structure";
-}>;
+  animation: 'animation'
+  grounding: 'grounding'
+  render: 'render'
+  schema: 'schema'
+  structure: 'structure'
+}>
 ```
 
 Validation layer that raised an issue (§16 table: L1 schema … L4 render; animation is §11).
 
-***
+---
 
 #### ValidationReport
 
 ```ts
-const ValidationReport: ZodObject<{
-  counts: ZodObject<{
-     dropped: ZodNumber;
-     fuzzy: ZodNumber;
-     grounded: ZodNumber;
-     halfGrounded: ZodNumber;
-     total: ZodNumber;
-  }, $strip>;
-  dropped: ZodArray<ZodString>;
-  escalated: ZodBoolean;
-  groundingScore: ZodNumber;
-  issues: ZodArray<ZodObject<{
-     autoFixed: ZodOptional<ZodBoolean>;
-     code: ZodString;
-     elementId: ZodOptional<ZodString>;
-     layer: ZodEnum<{
-        animation: "animation";
-        grounding: "grounding";
-        render: "render";
-        schema: "schema";
-        structure: "structure";
-     }>;
-     message: ZodString;
-     severity: ZodEnum<{
-        error: "error";
-        warning: "warning";
-     }>;
-  }, $strip>>;
-  ok: ZodBoolean;
-  retried: ZodBoolean;
-}, $strip>;
+const ValidationReport: ZodObject<
+  {
+    counts: ZodObject<
+      {
+        dropped: ZodNumber
+        fuzzy: ZodNumber
+        grounded: ZodNumber
+        halfGrounded: ZodNumber
+        total: ZodNumber
+      },
+      $strip
+    >
+    dropped: ZodArray<ZodString>
+    escalated: ZodBoolean
+    groundingScore: ZodNumber
+    issues: ZodArray<
+      ZodObject<
+        {
+          autoFixed: ZodOptional<ZodBoolean>
+          code: ZodString
+          elementId: ZodOptional<ZodString>
+          layer: ZodEnum<{
+            animation: 'animation'
+            grounding: 'grounding'
+            render: 'render'
+            schema: 'schema'
+            structure: 'structure'
+          }>
+          message: ZodString
+          severity: ZodEnum<{
+            error: 'error'
+            warning: 'warning'
+          }>
+        },
+        $strip
+      >
+    >
+    ok: ZodBoolean
+    retried: ZodBoolean
+  },
+  $strip
+>
 ```
 
 Outcome of the deterministic checks on one IR (§16 L1–L4). Not defined in the spec; W0 draft.
 `groundingScore` = (grounded + 0.5 × halfGrounded) / total (§16).
 
-***
+---
 
 #### ValueRef
 
 ```ts
-const ValueRef: ZodUnion<readonly [ZodObject<{
-  prim: ZodUnion<readonly [ZodString, ZodNumber, ZodBoolean, ZodNull]>;
-}, $strip>, ZodObject<{
-  ref: ZodString;
-}, $strip>]>;
+const ValueRef: ZodUnion<
+  readonly [
+    ZodObject<
+      {
+        prim: ZodUnion<readonly [ZodString, ZodNumber, ZodBoolean, ZodNull]>
+      },
+      $strip
+    >,
+    ZodObject<
+      {
+        ref: ZodString
+      },
+      $strip
+    >,
+  ]
+>
 ```
 
 A primitive value or a reference into the step's heap (§12).
 
-***
+---
 
 #### Visibility
 
@@ -16243,29 +17584,29 @@ const Visibility: ZodEnum<{
 
 UML visibility marker as Mermaid writes it: + public, - private, # protected, ~ package.
 
-***
+---
 
 #### VisualKind
 
 ```ts
 const VisualKind: ZodEnum<{
-  chart: "chart";
-  class: "class";
-  er: "er";
-  graph: "graph";
-  html: "html";
-  math: "math";
-  sequence: "sequence";
-  state: "state";
-  template: "template";
-  timeline: "timeline";
-  trace: "trace";
-}>;
+  chart: 'chart'
+  class: 'class'
+  er: 'er'
+  graph: 'graph'
+  html: 'html'
+  math: 'math'
+  sequence: 'sequence'
+  state: 'state'
+  template: 'template'
+  timeline: 'timeline'
+  trace: 'trace'
+}>
 ```
 
 The visual families a plan item can request (§5, kind guide in §8).
 
-***
+---
 
 #### VisualPlan
 
@@ -16320,7 +17661,7 @@ const VisualPlan: ZodObject<{
 
 Output of the `planner` role (§5, §8 stage 1): at most 3 items, none when no visual is needed.
 
-***
+---
 
 #### VisualRecord
 
@@ -16451,7 +17792,7 @@ Record of the `visuals` store (§5), keyed by the visual cache key.
 #### addIssues()
 
 ```ts
-function addIssues(report, issues): object;
+function addIssues(report, issues): object
 ```
 
 Merges issues from another check into a report (the hook for W6's animation validation, §11, and
@@ -16459,59 +17800,59 @@ for render checks, §16 L4) and recomputes `ok`.
 
 ##### Parameters
 
-| Parameter | Type | Description |
-| ------ | ------ | ------ |
-| `report` | \{ `counts`: \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \}; `dropped`: `string`[]; `escalated`: `boolean`; `groundingScore`: `number`; `issues`: `object`[]; `ok`: `boolean`; `retried`: `boolean`; \} | - |
-| `report.counts` | \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \} | - |
-| `report.counts.dropped` | `number` | - |
-| `report.counts.fuzzy` | `number` | - |
-| `report.counts.grounded` | `number` | - |
-| `report.counts.halfGrounded` | `number` | - |
-| `report.counts.total` | `number` | - |
-| `report.dropped` | `string`[] | Ids of elements removed because their evidence failed or they dangled. |
-| `report.escalated` | `boolean` | The model tier was escalated once (§8, §9). |
-| `report.groundingScore` | `number` | - |
-| `report.issues` | `object`[] | - |
-| `report.ok` | `boolean` | - |
-| `report.retried` | `boolean` | The extractor was re-run once with this report attached (§8 stage 3 step 3). |
-| `issues` | readonly `object`[] | - |
+| Parameter                    | Type                                                                                                                                                                                                                                                                      | Description                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `report`                     | \{ `counts`: \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \}; `dropped`: `string`[]; `escalated`: `boolean`; `groundingScore`: `number`; `issues`: `object`[]; `ok`: `boolean`; `retried`: `boolean`; \} | -                                                                            |
+| `report.counts`              | \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \}                                                                                                                                                          | -                                                                            |
+| `report.counts.dropped`      | `number`                                                                                                                                                                                                                                                                  | -                                                                            |
+| `report.counts.fuzzy`        | `number`                                                                                                                                                                                                                                                                  | -                                                                            |
+| `report.counts.grounded`     | `number`                                                                                                                                                                                                                                                                  | -                                                                            |
+| `report.counts.halfGrounded` | `number`                                                                                                                                                                                                                                                                  | -                                                                            |
+| `report.counts.total`        | `number`                                                                                                                                                                                                                                                                  | -                                                                            |
+| `report.dropped`             | `string`[]                                                                                                                                                                                                                                                                | Ids of elements removed because their evidence failed or they dangled.       |
+| `report.escalated`           | `boolean`                                                                                                                                                                                                                                                                 | The model tier was escalated once (§8, §9).                                  |
+| `report.groundingScore`      | `number`                                                                                                                                                                                                                                                                  | -                                                                            |
+| `report.issues`              | `object`[]                                                                                                                                                                                                                                                                | -                                                                            |
+| `report.ok`                  | `boolean`                                                                                                                                                                                                                                                                 | -                                                                            |
+| `report.retried`             | `boolean`                                                                                                                                                                                                                                                                 | The extractor was re-run once with this report attached (§8 stage 3 step 3). |
+| `issues`                     | readonly `object`[]                                                                                                                                                                                                                                                       | -                                                                            |
 
 ##### Returns
 
 ###### counts
 
 ```ts
-counts: object;
+counts: object
 ```
 
 ####### counts.dropped
 
 ```ts
-dropped: number;
+dropped: number
 ```
 
 ####### counts.fuzzy
 
 ```ts
-fuzzy: number;
+fuzzy: number
 ```
 
 ####### counts.grounded
 
 ```ts
-grounded: number;
+grounded: number
 ```
 
 ####### counts.halfGrounded
 
 ```ts
-halfGrounded: number;
+halfGrounded: number
 ```
 
 ####### counts.total
 
 ```ts
-total: number;
+total: number
 ```
 
 ###### dropped
@@ -16525,7 +17866,7 @@ Ids of elements removed because their evidence failed or they dangled.
 ###### escalated
 
 ```ts
-escalated: boolean;
+escalated: boolean
 ```
 
 The model tier was escalated once (§8, §9).
@@ -16533,7 +17874,7 @@ The model tier was escalated once (§8, §9).
 ###### groundingScore
 
 ```ts
-groundingScore: number;
+groundingScore: number
 ```
 
 ###### issues
@@ -16545,54 +17886,54 @@ issues: object[];
 ###### ok
 
 ```ts
-ok: boolean;
+ok: boolean
 ```
 
 ###### retried
 
 ```ts
-retried: boolean;
+retried: boolean
 ```
 
 The extractor was re-run once with this report attached (§8 stage 3 step 3).
 
-***
+---
 
 #### apply()
 
 ```ts
-function apply(previous, actions): object;
+function apply(previous, actions): object
 ```
 
 Pure step reducer. Build through buildFrames to resolve targets and validate invariants.
 
 ##### Parameters
 
-| Parameter | Type | Description |
-| ------ | ------ | ------ |
-| `previous` | \{ `added`: `object`[]; `annotations`: `Record`\<`string`, `string`\>; `containers`: `Record`\<`string`, `object`[]\>; `evidence?`: \{ `blockId`: `string`; `end?`: `number`; `fuzzy?`: `boolean`; `quote`: `string`; `start?`: `number`; \}; `focus`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `"all"` \| `null`; `hidden`: ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]; `highlights`: `Record`\<`string`, `"success"` \| `"focus"` \| `"warning"` \| `"muted"`\>; `narration?`: `string`; `pointers`: `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\>; `relayout`: `boolean`; `removed`: ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]; `slots`: `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\>; `step`: `number`; `stepId?`: `string`; `tokens`: `object`[]; `values`: `Record`\<`string`, `string` \| `number`\>; \} | - |
-| `previous.added` | `object`[] | Elements created by `add`, in order. |
-| `previous.annotations` | `Record`\<`string`, `string`\> | Annotations of the current step only. |
-| `previous.containers` | `Record`\<`string`, `object`[]\> | Container id → current items, for containers touched by `push`/`pop`/`enqueue`/`dequeue`. |
-| `previous.evidence?` | \{ `blockId`: `string`; `end?`: `number`; `fuzzy?`: `boolean`; `quote`: `string`; `start?`: `number`; \} | - |
-| `previous.evidence.blockId` | `string` | - |
-| `previous.evidence.end?` | `number` | - |
-| `previous.evidence.fuzzy?` | `boolean` | - |
-| `previous.evidence.quote` | `string` | - |
-| `previous.evidence.start?` | `number` | - |
-| `previous.focus` | \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `"all"` \| `null` | Camera target; `null` means the default framing. |
-| `previous.hidden` | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[] | Hidden elements: `initialHidden` plus `hide`, minus `reveal`. |
-| `previous.highlights` | `Record`\<`string`, `"success"` \| `"focus"` \| `"warning"` \| `"muted"`\> | - |
-| `previous.narration?` | `string` | - |
-| `previous.pointers` | `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\> | Pointer name → target it points at. |
-| `previous.relayout` | `boolean` | True when this step changed structure (`add`, `remove`, `push`, `pop`, node `reveal`): re-run layout (§11). |
-| `previous.removed` | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[] | Elements removed by `remove`, `pop` or `dequeue`; renderers fade them out. |
-| `previous.slots` | `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\> | Element → slot it currently occupies after `swap`s (only moved elements are listed). |
-| `previous.step` | `number` | Number of steps applied (0 = base frame). |
-| `previous.stepId?` | `string` | Id of the step that produced this frame; absent on the base frame. |
-| `previous.tokens` | `object`[] | Tokens of the current step only. |
-| `previous.values` | `Record`\<`string`, `string` \| `number`\> | Values written by `set` (target → displayed value). |
-| `actions` | readonly ( \| \{ `op`: `"highlight"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; `tone`: `"success"` \| `"focus"` \| `"warning"` \| `"muted"`; \} \| \{ `op`: `"unhighlight"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `"all"`; \} \| \{ `op`: `"reveal"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; \} \| \{ `op`: `"hide"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; \} \| \{ `op`: `"set"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; `value`: `string` \| `number`; \} \| \{ `a`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; `b`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; `op`: `"swap"`; \} \| \{ `name`: `string`; `op`: `"pointer"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `null`; \} \| \{ `container`: `string`; `id`: `string`; `op`: `"push"` \| `"enqueue"`; `value`: `string` \| `number`; \} \| \{ `container`: `string`; `op`: `"pop"` \| `"dequeue"`; \} \| \{ `element`: \{ `id`: `string`; `label`: `string`; \}; `op`: `"add"`; `parent?`: `string`; \} \| \{ `op`: `"remove"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; \} \| \{ `id`: `string`; `label?`: `string`; `op`: `"token"`; `path`: `string`[]; \} \| \{ `op`: `"annotate"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; `text`: `string`; \} \| \{ `op`: `"focus"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `"all"`; \})[] | - |
+| Parameter                   | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Description                                                                                                 |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `previous`                  | \{ `added`: `object`[]; `annotations`: `Record`\<`string`, `string`\>; `containers`: `Record`\<`string`, `object`[]\>; `evidence?`: \{ `blockId`: `string`; `end?`: `number`; `fuzzy?`: `boolean`; `quote`: `string`; `start?`: `number`; \}; `focus`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `"all"` \| `null`; `hidden`: ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]; `highlights`: `Record`\<`string`, `"success"` \| `"focus"` \| `"warning"` \| `"muted"`\>; `narration?`: `string`; `pointers`: `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\>; `relayout`: `boolean`; `removed`: ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]; `slots`: `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\>; `step`: `number`; `stepId?`: `string`; `tokens`: `object`[]; `values`: `Record`\<`string`, `string` \| `number`\>; \}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | -                                                                                                           |
+| `previous.added`            | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Elements created by `add`, in order.                                                                        |
+| `previous.annotations`      | `Record`\<`string`, `string`\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Annotations of the current step only.                                                                       |
+| `previous.containers`       | `Record`\<`string`, `object`[]\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Container id → current items, for containers touched by `push`/`pop`/`enqueue`/`dequeue`.                   |
+| `previous.evidence?`        | \{ `blockId`: `string`; `end?`: `number`; `fuzzy?`: `boolean`; `quote`: `string`; `start?`: `number`; \}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                                           |
+| `previous.evidence.blockId` | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                                           |
+| `previous.evidence.end?`    | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                                           |
+| `previous.evidence.fuzzy?`  | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | -                                                                                                           |
+| `previous.evidence.quote`   | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                                           |
+| `previous.evidence.start?`  | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                                           |
+| `previous.focus`            | \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `"all"` \| `null`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Camera target; `null` means the default framing.                                                            |
+| `previous.hidden`           | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Hidden elements: `initialHidden` plus `hide`, minus `reveal`.                                               |
+| `previous.highlights`       | `Record`\<`string`, `"success"` \| `"focus"` \| `"warning"` \| `"muted"`\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | -                                                                                                           |
+| `previous.narration?`       | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                                           |
+| `previous.pointers`         | `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Pointer name → target it points at.                                                                         |
+| `previous.relayout`         | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | True when this step changed structure (`add`, `remove`, `push`, `pop`, node `reveal`): re-run layout (§11). |
+| `previous.removed`          | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Elements removed by `remove`, `pop` or `dequeue`; renderers fade them out.                                  |
+| `previous.slots`            | `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Element → slot it currently occupies after `swap`s (only moved elements are listed).                        |
+| `previous.step`             | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Number of steps applied (0 = base frame).                                                                   |
+| `previous.stepId?`          | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Id of the step that produced this frame; absent on the base frame.                                          |
+| `previous.tokens`           | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Tokens of the current step only.                                                                            |
+| `previous.values`           | `Record`\<`string`, `string` \| `number`\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Values written by `set` (target → displayed value).                                                         |
+| `actions`                   | readonly ( \| \{ `op`: `"highlight"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; `tone`: `"success"` \| `"focus"` \| `"warning"` \| `"muted"`; \} \| \{ `op`: `"unhighlight"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `"all"`; \} \| \{ `op`: `"reveal"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; \} \| \{ `op`: `"hide"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; \} \| \{ `op`: `"set"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; `value`: `string` \| `number`; \} \| \{ `a`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; `b`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; `op`: `"swap"`; \} \| \{ `name`: `string`; `op`: `"pointer"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `null`; \} \| \{ `container`: `string`; `id`: `string`; `op`: `"push"` \| `"enqueue"`; `value`: `string` \| `number`; \} \| \{ `container`: `string`; `op`: `"pop"` \| `"dequeue"`; \} \| \{ `element`: \{ `id`: `string`; `label`: `string`; \}; `op`: `"add"`; `parent?`: `string`; \} \| \{ `op`: `"remove"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; \} \| \{ `id`: `string`; `label?`: `string`; `op`: `"token"`; `path`: `string`[]; \} \| \{ `op`: `"annotate"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; `text`: `string`; \} \| \{ `op`: `"focus"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `"all"`; \})[] | -                                                                                                           |
 
 ##### Returns
 
@@ -16629,7 +17970,7 @@ optional evidence?: object;
 ####### evidence.blockId
 
 ```ts
-blockId: string;
+blockId: string
 ```
 
 ####### evidence.end?
@@ -16647,7 +17988,7 @@ optional fuzzy?: boolean;
 ####### evidence.quote
 
 ```ts
-quote: string;
+quote: string
 ```
 
 ####### evidence.start?
@@ -16715,7 +18056,7 @@ Pointer name → target it points at.
 ###### relayout
 
 ```ts
-relayout: boolean;
+relayout: boolean
 ```
 
 True when this step changed structure (`add`, `remove`, `push`, `pop`, node `reveal`): re-run layout (§11).
@@ -16751,7 +18092,7 @@ Element → slot it currently occupies after `swap`s (only moved elements are li
 ###### step
 
 ```ts
-step: number;
+step: number
 ```
 
 Number of steps applied (0 = base frame).
@@ -16780,102 +18121,98 @@ values: Record<string, string | number>;
 
 Values written by `set` (target → displayed value).
 
-***
+---
 
 #### buildFrames()
 
 ```ts
-function buildFrames(
-   ir,
-   animation,
-   options?
-): object[];
+function buildFrames(ir, animation, options?): object[]
 ```
 
 Builds validated frame states, including frame zero; never mutates the IR or template seeds.
 
 ##### Parameters
 
-| Parameter | Type | Description |
-| ------ | ------ | ------ |
-| `ir` | \| \{ `direction`: `"LR"` \| `"TB"`; `edges`: `object`[]; `groups`: `object`[]; `nodes`: `object`[]; `title`: `string`; `type`: `"graph"`; \} \| \{ `messages`: `object`[]; `participants`: `object`[]; `title`: `string`; `type`: `"sequence"`; \} \| \{ `final`: `string`[]; `initial`: `string`; `states`: `object`[]; `title`: `string`; `transitions`: `object`[]; `type`: `"state"`; \} \| \{ `classes`: `object`[]; `relations`: `object`[]; `title`: `string`; `type`: `"class"`; \} \| \{ `entities`: `object`[]; `relationships`: `object`[]; `title`: `string`; `type`: `"er"`; \} \| \{ `evidence`: `object`[]; `props`: `unknown`; `templateId`: \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"`; `type`: `"template"`; \} \| \{ `domain`: \[`number`, `number`\]; `logY`: `boolean`; `series`: `object`[]; `title`: `string`; `type`: `"chart"`; `xLabel`: `string`; `yLabel`: `string`; \} \| \{ `sourceBlockId`: `string`; `terms`: `object`[]; `type`: `"math"`; \} \| \{ `events`: `object`[]; `lanes`: `object`[]; `simulated`: `true`; `type`: `"timeline"`; \} \| \{ `html`: `string`; `reason`: `string`; `type`: `"html"`; \} | - |
-| `animation` | \{ `initialHidden`: ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]; `planItemId`: `string`; `steps`: `object`[]; \} | - |
-| `animation.initialHidden` | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[] | Elements revealed by later steps (progressive build-up). |
-| `animation.planItemId` | `string` | - |
-| `animation.steps` | `object`[] | - |
-| `options` | [`AnimationOptions`](#animationoptions) | - |
+| Parameter                 | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Description                                              |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `ir`                      | \| \{ `direction`: `"LR"` \| `"TB"`; `edges`: `object`[]; `groups`: `object`[]; `nodes`: `object`[]; `title`: `string`; `type`: `"graph"`; \} \| \{ `messages`: `object`[]; `participants`: `object`[]; `title`: `string`; `type`: `"sequence"`; \} \| \{ `final`: `string`[]; `initial`: `string`; `states`: `object`[]; `title`: `string`; `transitions`: `object`[]; `type`: `"state"`; \} \| \{ `classes`: `object`[]; `relations`: `object`[]; `title`: `string`; `type`: `"class"`; \} \| \{ `entities`: `object`[]; `relationships`: `object`[]; `title`: `string`; `type`: `"er"`; \} \| \{ `evidence`: `object`[]; `props`: `unknown`; `templateId`: \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"`; `type`: `"template"`; \} \| \{ `domain`: \[`number`, `number`\]; `logY`: `boolean`; `series`: `object`[]; `title`: `string`; `type`: `"chart"`; `xLabel`: `string`; `yLabel`: `string`; \} \| \{ `sourceBlockId`: `string`; `terms`: `object`[]; `type`: `"math"`; \} \| \{ `events`: `object`[]; `lanes`: `object`[]; `simulated`: `true`; `type`: `"timeline"`; \} \| \{ `html`: `string`; `reason`: `string`; `type`: `"html"`; \} | -                                                        |
+| `animation`               | \{ `initialHidden`: ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]; `planItemId`: `string`; `steps`: `object`[]; \}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | -                                                        |
+| `animation.initialHidden` | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Elements revealed by later steps (progressive build-up). |
+| `animation.planItemId`    | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | -                                                        |
+| `animation.steps`         | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | -                                                        |
+| `options`                 | [`AnimationOptions`](#animationoptions)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | -                                                        |
 
 ##### Returns
 
-***
+---
 
 #### criticBody()
 
 ```ts
-function criticBody(i): string;
+function criticBody(i): string
 ```
 
 The request body the critic sees; exported so fixtures can be keyed by it.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `i` | `Pick`\<[`CritiqueInput`](#critiqueinput), `"kind"` \| `"ir"` \| `"intent"`\> |
+| Parameter | Type                                                                          |
+| --------- | ----------------------------------------------------------------------------- |
+| `i`       | `Pick`\<[`CritiqueInput`](#critiqueinput), `"kind"` \| `"ir"` \| `"intent"`\> |
 
 ##### Returns
 
 `string`
 
-***
+---
 
 #### criticPasses()
 
 ```ts
-function criticPasses(report): boolean;
+function criticPasses(report): boolean
 ```
 
 §16 pass rule: every score ≥ 3 and no `wrong-direction` or `mislabel` issue.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `report` | `Pick`\<[`CriticReport`](#criticreport), `"scores"` \| `"issues"`\> |
+| Parameter | Type                                                                |
+| --------- | ------------------------------------------------------------------- |
+| `report`  | `Pick`\<[`CriticReport`](#criticreport), `"scores"` \| `"issues"`\> |
 
 ##### Returns
 
 `boolean`
 
-***
+---
 
 #### critique()
 
 ```ts
 function critique(
-   llm,
-   input,
-   opts?
+  llm,
+  input,
+  opts?,
 ): Promise<{
   report: {
-     issues: object[];
-     pass: boolean;
-     scores: {
-        clutter: 1 | 2 | 3 | 4 | 5;
-        intentMatch: 1 | 2 | 3 | 4 | 5;
-        legibility: 1 | 2 | 3 | 4 | 5;
-     };
-  };
+    issues: object[]
+    pass: boolean
+    scores: {
+      clutter: 1 | 2 | 3 | 4 | 5
+      intentMatch: 1 | 2 | 3 | 4 | 5
+      legibility: 1 | 2 | 3 | 4 | 5
+    }
+  }
   result: LlmResult<{
-     issues: object[];
-     pass: boolean;
-     scores: {
-        clutter: 1 | 2 | 3 | 4 | 5;
-        intentMatch: 1 | 2 | 3 | 4 | 5;
-        legibility: 1 | 2 | 3 | 4 | 5;
-     };
-  }>;
-}>;
+    issues: object[]
+    pass: boolean
+    scores: {
+      clutter: 1 | 2 | 3 | 4 | 5
+      intentMatch: 1 | 2 | 3 | 4 | 5
+      legibility: 1 | 2 | 3 | 4 | 5
+    }
+  }>
+}>
 ```
 
 Calls the `critic` role once. `pass` is recomputed with the §16 rule (every score ≥ 3, no
@@ -16883,53 +18220,53 @@ Calls the `critic` role once. `pass` is recomputed with the §16 rule (every sco
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `llm` | [`LlmCall`](#llmcall) |
-| `input` | [`CritiqueInput`](#critiqueinput) |
-| `opts` | \{ `bookId?`: `string`; `sectionId?`: `string`; `signal?`: `AbortSignal`; \} |
-| `opts.bookId?` | `string` |
-| `opts.sectionId?` | `string` |
-| `opts.signal?` | `AbortSignal` |
+| Parameter         | Type                                                                         |
+| ----------------- | ---------------------------------------------------------------------------- |
+| `llm`             | [`LlmCall`](#llmcall)                                                        |
+| `input`           | [`CritiqueInput`](#critiqueinput)                                            |
+| `opts`            | \{ `bookId?`: `string`; `sectionId?`: `string`; `signal?`: `AbortSignal`; \} |
+| `opts.bookId?`    | `string`                                                                     |
+| `opts.sectionId?` | `string`                                                                     |
+| `opts.signal?`    | `AbortSignal`                                                                |
 
 ##### Returns
 
 `Promise`\<\{
-  `report`: \{
-     `issues`: `object`[];
-     `pass`: `boolean`;
-     `scores`: \{
-        `clutter`: `1` \| `2` \| `3` \| `4` \| `5`;
-        `intentMatch`: `1` \| `2` \| `3` \| `4` \| `5`;
-        `legibility`: `1` \| `2` \| `3` \| `4` \| `5`;
-     \};
-  \};
-  `result`: [`LlmResult`](#llmresult)\<\{
-     `issues`: `object`[];
-     `pass`: `boolean`;
-     `scores`: \{
-        `clutter`: `1` \| `2` \| `3` \| `4` \| `5`;
-        `intentMatch`: `1` \| `2` \| `3` \| `4` \| `5`;
-        `legibility`: `1` \| `2` \| `3` \| `4` \| `5`;
-     \};
-  \}\>;
+`report`: \{
+`issues`: `object`[];
+`pass`: `boolean`;
+`scores`: \{
+`clutter`: `1` \| `2` \| `3` \| `4` \| `5`;
+`intentMatch`: `1` \| `2` \| `3` \| `4` \| `5`;
+`legibility`: `1` \| `2` \| `3` \| `4` \| `5`;
+\};
+\};
+`result`: [`LlmResult`](#llmresult)\<\{
+`issues`: `object`[];
+`pass`: `boolean`;
+`scores`: \{
+`clutter`: `1` \| `2` \| `3` \| `4` \| `5`;
+`intentMatch`: `1` \| `2` \| `3` \| `4` \| `5`;
+`legibility`: `1` \| `2` \| `3` \| `4` \| `5`;
+\};
+\}\>;
 \}\>
 
-***
+---
 
 #### emptyFrame()
 
 ```ts
-function emptyFrame(initialHidden?): object;
+function emptyFrame(initialHidden?): object
 ```
 
 The base frame: nothing applied except `initialHidden`.
 
 ##### Parameters
 
-| Parameter | Type | Default value |
-| ------ | ------ | ------ |
-| `initialHidden` | readonly ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[] | `[]` |
+| Parameter       | Type                                                                                                                                                                                 | Default value |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| `initialHidden` | readonly ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[] | `[]`          |
 
 ##### Returns
 
@@ -16966,7 +18303,7 @@ optional evidence?: object;
 ####### evidence.blockId
 
 ```ts
-blockId: string;
+blockId: string
 ```
 
 ####### evidence.end?
@@ -16984,7 +18321,7 @@ optional fuzzy?: boolean;
 ####### evidence.quote
 
 ```ts
-quote: string;
+quote: string
 ```
 
 ####### evidence.start?
@@ -17052,7 +18389,7 @@ Pointer name → target it points at.
 ###### relayout
 
 ```ts
-relayout: boolean;
+relayout: boolean
 ```
 
 True when this step changed structure (`add`, `remove`, `push`, `pop`, node `reveal`): re-run layout (§11).
@@ -17088,7 +18425,7 @@ Element → slot it currently occupies after `swap`s (only moved elements are li
 ###### step
 
 ```ts
-step: number;
+step: number
 ```
 
 Number of steps applied (0 = base frame).
@@ -17117,52 +18454,52 @@ values: Record<string, string | number>;
 
 Values written by `set` (target → displayed value).
 
-***
+---
 
 #### escalationEffort()
 
 ```ts
-function escalationEffort(role): "low" | "medium" | "high";
+function escalationEffort(role): 'low' | 'medium' | 'high'
 ```
 
 Effort of escalated calls: `deep` tier at `medium`, or `high` for `translator` (§9).
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `role` | \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"` |
+| Parameter | Type                                                                                                                                                                                                                                                                                                                                    |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `role`    | \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"` |
 
 ##### Returns
 
 `"low"` \| `"medium"` \| `"high"`
 
-***
+---
 
 #### escapeXml()
 
 ```ts
-function escapeXml(s): string;
+function escapeXml(s): string
 ```
 
 `<`, `>` and `&` escaped, so model-written labels cannot open or close a prompt tag.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `s` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `s`       | `string` |
 
 ##### Returns
 
 `string`
 
-***
+---
 
 #### findQuote()
 
 ```ts
-function findQuote(text, quote): QuoteMatch | null;
+function findQuote(text, quote): QuoteMatch | null
 ```
 
 Finds a quote in one text after normalising both (§16 steps 1, 2, 4): the first exact occurrence, else
@@ -17171,216 +18508,216 @@ bridge's `quoteToCfi` (W9).
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `text` | `string` |
-| `quote` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `text`    | `string` |
+| `quote`   | `string` |
 
 ##### Returns
 
 [`QuoteMatch`](#quotematch) \| `null`
 
-***
+---
 
 #### groundingScore()
 
 ```ts
-function groundingScore(counts): number;
+function groundingScore(counts): number
 ```
 
 (grounded + 0.5 × half-grounded) / total, or 0 when there is nothing to ground (§16).
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `counts` | `Pick`\<[`ValidationReport`](#validationreport)\[`"counts"`\], `"total"` \| `"grounded"` \| `"halfGrounded"`\> |
+| Parameter | Type                                                                                                           |
+| --------- | -------------------------------------------------------------------------------------------------------------- |
+| `counts`  | `Pick`\<[`ValidationReport`](#validationreport)\[`"counts"`\], `"total"` \| `"grounded"` \| `"halfGrounded"`\> |
 
 ##### Returns
 
 `number`
 
-***
+---
 
 #### headingSlugPath()
 
 ```ts
-function headingSlugPath(headingPath): string;
+function headingSlugPath(headingPath): string
 ```
 
 `headingSlugPath` of §5: slugs of the heading path joined by '/'.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
+| Parameter     | Type                |
+| ------------- | ------------------- |
 | `headingPath` | readonly `string`[] |
 
 ##### Returns
 
 `string`
 
-***
+---
 
 #### makeBlockId()
 
 ```ts
-function makeBlockId(sectionId, n): string;
+function makeBlockId(sectionId, n): string
 ```
 
 `${sectionId}#b${n}` (§5).
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
+| Parameter   | Type     |
+| ----------- | -------- |
 | `sectionId` | `string` |
-| `n` | `number` |
+| `n`         | `number` |
 
 ##### Returns
 
 `string`
 
-***
+---
 
 #### makeBookId()
 
 ```ts
-function makeBookId(epubBytes): Promise<string>;
+function makeBookId(epubBytes): Promise<string>
 ```
 
 `bookId` = first 16 hex chars of SHA-256 of the EPUB bytes.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
+| Parameter   | Type         |
+| ----------- | ------------ |
 | `epubBytes` | `Uint8Array` |
 
 ##### Returns
 
 `Promise`\<`string`\>
 
-***
+---
 
 #### makeConceptId()
 
 ```ts
-function makeConceptId(bookId, canonical): string;
+function makeConceptId(bookId, canonical): string
 ```
 
 W0 convention (not in the spec): `${bookId}:c:${slug(canonical)}`.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `bookId` | `string` |
+| Parameter   | Type     |
+| ----------- | -------- |
+| `bookId`    | `string` |
 | `canonical` | `string` |
 
 ##### Returns
 
 `string`
 
-***
+---
 
 #### makeConceptModelId()
 
 ```ts
-function makeConceptModelId(conceptId, kind): string;
+function makeConceptModelId(conceptId, kind): string
 ```
 
 W0 convention (not in the spec): one model per concept and kind, `${conceptId}:m:${kind}`.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `conceptId` | `string` |
-| `kind` | `"graph"` \| `"sequence"` \| `"state"` |
+| Parameter   | Type                                   |
+| ----------- | -------------------------------------- |
+| `conceptId` | `string`                               |
+| `kind`      | `"graph"` \| `"sequence"` \| `"state"` |
 
 ##### Returns
 
 `string`
 
-***
+---
 
 #### makeSectionId()
 
 ```ts
-function makeSectionId(__namedParameters): string;
+function makeSectionId(__namedParameters): string
 ```
 
 `${bookId}:${spineIndex}:${headingSlugPath}:${ordinalInSpine}` (§5).
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
+| Parameter           | Type                                |
+| ------------------- | ----------------------------------- |
 | `__namedParameters` | [`SectionIdParts`](#sectionidparts) |
 
 ##### Returns
 
 `string`
 
-***
+---
 
 #### maxWords()
 
 ```ts
-function maxWords(max): ZodString;
+function maxWords(max): ZodString
 ```
 
 A string limited to `max` words (e.g. evidence quotes ≤ 30 words, §5).
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `max` | `number` |
+| Parameter | Type     |
+| --------- | -------- |
+| `max`     | `number` |
 
 ##### Returns
 
 `ZodString`
 
-***
+---
 
 #### needsReextract()
 
 ```ts
-function needsReextract(report): boolean;
+function needsReextract(report): boolean
 ```
 
 §8 stage 3 step 3: more than 30% of elements dropped, or too few left for the intent → re-extract once.
 
 ##### Parameters
 
-| Parameter | Type | Description |
-| ------ | ------ | ------ |
-| `report` | \{ `counts`: \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \}; `dropped`: `string`[]; `escalated`: `boolean`; `groundingScore`: `number`; `issues`: `object`[]; `ok`: `boolean`; `retried`: `boolean`; \} | - |
-| `report.counts` | \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \} | - |
-| `report.counts.dropped` | `number` | - |
-| `report.counts.fuzzy` | `number` | - |
-| `report.counts.grounded` | `number` | - |
-| `report.counts.halfGrounded` | `number` | - |
-| `report.counts.total` | `number` | - |
-| `report.dropped` | `string`[] | Ids of elements removed because their evidence failed or they dangled. |
-| `report.escalated` | `boolean` | The model tier was escalated once (§8, §9). |
-| `report.groundingScore` | `number` | - |
-| `report.issues` | `object`[] | - |
-| `report.ok` | `boolean` | - |
-| `report.retried` | `boolean` | The extractor was re-run once with this report attached (§8 stage 3 step 3). |
+| Parameter                    | Type                                                                                                                                                                                                                                                                      | Description                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `report`                     | \{ `counts`: \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \}; `dropped`: `string`[]; `escalated`: `boolean`; `groundingScore`: `number`; `issues`: `object`[]; `ok`: `boolean`; `retried`: `boolean`; \} | -                                                                            |
+| `report.counts`              | \{ `dropped`: `number`; `fuzzy`: `number`; `grounded`: `number`; `halfGrounded`: `number`; `total`: `number`; \}                                                                                                                                                          | -                                                                            |
+| `report.counts.dropped`      | `number`                                                                                                                                                                                                                                                                  | -                                                                            |
+| `report.counts.fuzzy`        | `number`                                                                                                                                                                                                                                                                  | -                                                                            |
+| `report.counts.grounded`     | `number`                                                                                                                                                                                                                                                                  | -                                                                            |
+| `report.counts.halfGrounded` | `number`                                                                                                                                                                                                                                                                  | -                                                                            |
+| `report.counts.total`        | `number`                                                                                                                                                                                                                                                                  | -                                                                            |
+| `report.dropped`             | `string`[]                                                                                                                                                                                                                                                                | Ids of elements removed because their evidence failed or they dangled.       |
+| `report.escalated`           | `boolean`                                                                                                                                                                                                                                                                 | The model tier was escalated once (§8, §9).                                  |
+| `report.groundingScore`      | `number`                                                                                                                                                                                                                                                                  | -                                                                            |
+| `report.issues`              | `object`[]                                                                                                                                                                                                                                                                | -                                                                            |
+| `report.ok`                  | `boolean`                                                                                                                                                                                                                                                                 | -                                                                            |
+| `report.retried`             | `boolean`                                                                                                                                                                                                                                                                 | The extractor was re-run once with this report attached (§8 stage 3 step 3). |
 
 ##### Returns
 
 `boolean`
 
-***
+---
 
 #### normalizeText()
 
 ```ts
-function normalizeText(input): Normalized;
+function normalizeText(input): Normalized
 ```
 
 NFKC, lowercase, unified quotes and dashes, soft hyphens removed, whitespace runs collapsed to one
@@ -17388,35 +18725,31 @@ space, trimmed (§16 step 1). Idempotent: `normalizeText(normalizeText(s).text).
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `input` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `input`   | `string` |
 
 ##### Returns
 
 [`Normalized`](#normalized)
 
-***
+---
 
 #### originalRange()
 
 ```ts
-function originalRange(
-   n,
-   from,
-   to
-): object;
+function originalRange(n, from, to): object
 ```
 
 Original `[start, end)` of the normalised range `[from, to)` (to > from).
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `n` | [`Normalized`](#normalized) |
-| `from` | `number` |
-| `to` | `number` |
+| Parameter | Type                        |
+| --------- | --------------------------- |
+| `n`       | [`Normalized`](#normalized) |
+| `from`    | `number`                    |
+| `to`      | `number`                    |
 
 ##### Returns
 
@@ -17425,48 +18758,46 @@ Original `[start, end)` of the normalised range `[from, to)` (to > from).
 ###### end
 
 ```ts
-end: number;
+end: number
 ```
 
 ###### start
 
 ```ts
-start: number;
+start: number
 ```
 
-***
+---
 
 #### parseBlockId()
 
 ```ts
-function parseBlockId(blockId):
-  | {
-  n: number;
-  sectionId: string;
-}
-  | null;
+function parseBlockId(blockId): {
+  n: number
+  sectionId: string
+} | null
 ```
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
+| Parameter | Type     |
+| --------- | -------- |
 | `blockId` | `string` |
 
 ##### Returns
 
-  \| \{
-  `n`: `number`;
-  `sectionId`: `string`;
+\| \{
+`n`: `number`;
+`sectionId`: `string`;
 \}
-  \| `null`
+\| `null`
 
-***
+---
 
 #### parseFlagList()
 
 ```ts
-function parseFlagList(list): FlagOverrides;
+function parseFlagList(list): FlagOverrides
 ```
 
 Parses a comma list such as `NEXT_PUBLIC_ILLUS_FLAGS="templates,critic,-tracer"`
@@ -17474,78 +18805,78 @@ Parses a comma list such as `NEXT_PUBLIC_ILLUS_FLAGS="templates,critic,-tracer"`
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `list` | `string` \| `undefined` |
+| Parameter | Type                    |
+| --------- | ----------------------- |
+| `list`    | `string` \| `undefined` |
 
 ##### Returns
 
 [`FlagOverrides`](#flagoverrides)
 
-***
+---
 
 #### parseSectionId()
 
 ```ts
-function parseSectionId(sectionId): ParsedSectionId | null;
+function parseSectionId(sectionId): ParsedSectionId | null
 ```
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
+| Parameter   | Type     |
+| ----------- | -------- |
 | `sectionId` | `string` |
 
 ##### Returns
 
 [`ParsedSectionId`](#parsedsectionid) \| `null`
 
-***
+---
 
 #### planKey()
 
 ```ts
-function planKey(i): Promise<string>;
+function planKey(i): Promise<string>
 ```
 
 `sha256([bookId, sectionId, contentHash, CONTEXT_VERSION, planner.promptVersion, planner.model, planner.effort])`
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `i` | [`PlanKeyInput`](#plankeyinput) |
+| Parameter | Type                            |
+| --------- | ------------------------------- |
+| `i`       | [`PlanKeyInput`](#plankeyinput) |
 
 ##### Returns
 
 `Promise`\<`string`\>
 
-***
+---
 
 #### repairBody()
 
 ```ts
-function repairBody(i): string;
+function repairBody(i): string
 ```
 
 The request body of a repair call; exported so fixtures can be keyed by it.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `i` | `Pick`\<[`RepairInput`](#repairinput), `"kind"` \| `"ir"` \| `"findings"` \| `"context"`\> |
+| Parameter | Type                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------ |
+| `i`       | `Pick`\<[`RepairInput`](#repairinput), `"kind"` \| `"ir"` \| `"findings"` \| `"context"`\> |
 
 ##### Returns
 
 `string`
 
-***
+---
 
 #### repairIr()
 
 ```ts
-function repairIr(llm, input): Promise<ValidationResult<unknown> & object>;
+function repairIr(llm, input): Promise<ValidationResult<unknown> & object>
 ```
 
 Calls `repair` once and re-validates its output. Model errors (`LlmError`) propagate: the caller keeps
@@ -17553,176 +18884,180 @@ the unrepaired visual. The caller adopts the result only when `report.ok`.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `llm` | [`LlmCall`](#llmcall) |
-| `input` | [`RepairInput`](#repairinput) |
+| Parameter | Type                          |
+| --------- | ----------------------------- |
+| `llm`     | [`LlmCall`](#llmcall)         |
+| `input`   | [`RepairInput`](#repairinput) |
 
 ##### Returns
 
 `Promise`\<[`ValidationResult`](#validationresult)\<`unknown`\> & `object`\>
 
-***
+---
 
 #### resolveFlags()
 
 ```ts
-function resolveFlags(overrides?): Flags;
+function resolveFlags(overrides?): Flags
 ```
 
 Defaults merged with overrides (e.g. from settings). Invalid input falls back to the defaults.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
+| Parameter    | Type      |
+| ------------ | --------- |
 | `overrides?` | `unknown` |
 
 ##### Returns
 
 [`Flags`](#flags)
 
-***
+---
 
 #### roleAllowsSchema()
 
 ```ts
-function roleAllowsSchema(role, schemaName): boolean;
+function roleAllowsSchema(role, schemaName): boolean
 ```
 
 True when `schemaName` is one the role may return.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `role` | \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"` |
-| `schemaName` | \| `"IndexerOutput"` \| `"GlossaryOutput"` \| `"BookSummary"` \| `"VisualPlan"` \| `"GraphIR"` \| `"SequenceIR"` \| `"StateIR"` \| `"ClassIR"` \| `"ErIR"` \| `"TemplateIR"` \| `"ChartIR"` \| `"MathIR"` \| `"TimelineIR"` \| `"HtmlIR"` \| `"AnimationIR"` \| `"Translation"` \| `"PatchOutput"` \| `"CriticReport"` |
+| Parameter    | Type                                                                                                                                                                                                                                                                                                                                    |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `role`       | \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"` |
+| `schemaName` | \| `"IndexerOutput"` \| `"GlossaryOutput"` \| `"BookSummary"` \| `"VisualPlan"` \| `"GraphIR"` \| `"SequenceIR"` \| `"StateIR"` \| `"ClassIR"` \| `"ErIR"` \| `"TemplateIR"` \| `"ChartIR"` \| `"MathIR"` \| `"TimelineIR"` \| `"HtmlIR"` \| `"AnimationIR"` \| `"Translation"` \| `"PatchOutput"` \| `"CriticReport"`                  |
 
 ##### Returns
 
 `boolean`
 
-***
+---
 
 #### sectionContentHash()
 
 ```ts
-function sectionContentHash(blockTexts): Promise<string>;
+function sectionContentHash(blockTexts): Promise<string>
 ```
 
 `contentHash` = SHA-256 of the section's normalised block text, blocks joined by '\n' (§5).
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
+| Parameter    | Type                |
+| ------------ | ------------------- |
 | `blockTexts` | readonly `string`[] |
 
 ##### Returns
 
 `Promise`\<`string`\>
 
-***
+---
 
 #### sha256Hex()
 
 ```ts
-function sha256Hex(input): Promise<string>;
+function sha256Hex(input): Promise<string>
 ```
 
 SHA-256 of UTF-8 text or raw bytes, as 64 lowercase hex characters.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `input` | `string` \| `Uint8Array`\<`ArrayBufferLike`\> |
+| Parameter | Type                                          |
+| --------- | --------------------------------------------- |
+| `input`   | `string` \| `Uint8Array`\<`ArrayBufferLike`\> |
 
 ##### Returns
 
 `Promise`\<`string`\>
 
-***
+---
 
 #### slugify()
 
 ```ts
-function slugify(text): string;
+function slugify(text): string
 ```
 
 URL-safe slug of one heading: NFKD, diacritics stripped, lowercase, runs of other chars → '-'. Never empty.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `text` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `text`    | `string` |
 
 ##### Returns
 
 `string`
 
-***
+---
 
 #### summarizeIr()
 
 ```ts
-function summarizeIr(ir): string;
+function summarizeIr(ir): string
 ```
 
 Text summary of an IR for the critic: its JSON without evidence.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `ir` | `unknown` |
+| Parameter | Type      |
+| --------- | --------- |
+| `ir`      | `unknown` |
 
 ##### Returns
 
 `string`
 
-***
+---
 
 #### traceKey()
 
 ```ts
-function traceKey(i): Promise<string>;
+function traceKey(i): Promise<string>
 ```
 
 `sha256([codeBlock.source, translator.promptVersion, translator.model, translator.effort, TRACER_VERSION])`
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `i` | [`TraceKeyInput`](#tracekeyinput) |
+| Parameter | Type                              |
+| --------- | --------------------------------- |
+| `i`       | [`TraceKeyInput`](#tracekeyinput) |
 
 ##### Returns
 
 `Promise`\<`string`\>
 
-***
+---
 
 #### validate()
 
 ```ts
 function validate<K>(
-   kind,
-   ir,
-   ctx
-): ValidationResult<K extends
-  | "math"
-  | "html"
-  | "graph"
-  | "sequence"
-  | "state"
-  | "class"
-  | "er"
-  | "template"
-  | "chart"
-| "timeline" ? IrOf<K> : unknown>;
+  kind,
+  ir,
+  ctx,
+): ValidationResult<
+  K extends
+    | 'math'
+    | 'html'
+    | 'graph'
+    | 'sequence'
+    | 'state'
+    | 'class'
+    | 'er'
+    | 'template'
+    | 'chart'
+    | 'timeline'
+    ? IrOf<K>
+    : unknown
+>
 ```
 
 Schema, grounding and structural checks for one IR (§16 L1–L3). Returns the IR after dropping
@@ -17731,123 +19066,118 @@ when any error remains (the caller then runs `repair` once, §16). Never throws 
 
 ##### Type Parameters
 
-| Type Parameter |
-| ------ |
-| `K` *extends* \| `"math"` \| `"html"` \| `"graph"` \| `"sequence"` \| `"state"` \| `"class"` \| `"er"` \| `"template"` \| `"chart"` \| `"trace"` \| `"timeline"` |
+| Type Parameter                                                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `K` _extends_ \| `"math"` \| `"html"` \| `"graph"` \| `"sequence"` \| `"state"` \| `"class"` \| `"er"` \| `"template"` \| `"chart"` \| `"trace"` \| `"timeline"` |
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `kind` | `K` |
-| `ir` | `unknown` |
-| `ctx` | [`ValidationContext`](#validationcontext) |
+| Parameter | Type                                      |
+| --------- | ----------------------------------------- |
+| `kind`    | `K`                                       |
+| `ir`      | `unknown`                                 |
+| `ctx`     | [`ValidationContext`](#validationcontext) |
 
 ##### Returns
 
-[`ValidationResult`](#validationresult)\<`K` *extends*
-  \| `"math"`
-  \| `"html"`
-  \| `"graph"`
-  \| `"sequence"`
-  \| `"state"`
-  \| `"class"`
-  \| `"er"`
-  \| `"template"`
-  \| `"chart"`
-  \| `"timeline"` ? [`IrOf`](#irof)\<`K`\> : `unknown`\>
+[`ValidationResult`](#validationresult)\<`K` _extends_
+\| `"math"`
+\| `"html"`
+\| `"graph"`
+\| `"sequence"`
+\| `"state"`
+\| `"class"`
+\| `"er"`
+\| `"template"`
+\| `"chart"`
+\| `"timeline"` ? [`IrOf`](#irof)\<`K`\> : `unknown`\>
 
-***
+---
 
 #### validateAnimation()
 
 ```ts
-function validateAnimation(
-   ir,
-   input,
-   options?
-): AnimationValidation;
+function validateAnimation(ir, input, options?): AnimationValidation
 ```
 
 Schema, target, renderer capability, every-frame invariants and grounded narration checks.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `ir` | \| \{ `direction`: `"LR"` \| `"TB"`; `edges`: `object`[]; `groups`: `object`[]; `nodes`: `object`[]; `title`: `string`; `type`: `"graph"`; \} \| \{ `messages`: `object`[]; `participants`: `object`[]; `title`: `string`; `type`: `"sequence"`; \} \| \{ `final`: `string`[]; `initial`: `string`; `states`: `object`[]; `title`: `string`; `transitions`: `object`[]; `type`: `"state"`; \} \| \{ `classes`: `object`[]; `relations`: `object`[]; `title`: `string`; `type`: `"class"`; \} \| \{ `entities`: `object`[]; `relationships`: `object`[]; `title`: `string`; `type`: `"er"`; \} \| \{ `evidence`: `object`[]; `props`: `unknown`; `templateId`: \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"`; `type`: `"template"`; \} \| \{ `domain`: \[`number`, `number`\]; `logY`: `boolean`; `series`: `object`[]; `title`: `string`; `type`: `"chart"`; `xLabel`: `string`; `yLabel`: `string`; \} \| \{ `sourceBlockId`: `string`; `terms`: `object`[]; `type`: `"math"`; \} \| \{ `events`: `object`[]; `lanes`: `object`[]; `simulated`: `true`; `type`: `"timeline"`; \} \| \{ `html`: `string`; `reason`: `string`; `type`: `"html"`; \} |
-| `input` | `unknown` |
-| `options` | [`AnimationOptions`](#animationoptions) |
+| Parameter | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ir`      | \| \{ `direction`: `"LR"` \| `"TB"`; `edges`: `object`[]; `groups`: `object`[]; `nodes`: `object`[]; `title`: `string`; `type`: `"graph"`; \} \| \{ `messages`: `object`[]; `participants`: `object`[]; `title`: `string`; `type`: `"sequence"`; \} \| \{ `final`: `string`[]; `initial`: `string`; `states`: `object`[]; `title`: `string`; `transitions`: `object`[]; `type`: `"state"`; \} \| \{ `classes`: `object`[]; `relations`: `object`[]; `title`: `string`; `type`: `"class"`; \} \| \{ `entities`: `object`[]; `relationships`: `object`[]; `title`: `string`; `type`: `"er"`; \} \| \{ `evidence`: `object`[]; `props`: `unknown`; `templateId`: \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"`; `type`: `"template"`; \} \| \{ `domain`: \[`number`, `number`\]; `logY`: `boolean`; `series`: `object`[]; `title`: `string`; `type`: `"chart"`; `xLabel`: `string`; `yLabel`: `string`; \} \| \{ `sourceBlockId`: `string`; `terms`: `object`[]; `type`: `"math"`; \} \| \{ `events`: `object`[]; `lanes`: `object`[]; `simulated`: `true`; `type`: `"timeline"`; \} \| \{ `html`: `string`; `reason`: `string`; `type`: `"html"`; \} |
+| `input`   | `unknown`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `options` | [`AnimationOptions`](#animationoptions)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ##### Returns
 
 [`AnimationValidation`](#animationvalidation)
 
-***
+---
 
 #### validateAnimationWithRepair()
 
 ```ts
 function validateAnimationWithRepair(
-   ir,
-   input,
-   options,
-   repair
-): Promise<AnimationValidation & object>;
+  ir,
+  input,
+  options,
+  repair,
+): Promise<AnimationValidation & object>
 ```
 
 The caller supplies the replay-capable repair port. Exactly one attempt, then static fallback.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `ir` | \| \{ `direction`: `"LR"` \| `"TB"`; `edges`: `object`[]; `groups`: `object`[]; `nodes`: `object`[]; `title`: `string`; `type`: `"graph"`; \} \| \{ `messages`: `object`[]; `participants`: `object`[]; `title`: `string`; `type`: `"sequence"`; \} \| \{ `final`: `string`[]; `initial`: `string`; `states`: `object`[]; `title`: `string`; `transitions`: `object`[]; `type`: `"state"`; \} \| \{ `classes`: `object`[]; `relations`: `object`[]; `title`: `string`; `type`: `"class"`; \} \| \{ `entities`: `object`[]; `relationships`: `object`[]; `title`: `string`; `type`: `"er"`; \} \| \{ `evidence`: `object`[]; `props`: `unknown`; `templateId`: \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"`; `type`: `"template"`; \} \| \{ `domain`: \[`number`, `number`\]; `logY`: `boolean`; `series`: `object`[]; `title`: `string`; `type`: `"chart"`; `xLabel`: `string`; `yLabel`: `string`; \} \| \{ `sourceBlockId`: `string`; `terms`: `object`[]; `type`: `"math"`; \} \| \{ `events`: `object`[]; `lanes`: `object`[]; `simulated`: `true`; `type`: `"timeline"`; \} \| \{ `html`: `string`; `reason`: `string`; `type`: `"html"`; \} |
-| `input` | `unknown` |
-| `options` | [`AnimationOptions`](#animationoptions) |
-| `repair` | (`input`, `issues`) => `Promise`\<`unknown`\> |
+| Parameter | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ir`      | \| \{ `direction`: `"LR"` \| `"TB"`; `edges`: `object`[]; `groups`: `object`[]; `nodes`: `object`[]; `title`: `string`; `type`: `"graph"`; \} \| \{ `messages`: `object`[]; `participants`: `object`[]; `title`: `string`; `type`: `"sequence"`; \} \| \{ `final`: `string`[]; `initial`: `string`; `states`: `object`[]; `title`: `string`; `transitions`: `object`[]; `type`: `"state"`; \} \| \{ `classes`: `object`[]; `relations`: `object`[]; `title`: `string`; `type`: `"class"`; \} \| \{ `entities`: `object`[]; `relationships`: `object`[]; `title`: `string`; `type`: `"er"`; \} \| \{ `evidence`: `object`[]; `props`: `unknown`; `templateId`: \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"`; `type`: `"template"`; \} \| \{ `domain`: \[`number`, `number`\]; `logY`: `boolean`; `series`: `object`[]; `title`: `string`; `type`: `"chart"`; `xLabel`: `string`; `yLabel`: `string`; \} \| \{ `sourceBlockId`: `string`; `terms`: `object`[]; `type`: `"math"`; \} \| \{ `events`: `object`[]; `lanes`: `object`[]; `simulated`: `true`; `type`: `"timeline"`; \} \| \{ `html`: `string`; `reason`: `string`; `type`: `"html"`; \} |
+| `input`   | `unknown`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `options` | [`AnimationOptions`](#animationoptions)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `repair`  | (`input`, `issues`) => `Promise`\<`unknown`\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 ##### Returns
 
 `Promise`\<[`AnimationValidation`](#animationvalidation) & `object`\>
 
-***
+---
 
 #### visualKey()
 
 ```ts
-function visualKey(i): Promise<string>;
+function visualKey(i): Promise<string>
 ```
 
 `sha256([planKey, kind, templateId, intent, extractor.promptVersion, extractor.model, extractor.effort, COMPILER_VERSION])`
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `i` | [`VisualKeyInput`](#visualkeyinput) |
+| Parameter | Type                                |
+| --------- | ----------------------------------- |
+| `i`       | [`VisualKeyInput`](#visualkeyinput) |
 
 ##### Returns
 
 `Promise`\<`string`\>
 
-***
+---
 
 #### wordCount()
 
 ```ts
-function wordCount(text): number;
+function wordCount(text): number
 ```
 
 Counts whitespace-separated words, used by the word limits in spec §5 and §8.
 
 ##### Parameters
 
-| Parameter | Type |
-| ------ | ------ |
-| `text` | `string` |
+| Parameter | Type     |
+| --------- | -------- |
+| `text`    | `string` |
 
 ##### Returns
 
 `number`
-

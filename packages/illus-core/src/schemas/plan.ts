@@ -40,7 +40,11 @@ export const TemplateId = z.enum([
 export type TemplateId = z.infer<typeof TemplateId>
 
 /** Kinds that may extend or start a concept model in v1 (§13). */
-export const ConceptModelKind = VisualKind.extract(['graph', 'sequence', 'state'])
+export const ConceptModelKind = VisualKind.extract([
+  'graph',
+  'sequence',
+  'state',
+])
 export type ConceptModelKind = z.infer<typeof ConceptModelKind>
 
 /** One visual the planner wants for a section (§5). */
@@ -57,21 +61,38 @@ export const PlanItem = z
     newConceptModel: z.string().min(1).optional(),
     priority: z.literal([1, 2, 3]),
     animate: z.boolean(),
+    /** What this visual shows and how to read it. */
+    caption: maxWords(60).optional(),
   })
   .superRefine((item, ctx) => {
     if (item.kind === 'template' && !item.templateId)
-      ctx.addIssue({ code: 'custom', path: ['templateId'], message: 'template items need a templateId' })
+      ctx.addIssue({
+        code: 'custom',
+        path: ['templateId'],
+        message: 'template items need a templateId',
+      })
     if (item.kind !== 'template' && item.templateId)
-      ctx.addIssue({ code: 'custom', path: ['templateId'], message: 'templateId is only for template items' })
+      ctx.addIssue({
+        code: 'custom',
+        path: ['templateId'],
+        message: 'templateId is only for template items',
+      })
     if (item.kind === 'trace' && !item.codeBlockId)
-      ctx.addIssue({ code: 'custom', path: ['codeBlockId'], message: 'trace items need a codeBlockId' })
+      ctx.addIssue({
+        code: 'custom',
+        path: ['codeBlockId'],
+        message: 'trace items need a codeBlockId',
+      })
     if (item.conceptModelId && item.newConceptModel)
       ctx.addIssue({
         code: 'custom',
         path: ['newConceptModel'],
         message: 'set either conceptModelId or newConceptModel, not both',
       })
-    if ((item.conceptModelId || item.newConceptModel) && !ConceptModelKind.safeParse(item.kind).success)
+    if (
+      (item.conceptModelId || item.newConceptModel) &&
+      !ConceptModelKind.safeParse(item.kind).success
+    )
       ctx.addIssue({
         code: 'custom',
         path: ['kind'],
@@ -86,16 +107,30 @@ export const VisualPlan = z
     sectionId: z.string().min(1),
     needsVisual: z.boolean(),
     reason: z.string().min(1),
+    /** 2-4 plain sentences giving the big idea of the section for a reader who has not read it, only from facts in the provided text. */
+    overview: maxWords(120).optional(),
     items: z.array(PlanItem).max(3),
   })
   .superRefine((plan, ctx) => {
     if (plan.needsVisual && plan.items.length === 0)
-      ctx.addIssue({ code: 'custom', path: ['items'], message: 'needsVisual: true requires at least one item' })
+      ctx.addIssue({
+        code: 'custom',
+        path: ['items'],
+        message: 'needsVisual: true requires at least one item',
+      })
     if (!plan.needsVisual && plan.items.length > 0)
-      ctx.addIssue({ code: 'custom', path: ['items'], message: 'needsVisual: false must have no items' })
+      ctx.addIssue({
+        code: 'custom',
+        path: ['items'],
+        message: 'needsVisual: false must have no items',
+      })
     const ids = plan.items.map((i) => i.planItemId)
     if (new Set(ids).size !== ids.length)
-      ctx.addIssue({ code: 'custom', path: ['items'], message: 'planItemIds must be unique' })
+      ctx.addIssue({
+        code: 'custom',
+        path: ['items'],
+        message: 'planItemIds must be unique',
+      })
   })
 export type VisualPlan = z.infer<typeof VisualPlan>
 
