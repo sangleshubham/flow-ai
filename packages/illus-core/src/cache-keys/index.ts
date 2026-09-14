@@ -14,7 +14,9 @@ export interface RoleRun {
 
 /** `undefined` becomes `null` so optional parts hash deterministically. */
 function keyOf(parts: readonly unknown[]): Promise<string> {
-  return sha256Hex(JSON.stringify(parts.map((p) => (p === undefined ? null : p))))
+  return sha256Hex(
+    JSON.stringify(parts.map((p) => (p === undefined ? null : p))),
+  )
 }
 
 export interface PlanKeyInput {
@@ -23,11 +25,23 @@ export interface PlanKeyInput {
   contentHash: string
   contextVersion: string | number
   planner: RoleRun
+  /** Sorted, comma-joined enabled flag-gated kinds; appended only when present, so older keys are unchanged. */
+  kinds?: string
 }
 
-/** `sha256([bookId, sectionId, contentHash, CONTEXT_VERSION, planner.promptVersion, planner.model, planner.effort])` */
+/** `sha256([bookId, sectionId, contentHash, CONTEXT_VERSION, planner.promptVersion, planner.model, planner.effort, kinds?])` */
 export function planKey(i: PlanKeyInput): Promise<string> {
-  return keyOf([i.bookId, i.sectionId, i.contentHash, i.contextVersion, i.planner.promptVersion, i.planner.model, i.planner.effort])
+  const parts: unknown[] = [
+    i.bookId,
+    i.sectionId,
+    i.contentHash,
+    i.contextVersion,
+    i.planner.promptVersion,
+    i.planner.model,
+    i.planner.effort,
+  ]
+  if (i.kinds) parts.push(i.kinds)
+  return keyOf(parts)
 }
 
 export interface VisualKeyInput {
@@ -63,5 +77,11 @@ export interface TraceKeyInput {
 
 /** `sha256([codeBlock.source, translator.promptVersion, translator.model, translator.effort, TRACER_VERSION])` */
 export function traceKey(i: TraceKeyInput): Promise<string> {
-  return keyOf([i.codeSource, i.translator.promptVersion, i.translator.model, i.translator.effort, i.tracerVersion])
+  return keyOf([
+    i.codeSource,
+    i.translator.promptVersion,
+    i.translator.model,
+    i.translator.effort,
+    i.tracerVersion,
+  ])
 }
