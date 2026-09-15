@@ -16,14 +16,22 @@ import type {
   SectionsRepo,
 } from '@illus/core'
 
-import { attrs, clipTokens, escapeText, estimateTokens, renderBlock, renderSection } from './format.ts'
+import {
+  attrs,
+  clipTokens,
+  escapeText,
+  estimateTokens,
+  renderBlock,
+  renderSection,
+} from './format.ts'
 
 /** Bump when the packed format or slot rules change: it is part of the plan cache key (§5). */
-export const CONTEXT_VERSION = 1
+export const CONTEXT_VERSION = 2
 
 export const SLOT_NAMES = [
   'bookPrefix',
   'current',
+  'subsections',
   'referenced',
   'definitions',
   'path',
@@ -31,12 +39,13 @@ export const SLOT_NAMES = [
   'conceptModel',
   'lexicalFallback',
 ] as const
-export type SlotName = (typeof SLOT_NAMES)[number]
+export type SlotName = typeof SLOT_NAMES[number]
 
 /** Per-slot caps in tokens (§7 slot table). */
 export const SLOT_CAPS: Readonly<Record<SlotName, number>> = {
   bookPrefix: 2500,
   current: 8000,
+  subsections: 4000,
   referenced: 2500,
   definitions: 2000,
   path: 600,
@@ -48,10 +57,15 @@ export const SLOT_CAPS: Readonly<Record<SlotName, number>> = {
 /** Per reference (§7 slot 3) and per definition (slot 4). */
 export const REFERENCE_TOKENS = 600
 export const DEFINITION_TOKENS = 150
+/** Per descendant section in the `subsections` slot. */
+export const SUBSECTION_TOKENS = 600
 
 /** The MiniSearch block index of `@illus/book-index` (`buildLexicalIndex`), structurally. */
 export interface LexicalSearch {
-  search(query: string, opts: { beforeOrdinal: number; limit?: number }): { blockId: string; score: number }[]
+  search(
+    query: string,
+    opts: { beforeOrdinal: number; limit?: number },
+  ): { blockId: string; score: number }[]
 }
 
 /** Read-only view over the store that the packer needs (§7), satisfied by `IllusRepos` plus `lexical`. */
@@ -102,7 +116,8 @@ interface Slot {
   items: { text: string; blockIds: string[] }[]
 }
 
-const BACK_REFERENCE = /\b(as we saw|recall|earlier|previous chapter|the approach above)\b/i
+const BACK_REFERENCE =
+  /\b(as we saw|recall|earlier|previous chapter|the approach above)\b/i
 const STOPWORDS = new Set(
   'a an and are as at be by for from has have in is it its of on or that the this to was we were which with will saw recall earlier previous chapter approach above see seen'.split(
     ' ',
@@ -115,9 +130,13 @@ const lower = (s: string) => s.toLowerCase()
 /** Builds the prompt context for one call (§7). */
 export async function packContext(input: PackInput): Promise<PackedContext> {
   const { repo, planItem } = input
-  const section = input.synthetic?.section ?? (await repo.sections.get(input.sectionId))
-  if (!section) throw new Error(`packContext: unknown section ${input.sectionId}`)
-  const blocks = input.synthetic?.blocks ?? (await repo.blocks.listBySection(section.sectionId))
+  const section =
+    input.synthetic?.section ?? (await repo.sections.get(input.sectionId))
+  if (!section)
+    throw new Error(`packContext: unknown section ${input.sectionId}`)
+  const blocks =
+    input.synthetic?.blocks ??
+    (await repo.blocks.listBySection(section.sectionId))
   const [book, allSections, allConcepts, index] = await Promise.all([
     repo.books.get(section.bookId),
     repo.sections.listByBook(section.bookId),
@@ -128,26 +147,42 @@ export async function packContext(input: PackInput): Promise<PackedContext> {
   const ordinal = section.ordinal
 
   // Reading-position gating (§7): nothing introduced after the current ordinal.
-  const concepts = allConcepts.filter((c) => c.firstOrdinal <= ordinal).sort((a, b) => byString(a.canonical, b.canonical))
-  const usedNames = new Set([...(index?.uses ?? []), ...(index?.defines ?? [])].map((u) => lower(u.name)))
+  const concepts = allConcepts
+    .filter((c) => c.firstOrdinal <= ordinal)
+    .sort((a, b) => byString(a.canonical, b.canonical))
+  const usedNames = new Set(
+    [...(index?.uses ?? []), ...(index?.defines ?? [])].map((u) =>
+      lower(u.name),
+    ),
+  )
   const isUsed = (c: Concept) =>
-    planItem?.conceptIds.includes(c.conceptId) || [c.canonical, ...c.aliases].some((n) => usedNames.has(lower(n)))
+    planItem?.conceptIds.includes(c.conceptId) ||
+    [c.canonical, ...c.aliases].some((n) => usedNames.has(lower(n)))
 
   const slots: Slot[] = []
 
   // 1. bookPrefix
   const header = [
     `<title>${escapeText(book?.title ?? '')}</title>`,
-    book?.summary ? `<summary>${escapeText(book.summary.summary)}</summary>` : '',
+    book?.summary
+      ? `<summary>${escapeText(book.summary.summary)}</summary>`
+      : '',
     book?.summary?.conventions.length
-      ? `<conventions>${book.summary.conventions.map((c) => `<convention>${escapeText(c)}</convention>`).join('')}</conventions>`
+      ? `<conventions>${book.summary.conventions
+          .map((c) => `<convention>${escapeText(c)}</convention>`)
+          .join('')}</conventions>`
       : '',
   ]
     .filter(Boolean)
     .join('\n')
   const glossaryOrder = [
     ...concepts.filter(isUsed),
-    ...concepts.filter((c) => !isUsed(c)).sort((a, b) => a.firstOrdinal - b.firstOrdinal || byString(a.canonical, b.canonical)),
+    ...concepts
+      .filter((c) => !isUsed(c))
+      .sort(
+        (a, b) =>
+          a.firstOrdinal - b.firstOrdinal || byString(a.canonical, b.canonical),
+      ),
   ]
   slots.push({
     name: 'bookPrefix',
@@ -156,14 +191,79 @@ export async function packContext(input: PackInput): Promise<PackedContext> {
     items: [
       { text: header, blockIds: [] },
       ...glossaryOrder.map((c) => ({
-        text: `<concept${attrs([['id', c.conceptId], ['name', c.canonical], ['aliases', c.aliases.length ? c.aliases.join('; ') : undefined], ['spanning', c.spanning || undefined]])}/>`,
+        text: `<concept${attrs([
+          ['id', c.conceptId],
+          ['name', c.canonical],
+          ['aliases', c.aliases.length ? c.aliases.join('; ') : undefined],
+          ['spanning', c.spanning || undefined],
+        ])}/>`,
         blockIds: [],
       })),
     ],
   })
 
   // 2. current: never truncated
-  slots.push({ name: 'current', open: '', close: '', items: [{ text: renderSection(section, blocks), blockIds: blocks.map((b) => b.blockId) }] })
+  slots.push({
+    name: 'current',
+    open: '',
+    close: '',
+    items: [
+      {
+        text: renderSection(section, blocks),
+        blockIds: blocks.map((b) => b.blockId),
+      },
+    ],
+  })
+
+  // 2b. subsections: the open section's descendants in reading order (never siblings, ancestors or other
+  // chapters). A titles-only outline comes first, so the cap drops per-child text before it.
+  const subItems: Slot['items'] = []
+  if (!input.synthetic) {
+    const descendants = allSections
+      .map((s) => [s, depthUnder(s, section.sectionId, sectionsById)] as const)
+      .filter(([, depth]) => depth > 0)
+      .sort(
+        ([a], [b]) =>
+          a.ordinal - b.ordinal || byString(a.sectionId, b.sectionId),
+      )
+    if (descendants.length)
+      subItems.push({
+        text: `  <outline>${descendants
+          .map(
+            ([s, depth]) =>
+              `<subsection${attrs([
+                ['title', s.title],
+                ['depth', depth],
+              ])}/>`,
+          )
+          .join('')}</outline>`,
+        blockIds: [],
+      })
+    for (const [s, depth] of descendants) {
+      const { parts, ids } = clipBlocks(
+        await repo.blocks.listBySection(s.sectionId),
+        SUBSECTION_TOKENS,
+      )
+      if (!parts.length) continue
+      subItems.push({
+        text: [
+          `  <subsection${attrs([
+            ['title', s.title],
+            ['depth', depth],
+          ])}>`,
+          ...parts.map((p) => `    ${p}`),
+          '  </subsection>',
+        ].join('\n'),
+        blockIds: ids,
+      })
+    }
+  }
+  slots.push({
+    name: 'subsections',
+    open: '<subsections>',
+    close: '</subsections>',
+    items: subItems,
+  })
 
   // 3. referenced: explicit, resolved cross-references to earlier material
   const ownIds = new Set(blocks.map((b) => b.blockId))
@@ -184,59 +284,114 @@ export async function packContext(input: PackInput): Promise<PackedContext> {
       if (ref.targetBlockId) {
         const tb = await repo.blocks.get(ref.targetBlockId)
         if (tb) targetBlocks = [tb]
-      } else if (ref.targetSectionId) targetBlocks = await repo.blocks.listBySection(ref.targetSectionId)
-      targetBlocks = targetBlocks.filter((tb) => !ownIds.has(tb.blockId) && (sectionsById.get(tb.sectionId)?.ordinal ?? Infinity) < ordinal)
+      } else if (ref.targetSectionId)
+        targetBlocks = await repo.blocks.listBySection(ref.targetSectionId)
+      targetBlocks = targetBlocks.filter(
+        (tb) =>
+          !ownIds.has(tb.blockId) &&
+          (sectionsById.get(tb.sectionId)?.ordinal ?? Infinity) < ordinal,
+      )
       if (!targetBlocks.length) continue
-      let left = REFERENCE_TOKENS
-      const parts: string[] = []
-      const ids: string[] = []
-      for (const tb of targetBlocks) {
-        if (left <= 0) break
-        const text = clipTokens(tb.text, left)
-        left -= estimateTokens(text)
-        parts.push(`  ${renderBlock(tb, [['from', ref.label]], text)}`)
-        ids.push(tb.blockId)
-      }
-      referenced.push({ text: parts.join('\n'), blockIds: ids })
+      const { parts, ids } = clipBlocks(targetBlocks, REFERENCE_TOKENS, [
+        ['from', ref.label],
+      ])
+      referenced.push({
+        text: parts.map((p) => `  ${p}`).join('\n'),
+        blockIds: ids,
+      })
     }
   }
-  slots.push({ name: 'referenced', open: '<referenced>', close: '</referenced>', items: referenced })
+  slots.push({
+    name: 'referenced',
+    open: '<referenced>',
+    close: '</referenced>',
+    items: referenced,
+  })
 
   // 4. definitions of used concepts defined earlier, elsewhere
   const definitions: Slot['items'] = []
   for (const c of concepts) {
-    if (!isUsed(c) || !c.definition || !c.definedInSectionId || c.definedInSectionId === section.sectionId) continue
-    if ((sectionsById.get(c.definedInSectionId)?.ordinal ?? Infinity) >= ordinal) continue
+    if (
+      !isUsed(c) ||
+      !c.definition ||
+      !c.definedInSectionId ||
+      c.definedInSectionId === section.sectionId
+    )
+      continue
+    if (
+      (sectionsById.get(c.definedInSectionId)?.ordinal ?? Infinity) >= ordinal
+    )
+      continue
     const db = await repo.blocks.get(c.definition.blockId)
     if (!db) continue
     definitions.push({
-      text: `  <concept${attrs([['name', c.canonical]])}>${renderBlock(db, [], around(db.text, c.definition.quote, DEFINITION_TOKENS))}</concept>`,
+      text: `  <concept${attrs([['name', c.canonical]])}>${renderBlock(
+        db,
+        [],
+        around(db.text, c.definition.quote, DEFINITION_TOKENS),
+      )}</concept>`,
       blockIds: [db.blockId],
     })
   }
-  slots.push({ name: 'definitions', open: '<definitions>', close: '</definitions>', items: definitions })
+  slots.push({
+    name: 'definitions',
+    open: '<definitions>',
+    close: '</definitions>',
+    items: definitions,
+  })
 
   // 5. path: heading ancestors, deepest first
   const pathItems: Slot['items'] = []
   const visited = new Set([section.sectionId])
-  for (let p = section.parentId; p && !visited.has(p); p = sectionsById.get(p)?.parentId) {
+  for (
+    let p = section.parentId;
+    p && !visited.has(p);
+    p = sectionsById.get(p)?.parentId
+  ) {
     visited.add(p)
     const anc = sectionsById.get(p)
     const summary = (await repo.sectionIndex.get(p))?.summary
-    if (anc && summary) pathItems.push({ text: `  <summary${attrs([['section', anc.title]])}>${escapeText(summary)}</summary>`, blockIds: [] })
+    if (anc && summary)
+      pathItems.push({
+        text: `  <summary${attrs([['section', anc.title]])}>${escapeText(
+          summary,
+        )}</summary>`,
+        blockIds: [],
+      })
   }
-  slots.push({ name: 'path', open: '<path_summaries>', close: '</path_summaries>', items: pathItems })
+  slots.push({
+    name: 'path',
+    open: '<path_summaries>',
+    close: '</path_summaries>',
+    items: pathItems,
+  })
 
   // 6. previous sibling
   const prev = allSections
-    .filter((s) => s.parentId === section.parentId && s.ordinal < ordinal && s.sectionId !== section.sectionId)
+    .filter(
+      (s) =>
+        s.parentId === section.parentId &&
+        s.ordinal < ordinal &&
+        s.sectionId !== section.sectionId,
+    )
     .sort((a, b) => b.ordinal - a.ordinal)[0]
-  const prevSummary = prev && (await repo.sectionIndex.get(prev.sectionId))?.summary
+  const prevSummary =
+    prev && (await repo.sectionIndex.get(prev.sectionId))?.summary
   slots.push({
     name: 'previous',
     open: '',
     close: '',
-    items: prev && prevSummary ? [{ text: `<previous_summary${attrs([['section', prev.title]])}>${escapeText(prevSummary)}</previous_summary>`, blockIds: [] }] : [],
+    items:
+      prev && prevSummary
+        ? [
+            {
+              text: `<previous_summary${attrs([
+                ['section', prev.title],
+              ])}>${escapeText(prevSummary)}</previous_summary>`,
+              blockIds: [],
+            },
+          ]
+        : [],
   })
 
   // 7. concept model state
@@ -244,9 +399,18 @@ export async function packContext(input: PackInput): Promise<PackedContext> {
   if (planItem?.conceptModelId) {
     const model = await repo.conceptModels.get(planItem.conceptModelId)
     if (model) {
-      const state = input.conceptModelState?.(model, ordinal) ?? defaultModelState(model, ordinal)
+      const state =
+        input.conceptModelState?.(model, ordinal) ??
+        defaultModelState(model, ordinal)
       const json = shrinkJson(state, SLOT_CAPS.conceptModel)
-      if (json) cmItems.push({ text: `<concept_model${attrs([['id', model.conceptModelId], ['kind', model.kind]])}>${escapeText(json)}</concept_model>`, blockIds: [] })
+      if (json)
+        cmItems.push({
+          text: `<concept_model${attrs([
+            ['id', model.conceptModelId],
+            ['kind', model.kind],
+          ])}>${escapeText(json)}</concept_model>`,
+          blockIds: [],
+        })
     }
   }
   slots.push({ name: 'conceptModel', open: '', close: '', items: cmItems })
@@ -256,22 +420,45 @@ export async function packContext(input: PackInput): Promise<PackedContext> {
   if (repo.lexical) {
     const best = new Map<string, number>()
     for (const b of blocks) {
-      if (b.kind === 'code' || (refsByBlock.get(b.blockId) ?? []).some((r) => r.resolved)) continue
+      if (
+        b.kind === 'code' ||
+        (refsByBlock.get(b.blockId) ?? []).some((r) => r.resolved)
+      )
+        continue
       for (const sentence of b.text.split(/(?<=[.!?])\s+/)) {
         if (!BACK_REFERENCE.test(sentence)) continue
-        const query = [...new Set(sentence.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])].filter((w) => w.length > 2 && !STOPWORDS.has(w)).join(' ')
+        const query = [
+          ...new Set(sentence.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []),
+        ]
+          .filter((w) => w.length > 2 && !STOPWORDS.has(w))
+          .join(' ')
         if (!query) continue
-        for (const hit of repo.lexical.search(query, { beforeOrdinal: ordinal, limit: 3 }))
-          if (!ownIds.has(hit.blockId)) best.set(hit.blockId, Math.max(best.get(hit.blockId) ?? -Infinity, hit.score))
+        for (const hit of repo.lexical.search(query, {
+          beforeOrdinal: ordinal,
+          limit: 3,
+        }))
+          if (!ownIds.has(hit.blockId))
+            best.set(
+              hit.blockId,
+              Math.max(best.get(hit.blockId) ?? -Infinity, hit.score),
+            )
       }
     }
-    const top = [...best].sort((a, b) => b[1] - a[1] || byString(a[0], b[0])).slice(0, 3)
+    const top = [...best]
+      .sort((a, b) => b[1] - a[1] || byString(a[0], b[0]))
+      .slice(0, 3)
     for (const [blockId] of top) {
       const lb = await repo.blocks.get(blockId)
-      if (lb) lexItems.push({ text: `  ${renderBlock(lb)}`, blockIds: [blockId] })
+      if (lb)
+        lexItems.push({ text: `  ${renderBlock(lb)}`, blockIds: [blockId] })
     }
   }
-  slots.push({ name: 'lexicalFallback', open: '<earlier_passages>', close: '</earlier_passages>', items: lexItems })
+  slots.push({
+    name: 'lexicalFallback',
+    open: '<earlier_passages>',
+    close: '</earlier_passages>',
+    items: lexItems,
+  })
 
   // Fill in priority order until the budget is used.
   let left = input.budgetTokens
@@ -285,7 +472,10 @@ export async function packContext(input: PackInput): Promise<PackedContext> {
     let lost = false
     for (const item of slot.items) {
       const t = estimateTokens(item.text) + 1
-      if (slot.name !== 'current' && (lost || slotTokens + t > SLOT_CAPS[slot.name] || slotTokens + t > left)) {
+      if (
+        slot.name !== 'current' &&
+        (lost || slotTokens + t > SLOT_CAPS[slot.name] || slotTokens + t > left)
+      ) {
         lost = true
         continue
       }
@@ -296,7 +486,9 @@ export async function packContext(input: PackInput): Promise<PackedContext> {
     if (lost) dropped.push(slot.name)
     if (!kept.length) continue
     left -= slotTokens
-    const text = slot.open ? [slot.open, ...kept, slot.close].join('\n') : kept.join('\n')
+    const text = slot.open
+      ? [slot.open, ...kept, slot.close].join('\n')
+      : kept.join('\n')
     if (slot.name === 'bookPrefix') prefix = text
     else bodyParts.push(text)
   }
@@ -311,7 +503,50 @@ export async function packContext(input: PackInput): Promise<PackedContext> {
       ])}>${escapeText(planItem.intent)}</plan_item>`,
     )
   const body = bodyParts.join('\n')
-  return { prefix, body, usedBlockIds: [...new Set(used)], dropped, tokens: estimateTokens(prefix) + estimateTokens(body) }
+  return {
+    prefix,
+    body,
+    usedBlockIds: [...new Set(used)],
+    dropped,
+    tokens: estimateTokens(prefix) + estimateTokens(body),
+  }
+}
+
+/** The first blocks of `blocks`, rendered, within `tokens` tokens in total (the last one clipped). */
+function clipBlocks(
+  blocks: readonly Block[],
+  tokens: number,
+  extra: [string, string | undefined][] = [],
+): { parts: string[]; ids: string[] } {
+  let left = tokens
+  const parts: string[] = []
+  const ids: string[] = []
+  for (const b of blocks) {
+    if (left <= 0) break
+    const text = clipTokens(b.text, left)
+    left -= estimateTokens(text)
+    parts.push(renderBlock(b, extra, text))
+    ids.push(b.blockId)
+  }
+  return { parts, ids }
+}
+
+/** Depth of `s` below the section `rootId` (1 = child), or 0 when `s` is not in its subtree. */
+function depthUnder(
+  s: SectionNode,
+  rootId: string,
+  byId: ReadonlyMap<string, SectionNode>,
+): number {
+  const seen = new Set([s.sectionId]) // guards parent cycles, including a section that is its own parent
+  for (
+    let depth = 1, p = s.parentId;
+    p && !seen.has(p);
+    depth++, p = byId.get(p)?.parentId
+  ) {
+    if (p === rootId) return depth
+    seen.add(p)
+  }
+  return 0
 }
 
 /** A window of about `tokens` tokens of `text` centred on `quote` (or its start when not found). */
@@ -319,14 +554,24 @@ function around(text: string, quote: string, tokens: number): string {
   const max = Math.floor(tokens * 3.6)
   if (text.length <= max) return text
   const at = Math.max(0, text.toLowerCase().indexOf(quote.toLowerCase()))
-  const start = Math.max(0, Math.min(at - Math.floor((max - quote.length) / 2), text.length - max))
-  return `${start > 0 ? '…' : ''}${text.slice(start, start + max)}${start + max < text.length ? '…' : ''}`
+  const start = Math.max(
+    0,
+    Math.min(at - Math.floor((max - quote.length) / 2), text.length - max),
+  )
+  return `${start > 0 ? '…' : ''}${text.slice(start, start + max)}${
+    start + max < text.length ? '…' : ''
+  }`
 }
 
-function defaultModelState(model: ConceptModel, beforeOrdinal: number): unknown {
+function defaultModelState(
+  model: ConceptModel,
+  beforeOrdinal: number,
+): unknown {
   return {
     kind: model.kind,
-    patches: model.patches.filter((p) => p.sectionOrdinal < beforeOrdinal).map((p) => ({ section: p.sectionId, ops: p.ops })),
+    patches: model.patches
+      .filter((p) => p.sectionOrdinal < beforeOrdinal)
+      .map((p) => ({ section: p.sectionId, ops: p.ops })),
   }
 }
 
@@ -334,13 +579,21 @@ function defaultModelState(model: ConceptModel, beforeOrdinal: number): unknown 
 function shrinkJson(state: unknown, cap: number): string | null {
   const fits = (v: unknown) => estimateTokens(JSON.stringify(v)) <= cap - 20
   if (fits(state)) return JSON.stringify(state)
-  const s = JSON.parse(JSON.stringify(state, (k, v) => (k === 'sublabel' ? undefined : v))) as unknown
+  const s = JSON.parse(
+    JSON.stringify(state, (k, v) => (k === 'sublabel' ? undefined : v)),
+  ) as unknown
   if (fits(s)) return JSON.stringify(s)
   // Annotate ops in reading order: remove from the oldest until it fits.
   const annotations: { list: unknown[]; item: unknown }[] = []
   const walk = (v: unknown) => {
     if (Array.isArray(v)) {
-      for (const x of v) if (x && typeof x === 'object' && (x as { op?: string }).op === 'annotate') annotations.push({ list: v, item: x })
+      for (const x of v)
+        if (
+          x &&
+          typeof x === 'object' &&
+          (x as { op?: string }).op === 'annotate'
+        )
+          annotations.push({ list: v, item: x })
       v.forEach(walk)
     } else if (v && typeof v === 'object') Object.values(v).forEach(walk)
   }
