@@ -42,7 +42,7 @@ The orchestrator sets Status to `done` once a task is merged into `main` and gat
 | T1  | `fix-llm-stream`    | W2           | sonnet / medium | —          | done   |
 | T2  | `fix-contracts`     | W0           | sonnet / medium | —          | done   |
 | T3  | `fix-anim-targets`  | W6           | sonnet / low    | —          | done   |
-| T4  | `fix-context-pack`  | W3           | opus / high     | —          | todo   |
+| T4  | `fix-context-pack`  | W3           | opus / high     | —          | done   |
 | T5  | `fix-prompts`       | W3           | opus / high     | —          | todo   |
 | T6  | `fix-pipeline`      | W3           | opus / high     | T2, T3, T4 | todo   |
 | T7  | `fix-pane-ui`       | W9           | sonnet / medium | T2         | todo   |
