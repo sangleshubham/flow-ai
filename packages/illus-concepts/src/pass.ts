@@ -12,19 +12,32 @@ import type {
   SectionIndexRecord,
   SectionNode,
 } from '@illus/core'
-import { attrs, escapeText, estimateTokens, renderSection } from '@illus/context'
+import {
+  attrs,
+  escapeText,
+  estimateTokens,
+  renderSection,
+} from '@illus/context'
 
-import { ambiguousGroups, clusterConcepts, nameKey, toConcepts } from './cluster.ts'
+import {
+  ambiguousGroups,
+  clusterConcepts,
+  nameKey,
+  toConcepts,
+} from './cluster.ts'
 import { prioritize, takeBatch } from './queue.ts'
 
 /** Glossary merge after this many newly indexed sections (§6 phase B step 5). */
-export const GLOSSARY_EVERY = 50
+export const GLOSSARY_EVERY = 15
 /** Book summary once this share of sections is indexed (§6 phase B step 6). */
-export const SUMMARY_AT = 0.3
+export const SUMMARY_AT = 0.1
 /** Input budget of the book-summary call; deeper levels are left out first above it. */
 export const SUMMARY_BUDGET_TOKENS = 12_000
 
-export type ConceptRepos = Pick<IllusRepos, 'books' | 'sections' | 'blocks' | 'sectionIndex' | 'concepts' | 'transaction'>
+export type ConceptRepos = Pick<
+  IllusRepos,
+  'books' | 'sections' | 'blocks' | 'sectionIndex' | 'concepts' | 'transaction'
+>
 
 export interface ConceptPassDeps {
   bookId: string
@@ -87,7 +100,12 @@ export function createConceptPass(deps: ConceptPassDeps): ConceptPass {
       repos.sectionIndex.countByBook(bookId),
       repos.books.get(bookId),
     ])
-    return { indexed, total, done: book?.indexStatus === 'complete', ...(error && { error }) }
+    return {
+      indexed,
+      total,
+      done: book?.indexStatus === 'complete',
+      ...(error && { error }),
+    }
   }
 
   function settle(sectionId: string, ok: boolean) {
@@ -103,14 +121,22 @@ export function createConceptPass(deps: ConceptPassDeps): ConceptPass {
       for (;;) {
         if (signal.aborted) return await progress()
         const sections = await repos.sections.listByBook(bookId)
-        const indexed = new Set((await repos.sectionIndex.listByBook(bookId)).map((r) => r.sectionId))
-        const pending = sections.filter((s) => !indexed.has(s.sectionId) && !failed.has(s.sectionId))
+        const indexed = new Set(
+          (await repos.sectionIndex.listByBook(bookId)).map((r) => r.sectionId),
+        )
+        const pending = sections.filter(
+          (s) => !indexed.has(s.sectionId) && !failed.has(s.sectionId),
+        )
         if (!pending.length) {
           const book = await repos.books.get(bookId)
           if (book && book.indexStatus !== 'complete' && !failed.size) {
             await mergeGlossary(signal)
             await summarize(signal)
-            await repos.books.put({ ...(await repos.books.get(bookId))!, indexStatus: 'complete', updatedAt: now() })
+            await repos.books.put({
+              ...(await repos.books.get(bookId))!,
+              indexStatus: 'complete',
+              updatedAt: now(),
+            })
           }
           return await progress()
         }
@@ -124,7 +150,11 @@ export function createConceptPass(deps: ConceptPassDeps): ConceptPass {
           await mergeGlossary(signal)
           sinceGlossary = 0
         }
-        if (!(await repos.books.get(bookId))?.summary && p.indexed / p.total >= SUMMARY_AT) await summarize(signal)
+        if (
+          !(await repos.books.get(bookId))?.summary &&
+          p.indexed / p.total >= SUMMARY_AT
+        )
+          await summarize(signal)
       }
     } catch (e) {
       if (e instanceof LlmError && e.code === 'aborted') return await progress()
@@ -142,7 +172,10 @@ export function createConceptPass(deps: ConceptPassDeps): ConceptPass {
   }
 
   /** Indexes one batch; returns how many sections got an index. */
-  async function indexBatch(batch: SectionNode[], signal: AbortSignal): Promise<number> {
+  async function indexBatch(
+    batch: SectionNode[],
+    signal: AbortSignal,
+  ): Promise<number> {
     const blocksBySection = new Map<string, Block[]>()
     for (const s of batch) {
       // Next 12's async lowering can concatenate awaited arrays into call arguments. Keep the
@@ -154,35 +187,77 @@ export function createConceptPass(deps: ConceptPassDeps): ConceptPass {
     // Sections without text need no model call.
     for (const s of batch)
       if (!blocksBySection.get(s.sectionId)!.length)
-        records.push({ bookId, sectionId: s.sectionId, summary: s.title || 'Untitled section', defines: [], uses: [], flags: EMPTY_FLAGS, indexedWith: { model: 'none', promptVersion: '0' } })
-    const withText = batch.filter((s) => blocksBySection.get(s.sectionId)!.length)
+        records.push({
+          bookId,
+          sectionId: s.sectionId,
+          summary: s.title || 'Untitled section',
+          defines: [],
+          uses: [],
+          flags: EMPTY_FLAGS,
+          indexedWith: { model: 'none', promptVersion: '0' },
+        })
+    const withText = batch.filter(
+      (s) => blocksBySection.get(s.sectionId)!.length,
+    )
     if (withText.length) {
-      const ctx = { prefix: await bookPrefix(), body: withText.map((s) => renderSection(s, blocksBySection.get(s.sectionId)!)).join('\n') }
-      const call = (escalate: boolean) => llm.call('indexer', ctx, { signal, bookId, ...(escalate && { escalate }) })
+      const ctx = {
+        prefix: await bookPrefix(),
+        body: withText
+          .map((s) => renderSection(s, blocksBySection.get(s.sectionId)!))
+          .join('\n'),
+      }
+      const call = (escalate: boolean) =>
+        llm.call('indexer', ctx, {
+          signal,
+          bookId,
+          ...(escalate && { escalate }),
+        })
       let res
       try {
         res = await call(false)
       } catch (e) {
-        if (!(e instanceof LlmError) || e.code === 'aborted' || e.code === 'plan-limit' || e.code === 'signin-required') throw e
+        if (
+          !(e instanceof LlmError) ||
+          e.code === 'aborted' ||
+          e.code === 'plan-limit' ||
+          e.code === 'signin-required'
+        )
+          throw e
         try {
           res = await call(true)
         } catch (e2) {
-          if (!(e2 instanceof LlmError) || e2.code === 'aborted' || e2.code === 'plan-limit' || e2.code === 'signin-required') throw e2
+          if (
+            !(e2 instanceof LlmError) ||
+            e2.code === 'aborted' ||
+            e2.code === 'plan-limit' ||
+            e2.code === 'signin-required'
+          )
+            throw e2
           withText.forEach((s) => failed.add(s.sectionId))
         }
       }
       for (const out of res?.data.sections ?? []) {
         const blocks = blocksBySection.get(out.sectionId)
-        if (!blocks || !withText.some((s) => s.sectionId === out.sectionId)) continue
+        if (!blocks || !withText.some((s) => s.sectionId === out.sectionId))
+          continue
         const map = new Map(blocks.map((b) => [b.blockId, b]))
         // §6 phase B step 4: drop definitions whose quote does not ground.
         const defines = out.defines.flatMap((d) => {
           const g = ground(d.evidence, { blocks: map, label: d.name })
-          return g.status === 'failed' || !g.evidence ? [] : [{ name: d.name, evidence: g.evidence }]
+          return g.status === 'failed' || !g.evidence
+            ? []
+            : [{ name: d.name, evidence: g.evidence }]
         })
-        records.push({ ...out, defines, bookId, indexedWith: { model: res!.model, promptVersion: res!.promptVersion } })
+        records.push({
+          ...out,
+          defines,
+          bookId,
+          indexedWith: { model: res!.model, promptVersion: res!.promptVersion },
+        })
       }
-      for (const s of withText) if (res && !records.some((r) => r.sectionId === s.sectionId)) failed.add(s.sectionId)
+      for (const s of withText)
+        if (res && !records.some((r) => r.sectionId === s.sectionId))
+          failed.add(s.sectionId)
     }
     await repos.sectionIndex.bulkPut(records)
     for (const r of records) {
@@ -204,7 +279,10 @@ export function createConceptPass(deps: ConceptPassDeps): ConceptPass {
     const ordinals = new Map(sections.map((s) => [s.sectionId, s.ordinal]))
     const records = await repos.sectionIndex.listByBook(bookId)
     const existing = await repos.concepts.listByBook(bookId)
-    const known: ConceptMerge[] = existing.map((c) => ({ canonical: c.canonical, aliases: c.aliases }))
+    const known: ConceptMerge[] = existing.map((c) => ({
+      canonical: c.canonical,
+      aliases: c.aliases,
+    }))
     let clusters = clusterConcepts(records, ordinals, known)
     const groups = ambiguousGroups(clusters)
     if (groups.length) {
@@ -213,17 +291,32 @@ export function createConceptPass(deps: ConceptPassDeps): ConceptPass {
         ...groups.map((g) =>
           [
             `  <group${attrs([['head', g[0]!.key.split(' ').at(-1)]])}>`,
-            ...g.map((c) => `    <cluster>${[...c.names.keys()].sort().map((n) => `<name>${escapeText(n)}</name>`).join('')}</cluster>`),
+            ...g.map(
+              (c) =>
+                `    <cluster>${[...c.names.keys()]
+                  .sort()
+                  .map((n) => `<name>${escapeText(n)}</name>`)
+                  .join('')}</cluster>`,
+            ),
             '  </group>',
           ].join('\n'),
         ),
         '</clusters>',
       ].join('\n')
-      const res = await llm.call('glossary', { prefix: await bookPrefix(), body }, { signal, bookId })
-      clusters = clusterConcepts(records, ordinals, [...known, ...res.data.merges])
+      const res = await llm.call(
+        'glossary',
+        { prefix: await bookPrefix(), body },
+        { signal, bookId },
+      )
+      clusters = clusterConcepts(records, ordinals, [
+        ...known,
+        ...res.data.merges,
+      ])
     }
     const existingIds = new Map<string, string>()
-    for (const c of existing) for (const n of [c.canonical, ...c.aliases]) existingIds.set(nameKey(n), c.conceptId)
+    for (const c of existing)
+      for (const n of [c.canonical, ...c.aliases])
+        existingIds.set(nameKey(n), c.conceptId)
     const concepts = toConcepts(bookId, clusters, ordinals, existingIds)
     await repos.transaction(['concepts'], async () => {
       await repos.concepts.deleteByBook(bookId)
@@ -233,16 +326,38 @@ export function createConceptPass(deps: ConceptPassDeps): ConceptPass {
 
   async function summarize(signal: AbortSignal): Promise<void> {
     const sections = await repos.sections.listByBook(bookId)
-    const byId = new Map((await repos.sectionIndex.listByBook(bookId)).map((r) => [r.sectionId, r]))
+    const byId = new Map(
+      (await repos.sectionIndex.listByBook(bookId)).map((r) => [
+        r.sectionId,
+        r,
+      ]),
+    )
     const lines = (maxLevel: number) =>
       sections
         .filter((s) => s.level <= maxLevel && byId.has(s.sectionId))
-        .map((s) => `  <summary${attrs([['section', s.title], ['ordinal', s.ordinal]])}>${escapeText(byId.get(s.sectionId)!.summary)}</summary>`)
+        .map(
+          (s) =>
+            `  <summary${attrs([
+              ['section', s.title],
+              ['ordinal', s.ordinal],
+            ])}>${escapeText(byId.get(s.sectionId)!.summary)}</summary>`,
+        )
     let kept = lines(4)
-    for (let level = 3; level >= 1 && estimateTokens(kept.join('\n')) > SUMMARY_BUDGET_TOKENS; level--) kept = lines(level)
-    const body = ['<section_summaries>', ...kept, '</section_summaries>'].join('\n')
+    for (
+      let level = 3;
+      level >= 1 && estimateTokens(kept.join('\n')) > SUMMARY_BUDGET_TOKENS;
+      level--
+    )
+      kept = lines(level)
+    const body = ['<section_summaries>', ...kept, '</section_summaries>'].join(
+      '\n',
+    )
     const book = await repos.books.get(bookId)
-    const res = await llm.call('book-summary', { prefix: bookContext(book, false), body }, { signal, bookId })
+    const res = await llm.call(
+      'book-summary',
+      { prefix: bookContext(book, false), body },
+      { signal, bookId },
+    )
     await repos.books.setSummary(bookId, res.data)
   }
 
@@ -260,7 +375,9 @@ export function createConceptPass(deps: ConceptPassDeps): ConceptPass {
     async indexNow(sectionId) {
       if (await repos.sectionIndex.get(sectionId)) return true
       if (!urgent.includes(sectionId)) urgent.push(sectionId)
-      const done = new Promise<boolean>((resolve) => waiters.set(sectionId, [...(waiters.get(sectionId) ?? []), resolve]))
+      const done = new Promise<boolean>((resolve) =>
+        waiters.set(sectionId, [...(waiters.get(sectionId) ?? []), resolve]),
+      )
       running ??= run()
       return done
     },
@@ -269,13 +386,19 @@ export function createConceptPass(deps: ConceptPassDeps): ConceptPass {
 }
 
 /** `<book_context>` for the indexer, glossary and summary calls: title, plus summary and conventions once known. */
-export function bookContext(book: BookMeta | undefined, withSummary = true): string {
+export function bookContext(
+  book: BookMeta | undefined,
+  withSummary = true,
+): string {
   const parts = [`<title>${escapeText(book?.title ?? '')}</title>`]
   if (withSummary && book?.summary) {
     parts.push(`<summary>${escapeText(book.summary.summary)}</summary>`)
     if (book.summary.conventions.length)
-      parts.push(`<conventions>${book.summary.conventions.map((c) => `<convention>${escapeText(c)}</convention>`).join('')}</conventions>`)
+      parts.push(
+        `<conventions>${book.summary.conventions
+          .map((c) => `<convention>${escapeText(c)}</convention>`)
+          .join('')}</conventions>`,
+      )
   }
   return ['<book_context>', ...parts, '</book_context>'].join('\n')
 }
-
