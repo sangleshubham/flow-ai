@@ -24,7 +24,7 @@ describe('every Illustrate pane state', () => {
   const expected = {
     idle: 'See what you’re reading',
     'indexing-required': 'Understand this book',
-    planning: 'Reading this section…',
+    planning: 'Planning the visual…',
     generating: 'Architecture',
     ready: 'saved visual',
     'no-visual': 'No diagram needed',
@@ -193,5 +193,48 @@ describe('quality warning badge (§16 L4/L5)', () => {
     )
     expect(screen.getByTestId('quality-warning')).toBeDefined()
     expect(screen.getByText('saved visual')).toBeDefined()
+  })
+})
+describe('stage text, overview and caption', () => {
+  const view = (fill: (s: ReturnType<typeof createPaneState>) => void) => {
+    const s = createPaneState()
+    s.items = [make.planItem({ planItemId: 'a', intent: 'Arch' })]
+    s.selectedItem = 'a'
+    fill(s)
+    const ui = () => (
+      <PaneContent
+        state={s}
+        commands={commands()}
+        renderVisual={() => <p>v</p>}
+      />
+    )
+    return { s, ui, ...render(ui()) }
+  }
+  it('shows the stage under the skeleton and updates it', () => {
+    const { s, ui, rerender } = view((s) => {
+      s.status = 'generating'
+      s.stages = { a: 'extracting' }
+    })
+    expect(screen.getByText('Drawing the diagram…')).toBeDefined()
+    s.stages = { a: 'animating' }
+    rerender(ui())
+    expect(screen.getByText('Adding animation…')).toBeDefined()
+  })
+  it('renders overview and caption only when present', () => {
+    view((s) => {
+      s.status = 'ready'
+      s.records = [make.visualRecord({ planItemId: 'a' })]
+      s.overview = 'The overview'
+      s.items = [make.planItem({ planItemId: 'a', caption: 'The caption' })]
+    })
+    expect(screen.getByText('The overview')).toBeDefined()
+    expect(screen.getByText('The caption')).toBeDefined()
+    cleanup()
+    view((s) => {
+      s.status = 'ready'
+      s.records = [make.visualRecord({ planItemId: 'a' })]
+    })
+    expect(document.querySelector('.illus-overview')).toBeNull()
+    expect(document.querySelector('.illus-caption')).toBeNull()
   })
 })

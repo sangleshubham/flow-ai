@@ -6,7 +6,7 @@ import type {
   SectionNode,
   VisualRecord,
 } from '@illus/core'
-import type { ReviewHook, SectionJob } from '@illus/pipeline'
+import type { ItemStage, ReviewHook, SectionJob } from '@illus/pipeline'
 import { proxy } from 'valtio'
 
 export const PANE_STATES = [
@@ -67,6 +67,10 @@ export interface PaneState {
   signinConfigured: boolean
   /** Plan item → sections being caught up by the concept model (§13 step 3), while it lasts. */
   catchingUp: Record<string, number>
+  /** Plan item → latest pipeline stage while it generates. */
+  stages: Record<string, ItemStage>
+  /** `plan.overview`, shown above the item tabs. */
+  overview: string
   preferences: Preferences
 }
 export function createPaneState(): PaneState {
@@ -91,6 +95,8 @@ export function createPaneState(): PaneState {
     account: '',
     signinConfigured: true,
     catchingUp: {},
+    stages: {},
+    overview: '',
     preferences: { ...DEFAULT_PREFERENCES, flags: resolveFlags() },
   }
 }
@@ -112,6 +118,8 @@ export function bindJob(
   state.message = ''
   state.reason = ''
   state.catchingUp = {}
+  state.stages = {}
+  state.overview = ''
   const caughtUp = (planItemId: string) => {
     const rest = { ...state.catchingUp }
     delete rest[planItemId]
@@ -133,6 +141,7 @@ export function bindJob(
       'plan',
       guarded(({ plan }) => {
         state.items = plan.items
+        state.overview = plan.overview ?? ''
         state.selectedItem = plan.items[0]?.planItemId ?? ''
         state.status = plan.needsVisual ? 'generating' : 'no-visual'
         state.reason = plan.reason ?? ''
@@ -144,6 +153,7 @@ export function bindJob(
     job.on(
       'item-progress',
       guarded((e) => {
+        state.stages = { ...state.stages, [e.planItemId]: e.stage }
         if (e.stage === 'catching-up') {
           state.catchingUp = {
             ...state.catchingUp,
@@ -203,6 +213,18 @@ export function bindJob(
   ]
   return () => cleanups.forEach((fn) => fn())
 }
+
+export const PLANNING_TEXT = 'Planning the visual…'
+const STAGE_LABELS: Partial<Record<ItemStage, string>> = {
+  extracting: 'Drawing the diagram…',
+  retrying: 'Fixing the diagram…',
+  escalating: 'Trying a stronger model…',
+  animating: 'Adding animation…',
+  critic: 'Checking the result…',
+}
+/** Human label for a stage; `cached` and internal stages have none. */
+export const stageLabel = (stage: ItemStage | undefined): string | undefined =>
+  stage && STAGE_LABELS[stage]
 
 export const catchUpText = (sections: number) =>
   `Catching up the concept model: ${sections} ${
