@@ -1,4 +1,4 @@
-import { LlmError, resolveFlags } from '@illus/core'
+import { LlmError } from '@illus/core'
 import type { GraphIR, VisualPlan } from '@illus/core'
 import { make } from '@illus/core/testing'
 import { describe, expect, test } from 'vitest'
@@ -11,6 +11,7 @@ import {
   TRACE_CODE_ID,
   collect,
   fakeLlm,
+  flagsOff,
   pipelineWith,
   seededRepos,
   seededTraceRepos,
@@ -367,7 +368,7 @@ describe('requestSection', () => {
     const patched: string[] = []
     const on = await collect(
       pipelineWith(repos2, llm, {
-        flags: resolveFlags({
+        flags: flagsOff({
           animations: true,
           tracer: true,
           conceptModels: true,
@@ -424,7 +425,7 @@ describe('requestSection', () => {
     )
     const r = await collect(
       pipelineWith(repos, llm, {
-        flags: resolveFlags({ conceptModels: true }),
+        flags: flagsOff({ conceptModels: true }),
       }).requestSection(L),
     )
     expect(llm.calls.map((c) => c.role)).toEqual(['planner', 'patcher'])
@@ -529,7 +530,7 @@ describe('requestSection', () => {
     )
     const result = await collect(
       pipelineWith(repos, llm, {
-        flags: resolveFlags({ animations: true }),
+        flags: flagsOff({ animations: true }),
         validateAnimation: (_ir, _animation, context) => {
           expect(context.blocks.has(`${L}#b0`)).toBe(true)
           expect(context.blocks.has(`${C}#b1`)).toBe(false)
@@ -578,7 +579,7 @@ describe('requestSection', () => {
     const whitelists: unknown[] = []
     const result = await collect(
       pipelineWith(repos, llm, {
-        flags: resolveFlags({ animations: true }),
+        flags: flagsOff({ animations: true }),
         validateAnimation: (_ir, animation, { blocks }) => {
           whitelists.push(blocks)
           return animation.steps[0]!.narration === 'Corrected narration.'
