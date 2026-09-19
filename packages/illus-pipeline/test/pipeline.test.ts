@@ -1,5 +1,10 @@
 import { LlmError } from '@illus/core'
-import type { GraphIR, LlmCall, VisualPlan } from '@illus/core'
+import type {
+  GraphIR,
+  LlmCall,
+  TemplateRegistry,
+  VisualPlan,
+} from '@illus/core'
 import { make } from '@illus/core/testing'
 import { describe, expect, test } from 'vitest'
 
@@ -85,6 +90,72 @@ describe('requestSection', () => {
       record: ready!.record,
     })
     expect(llm.calls).toHaveLength(2)
+  })
+
+  test('the planner is told the available kinds; toggling a flag changes the plan key and re-plans', async () => {
+    const repos = await seededRepos()
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphIR(),
+      }),
+    )
+    const kindsOf = (c: Call) =>
+      /<available_kinds>(.*)<\/available_kinds>/.exec(c.ctx.body)?.[1]
+    const planners = () => llm.calls.filter((c) => c.role === 'planner')
+
+    const off = await collect(pipelineWith(repos, llm).requestSection(L))
+    expect(kindsOf(planners()[0]!)).toBe(
+      'graph, sequence, state, class, er, chart, math, timeline',
+    )
+    const again = await collect(pipelineWith(repos, llm).requestSection(L))
+    expect(again.of('plan')[0]!.fromCache).toBe(true)
+
+    const on = await collect(
+      pipelineWith(repos, llm, {
+        flags: flagsOff({ templates: true, tracer: true }),
+      }).requestSection(L),
+    )
+    expect(on.of('plan')[0]!.fromCache).toBe(false)
+    expect(on.of('plan')[0]!.record.cacheKey).not.toBe(
+      off.of('plan')[0]!.record.cacheKey,
+    )
+    expect(kindsOf(planners()[1]!)).toBe(
+      'graph, sequence, state, class, er, template, chart, math, trace, timeline',
+    )
+
+    const templates = {
+      getTemplate: () => undefined,
+      listTemplates: () => [{ id: 'array' }, { id: 'comparison' }],
+    } as unknown as TemplateRegistry
+    await collect(
+      pipelineWith(repos, llm, {
+        flags: flagsOff({ templates: true }),
+        templates,
+      }).requestSection(L, { force: true }),
+    )
+    expect(kindsOf(planners()[2]!)).toBe(
+      'graph, sequence, state, class, er, template:array, template:comparison, chart, math, timeline',
+    )
+  })
+
+  test('the plan overview and item captions reach the stored record and the plan event', async () => {
+    const repos = await seededRepos()
+    const overview = 'Servers agree on one log. A leader orders every write.'
+    const caption = 'Each arrow is one replicated write.'
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan({ overview, items: [make.planItem({ caption })] }),
+        'extractor.graph': () => make.graphIR(),
+      }),
+    )
+    const r = await collect(pipelineWith(repos, llm).requestSection(L))
+    const event = r.of('plan')[0]!
+    expect(event.plan).toMatchObject({ overview, items: [{ caption }] })
+    expect((await repos.plans.get(event.record.cacheKey))!.plan).toMatchObject({
+      overview,
+      items: [{ caption }],
+    })
   })
 
   test('needsVisual: false emits no-visual; "illustrate anyway" re-plans with force', async () => {

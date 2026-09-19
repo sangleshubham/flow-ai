@@ -5,6 +5,7 @@ import {
   LlmError,
   ROLES,
   Translation,
+  VisualKind,
   ground as defaultGround,
   needsReextract,
   planKey,
@@ -36,7 +37,6 @@ import type {
   ValidationIssue,
   ValidationReport,
   Validator,
-  VisualKind,
   VisualPlan,
   VisualRecord,
 } from '@illus/core'
@@ -412,7 +412,12 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     const synthetic = target.synthetic && { section, blocks: target.synthetic }
     const repo = { ...repos, ...(deps.lexical && { lexical: deps.lexical }) }
 
-    // §15 step 3: plan.
+    // §15 step 3: plan. The enabled flag-gated kinds enter the key, so toggling a flag re-plans.
+    const enabled = VisualKind.options.filter((k) => kindEnabled(k, flags))
+    const kinds = enabled
+      .filter((k) => KIND_FLAG[k])
+      .sort()
+      .join(',')
     const planKeys = expectedRuns('planner').map((planner) =>
       planKey({
         bookId: section.bookId,
@@ -420,6 +425,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
         contentHash: section.contentHash,
         contextVersion: CONTEXT_VERSION,
         planner,
+        kinds,
       }),
     )
     let record = opts.force
@@ -434,7 +440,17 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
         repo,
         ...(synthetic && { synthetic }),
       })
-      const parts = [packed.body]
+      const available = enabled.flatMap((k) =>
+        k === 'template' && deps.templates
+          ? deps.templates.listTemplates().map((t) => `template:${t.id}`)
+          : [k],
+      )
+      const parts = [
+        packed.body,
+        `<available_kinds>${escapeText(
+          available.join(', '),
+        )}</available_kinds>`,
+      ]
       // Existing concept models the planner may extend (§13), only when the flag is on.
       const models = flags.conceptModels
         ? (await repos.conceptModels.listByBook(section.bookId)).sort((a, b) =>
@@ -478,6 +494,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
             model: res.model,
             effort: res.effort,
           },
+          kinds,
         }),
         bookId: section.bookId,
         sectionId: section.sectionId,
