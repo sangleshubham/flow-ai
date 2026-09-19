@@ -1,16 +1,22 @@
-import { LlmError, resolveFlags } from '@illus/core'
-import type { GraphIR, VisualPlan } from '@illus/core'
+import { LlmError, animationTargets } from '@illus/core'
+import type {
+  GraphIR,
+  LlmCall,
+  TemplateRegistry,
+  VisualPlan,
+} from '@illus/core'
 import { make } from '@illus/core/testing'
 import { describe, expect, test } from 'vitest'
 
 import { createLimiter } from '../src/index.ts'
-import type { ReviewHook } from '../src/index.ts'
+import type { ReviewHook, SectionJob } from '../src/index.ts'
 import {
   SECTION_COMMIT_ID as C,
   SECTION_LEADERS_ID as L,
   TRACE_CODE_ID,
   collect,
   fakeLlm,
+  flagsOff,
   pipelineWith,
   seededRepos,
   seededTraceRepos,
@@ -86,6 +92,72 @@ describe('requestSection', () => {
     expect(llm.calls).toHaveLength(2)
   })
 
+  test('the planner is told the available kinds; toggling a flag changes the plan key and re-plans', async () => {
+    const repos = await seededRepos()
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphIR(),
+      }),
+    )
+    const kindsOf = (c: Call) =>
+      /<available_kinds>(.*)<\/available_kinds>/.exec(c.ctx.body)?.[1]
+    const planners = () => llm.calls.filter((c) => c.role === 'planner')
+
+    const off = await collect(pipelineWith(repos, llm).requestSection(L))
+    expect(kindsOf(planners()[0]!)).toBe(
+      'graph, sequence, state, class, er, chart, math, timeline',
+    )
+    const again = await collect(pipelineWith(repos, llm).requestSection(L))
+    expect(again.of('plan')[0]!.fromCache).toBe(true)
+
+    const on = await collect(
+      pipelineWith(repos, llm, {
+        flags: flagsOff({ templates: true, tracer: true }),
+      }).requestSection(L),
+    )
+    expect(on.of('plan')[0]!.fromCache).toBe(false)
+    expect(on.of('plan')[0]!.record.cacheKey).not.toBe(
+      off.of('plan')[0]!.record.cacheKey,
+    )
+    expect(kindsOf(planners()[1]!)).toBe(
+      'graph, sequence, state, class, er, template, chart, math, trace, timeline',
+    )
+
+    const templates = {
+      getTemplate: () => undefined,
+      listTemplates: () => [{ id: 'array' }, { id: 'comparison' }],
+    } as unknown as TemplateRegistry
+    await collect(
+      pipelineWith(repos, llm, {
+        flags: flagsOff({ templates: true }),
+        templates,
+      }).requestSection(L, { force: true }),
+    )
+    expect(kindsOf(planners()[2]!)).toBe(
+      'graph, sequence, state, class, er, template:array, template:comparison, chart, math, timeline',
+    )
+  })
+
+  test('the plan overview and item captions reach the stored record and the plan event', async () => {
+    const repos = await seededRepos()
+    const overview = 'Servers agree on one log. A leader orders every write.'
+    const caption = 'Each arrow is one replicated write.'
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan({ overview, items: [make.planItem({ caption })] }),
+        'extractor.graph': () => make.graphIR(),
+      }),
+    )
+    const r = await collect(pipelineWith(repos, llm).requestSection(L))
+    const event = r.of('plan')[0]!
+    expect(event.plan).toMatchObject({ overview, items: [{ caption }] })
+    expect((await repos.plans.get(event.record.cacheKey))!.plan).toMatchObject({
+      overview,
+      items: [{ caption }],
+    })
+  })
+
   test('needsVisual: false emits no-visual; "illustrate anyway" re-plans with force', async () => {
     const repos = await seededRepos()
     let forced = false
@@ -124,6 +196,71 @@ describe('requestSection', () => {
     const r = await collect(pipelineWith(repos, llm).requestSection(L))
     expect(r.of('no-visual')[0]!.reason).toContain('turned off: templates')
     expect(llm.calls).toHaveLength(1)
+  })
+
+  test('a needsVisual plan with nothing left to run emits no-visual', async () => {
+    const llm = fakeLlm(byRole({ planner: () => plan() }))
+    const pipeline = pipelineWith(await seededRepos(), llm)
+    for (const opts of [
+      { planItemId: 'nope' },
+      { kindOverride: 'html' as const }, // htmlFallback is off
+    ]) {
+      const r = await collect(pipeline.requestSection(L, opts))
+      expect(r.of('no-visual')).toHaveLength(1)
+      expect(r.of('item-progress')).toEqual([])
+      expect(r.of('done')).toEqual([{ cancelled: false }])
+    }
+    expect(llm.calls.map((c) => c.role)).toEqual(['planner'])
+  })
+
+  test('a call that returns after cancel starts no retry, animation or repair', async () => {
+    const cases: [string, Partial<Record<Call['role'], unknown>>][] = [
+      ['extractor.graph', { 'extractor.graph': badGraph() }],
+      ['extractor.graph', { 'extractor.graph': make.graphIR() }],
+      [
+        'animator',
+        { 'extractor.graph': make.graphIR(), animator: make.animationIR() },
+      ],
+    ]
+    for (const [cancelIn, answers] of cases) {
+      const ref = {} as { job: SectionJob }
+      const base = fakeLlm(
+        byRole({
+          planner: () => plan(),
+          ...Object.fromEntries(
+            Object.entries(answers).map(([role, data]) => [
+              role,
+              () => {
+                if (role === cancelIn) ref.job.cancel()
+                return data
+              },
+            ]),
+          ),
+        }),
+      )
+      // A provider that finishes its answer even though the signal fired meanwhile.
+      const deaf: LlmCall = {
+        call: (role, ctx, { signal: _signal, ...opts } = {}) =>
+          base.call(role, ctx, opts),
+      }
+      ref.job = pipelineWith(await seededRepos(), deaf, {
+        flags: flagsOff({ animations: true }),
+        validateAnimation: () => [
+          {
+            layer: 'animation',
+            severity: 'error',
+            code: 'animation-grounding',
+            message: 'bad',
+          },
+        ],
+      }).requestSection(L)
+      const r = await collect(ref.job)
+      expect(base.calls.map((c) => c.role)).toEqual([
+        'planner',
+        ...Object.keys(answers),
+      ])
+      expect(r.of('done')).toEqual([{ cancelled: true }])
+    }
   })
 
   test('over 30% dropped: retry with the validator report, then escalate once', async () => {
@@ -209,18 +346,23 @@ describe('requestSection', () => {
     expect(r.of('item-ready')[0]!.record.validation.retried).toBe(true)
   })
 
-  test('navigating away cancels the planner; in-flight extractor calls still complete and are cached', async () => {
+  test('navigating away cancels the planner and aborts in-flight extractor calls; the job emits done', async () => {
     const repos = await seededRepos()
     let releasePlanner!: () => void
     const plannerGate = new Promise<void>((r) => (releasePlanner = r))
     let releaseExtractor!: () => void
     const extractorGate = new Promise<void>((r) => (releaseExtractor = r))
+    let plannerStarted!: () => void
+    const bPlanning = new Promise<void>((r) => (plannerStarted = r))
     let extractorStarted!: () => void
     const started = new Promise<void>((r) => (extractorStarted = r))
     const llm = fakeLlm(
       byRole({
         planner: async (c) => {
-          if (c.ctx.body.includes(`<section id="${C}"`)) await plannerGate
+          if (c.ctx.body.includes(`<section id="${C}"`)) {
+            plannerStarted()
+            await plannerGate
+          }
           return plan({
             sectionId: L,
             items: [
@@ -247,16 +389,14 @@ describe('requestSection', () => {
     const ra = await a
     expect(ra.of('done')).toEqual([{ cancelled: true }])
     expect(ra.of('item-ready')).toEqual([]) // cancelled jobs emit nothing more…
-    expect(
-      (await repos.visuals.listBySection('0123456789abcdef', L)).map(
-        (v) => v.planItemId,
-      ),
-    ).toEqual(['p1']) // …but the paid result is cached, p2 never started
-    expect(llm.calls.filter((c) => c.role === 'extractor.graph')).toHaveLength(
-      1,
-    )
+    // …the extractor call got the job's signal and was aborted; nothing retried, p2 never started.
+    const extractions = llm.calls.filter((c) => c.role === 'extractor.graph')
+    expect(extractions).toHaveLength(1)
+    expect(extractions[0]!.opts.signal!.aborted).toBe(true)
+    expect(await repos.visuals.listBySection('0123456789abcdef', L)).toEqual([])
 
     // Moving on again cancels B's planner call.
+    await bPlanning
     pipeline.requestSection(L)
     releasePlanner()
     const rb = await b
@@ -367,7 +507,7 @@ describe('requestSection', () => {
     const patched: string[] = []
     const on = await collect(
       pipelineWith(repos2, llm, {
-        flags: resolveFlags({
+        flags: flagsOff({
           animations: true,
           tracer: true,
           conceptModels: true,
@@ -424,7 +564,7 @@ describe('requestSection', () => {
     )
     const r = await collect(
       pipelineWith(repos, llm, {
-        flags: resolveFlags({ conceptModels: true }),
+        flags: flagsOff({ conceptModels: true }),
       }).requestSection(L),
     )
     expect(llm.calls.map((c) => c.role)).toEqual(['planner', 'patcher'])
@@ -517,6 +657,33 @@ describe('requestSection', () => {
     expect(r.of('plan')[0]!.record.sectionId).toBe(job.sectionId)
   })
 
+  test('the animator gets the IR targets and supported actions', async () => {
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphIR(),
+        animator: () => make.animationIR(),
+      }),
+    )
+    await collect(
+      pipelineWith(await seededRepos(), llm, {
+        flags: flagsOff({ animations: true }),
+        validateAnimation: () => [],
+      }).requestSection(L),
+    )
+    const { targets, supportedActions } = animationTargets(make.graphIR())
+    expect(targets.length).toBeGreaterThan(0)
+    expect(supportedActions).toContain('token')
+    const body = llm.calls.find((c) => c.role === 'animator')!.ctx.body
+    expect(body).toContain(
+      `</ir><targets>${targets.join(
+        ', ',
+      )}</targets><supported_actions>${supportedActions.join(
+        ',',
+      )}</supported_actions>`,
+    )
+  })
+
   test('animation validation receives only packed evidence blocks, excluding later sections', async () => {
     const repos = await seededRepos()
     const llm = fakeLlm(
@@ -529,7 +696,7 @@ describe('requestSection', () => {
     )
     const result = await collect(
       pipelineWith(repos, llm, {
-        flags: resolveFlags({ animations: true }),
+        flags: flagsOff({ animations: true }),
         validateAnimation: (_ir, _animation, context) => {
           expect(context.blocks.has(`${L}#b0`)).toBe(true)
           expect(context.blocks.has(`${C}#b1`)).toBe(false)
@@ -578,7 +745,7 @@ describe('requestSection', () => {
     const whitelists: unknown[] = []
     const result = await collect(
       pipelineWith(repos, llm, {
-        flags: resolveFlags({ animations: true }),
+        flags: flagsOff({ animations: true }),
         validateAnimation: (_ir, animation, { blocks }) => {
           whitelists.push(blocks)
           return animation.steps[0]!.narration === 'Corrected narration.'
@@ -600,6 +767,10 @@ describe('requestSection', () => {
     expect(whitelists[0]).toBe(whitelists[1])
     const repair = llm.calls.find((call) => call.role === 'repair')!
     expect(repair.opts.schemaName).toBe('AnimationIR')
+    for (const role of ['extractor.graph', 'animator', 'repair'] as const)
+      expect(
+        llm.calls.find((call) => call.role === role)!.opts.signal,
+      ).toBeInstanceOf(AbortSignal)
     expect(repair.ctx.body).toContain('animation-grounding')
     expect(record).toMatchObject({
       usageTokens: 330,
