@@ -6,6 +6,7 @@ import {
   ROLES,
   Translation,
   VisualKind,
+  animationTargets,
   ground as defaultGround,
   needsReextract,
   planKey,
@@ -21,6 +22,7 @@ import type {
   Block,
   Flags,
   GroundingFn,
+  IR,
   IllusRepos,
   LlmCall,
   LlmContext,
@@ -848,7 +850,9 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
           'animator',
           {
             prefix: ctx.prefix,
-            body: `${ctx.body}\n<ir>${escapeText(JSON.stringify(ir))}</ir>`,
+            body: `${ctx.body}\n<ir>${escapeText(
+              JSON.stringify(ir),
+            )}</ir>${animatorTargets(ir)}`,
           },
           callOpts,
         )
@@ -1166,6 +1170,23 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
         c.aliases,
       ]),
     )
+  }
+
+  /** `<targets>` and `<supported_actions>` in the tags of docs/prompts/animator.md; empty when they cannot be resolved (e.g. no template registry), leaving it to animation validation. */
+  function animatorTargets(ir: unknown): string {
+    try {
+      const { targets, supportedActions } = animationTargets(
+        ir as IR,
+        deps.templates ? { templates: deps.templates } : {},
+      )
+      return `<targets>${escapeText(
+        targets.join(', '),
+      )}</targets><supported_actions>${escapeText(
+        supportedActions.join(','),
+      )}</supported_actions>`
+    } catch {
+      return ''
+    }
   }
 
   function templateBlock(id: NonNullable<PlanItem['templateId']>): string {
