@@ -1,8 +1,8 @@
 {
-  "key": "c0c9203350fbcbb213b2fcedfb0fea6cdf6d81b70f09dcf4ce32c434945b424e",
+  "key": "b6246a0ad9eb653d9dded8e46c16b7874512ffff4b24bd060fa25fb4e0c86718",
   "source": "handwritten",
   "role": "extractor.timeline",
-  "promptVersion": "1.0.0",
+  "promptVersion": "1.1.0",
   "model": "gpt-6.1-sol",
   "effort": "medium",
   "schemaName": "TimelineIR",

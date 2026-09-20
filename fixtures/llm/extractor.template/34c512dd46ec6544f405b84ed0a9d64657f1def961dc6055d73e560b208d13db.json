@@ -1,8 +1,8 @@
 {
-  "key": "223c939d70f8a294adb9e70673a864106d865d50f2ef20750a8e8b83deb4a4a8",
+  "key": "34c512dd46ec6544f405b84ed0a9d64657f1def961dc6055d73e560b208d13db",
   "source": "handwritten",
   "role": "extractor.template",
-  "promptVersion": "1.0.0",
+  "promptVersion": "1.1.0",
   "model": "gpt-6.1-sol",
   "effort": "medium",
   "schemaName": "TemplateIR",

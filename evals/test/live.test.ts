@@ -14,7 +14,7 @@ const byId = new Map(loadCases([join(ROOT, 'cases/golden')]).map((c) => [c.id, c
 const runner = liveRunner({
   root: join(ROOT, '..'),
   env: { ILLUS_LLM_MODE: 'replay', ILLUS_FIXTURES_DIR: join(ROOT, '../fixtures/llm') },
-  flags: { templates: true },
+  flags: { templates: true, animations: false },
 })
 
 describe('live runner (replay mode)', () => {

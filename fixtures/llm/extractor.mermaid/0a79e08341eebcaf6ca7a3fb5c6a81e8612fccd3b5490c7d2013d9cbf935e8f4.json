@@ -1,8 +1,8 @@
 {
-  "key": "01fc23924936d96d2abb3fe80f202ae0acbf9fb3bfcd954a2f4f15d9bc20b60c",
+  "key": "0a79e08341eebcaf6ca7a3fb5c6a81e8612fccd3b5490c7d2013d9cbf935e8f4",
   "source": "handwritten",
   "role": "extractor.mermaid",
-  "promptVersion": "1.0.0",
+  "promptVersion": "1.1.0",
   "model": "gpt-6.1-sol",
   "effort": "medium",
   "schemaName": "ClassIR",
