@@ -1,8 +1,8 @@
 {
-  "key": "446272089310e3b4c2c1b7aabe14486ea6e514e604cceece8a4d6da26df202be",
+  "key": "9c7d7d79b6bbd486a03db238187f64b5f9216ce1013170fd3fc84c99b8615183",
   "source": "handwritten",
   "role": "extractor.math",
-  "promptVersion": "1.0.0",
+  "promptVersion": "1.1.0",
   "model": "gpt-6.1-sol",
   "effort": "low",
   "schemaName": "MathIR",

@@ -1,8 +1,8 @@
 {
-  "key": "0dcd10afc7ec8137334f9fcc7cfb6135cbf3805934c4411f234471f946d95542",
+  "key": "d74dbb543c4e5c7300f85fcd7cbb18f87e68ed0082f094ab93ea76e9be45a9bf",
   "source": "handwritten",
   "role": "extractor.mermaid",
-  "promptVersion": "1.0.0",
+  "promptVersion": "1.1.0",
   "model": "gpt-6.1-sol",
   "effort": "medium",
   "schemaName": "StateIR",

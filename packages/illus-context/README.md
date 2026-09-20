@@ -9,7 +9,7 @@ DOM-free context packer (spec §7): deterministic slot packing into a cacheable 
 
 ## Public API
 
-- `packContext(input): Promise<PackedContext>`: fills the eight §7 slots in priority order (`bookPrefix`, `current`, `referenced`, `definitions`, `path`, `previous`, `conceptModel`, `lexicalFallback`) under their caps (`SLOT_CAPS`) and the role's `budgetTokens`. Returns `{ prefix, body, usedBlockIds, dropped, tokens }`.
+- `packContext(input): Promise<PackedContext>`: fills the nine §7 slots in priority order (`bookPrefix`, `current`, `subsections`, `referenced`, `definitions`, `path`, `previous`, `conceptModel`, `lexicalFallback`) under their caps (`SLOT_CAPS`) and the role's `budgetTokens`. Returns `{ prefix, body, usedBlockIds, dropped, tokens }`.
   - `current` is never truncated; any other slot that loses an item to its cap or the budget is listed in `dropped`.
   - Reading-position gating: concepts with `firstOrdinal` after the section, definitions from later sections and cross-references to later sections never enter.
   - Lexical fallback runs only when a non-code block has a back-reference phrase ("as we saw", "recall", "earlier", "previous chapter", "the approach above") and no resolved cross-reference; it queries `repo.lexical` (W1's `buildLexicalIndex`) with the sentence's content words, earlier ordinals only, top 3.

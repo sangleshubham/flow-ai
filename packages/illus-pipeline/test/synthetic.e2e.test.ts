@@ -133,7 +133,7 @@ describe('synthetic.epub end to end on replay fixtures', () => {
       llm,
       prompts,
       models: DEFAULT_MODELS,
-      flags: resolveFlags({ templates: true }),
+      flags: resolveFlags({ templates: true, animations: false }),
       concepts: pass,
       lexical: book.lexical,
       templates: templateRegistry,

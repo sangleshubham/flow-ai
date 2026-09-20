@@ -1,8 +1,8 @@
 {
-  "key": "6d81e94363433dde4594fbf099f776406a54aa17341d2190f833856f928aa83f",
+  "key": "1a56e3e3e2936ea6408d2e9d42083f548e4d07a2ee55204e417e3d37a0c3103e",
   "source": "handwritten",
   "role": "extractor.mermaid",
-  "promptVersion": "1.0.0",
+  "promptVersion": "1.1.0",
   "model": "gpt-6.1-sol",
   "effort": "medium",
   "schemaName": "ErIR",
