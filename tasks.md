@@ -46,7 +46,7 @@ The orchestrator sets Status to `done` once a task is merged into `main` and gat
 | T5  | `fix-prompts`       | W3           | opus / high     | —          | done   |
 | T6  | `fix-pipeline`      | W3           | opus / high     | T2, T3, T4 | done   |
 | T7  | `fix-pane-ui`       | W9           | sonnet / medium | T2         | done   |
-| T8  | `fix-fixtures-gate` | W3/W0        | sonnet / high   | all        | todo   |
+| T8  | `fix-fixtures-gate` | W3/W0        | sonnet / high   | all        | done   |
 
 ---
 
