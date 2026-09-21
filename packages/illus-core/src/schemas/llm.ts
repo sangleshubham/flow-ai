@@ -7,7 +7,18 @@ import { AnimationIR } from './animation.ts'
 import { BookSummary } from './book.ts'
 import { GlossaryOutput, IndexerOutput } from './concepts.ts'
 import { PatchOutput } from './concept-model.ts'
-import { ChartIR, ClassIR, ErIR, GraphIR, HtmlIR, MathIR, SequenceIR, StateIR, TemplateIR, TimelineIR } from './ir.ts'
+import {
+  ChartIR,
+  ClassIR,
+  ErIR,
+  GraphIR,
+  HtmlIR,
+  MathIR,
+  SequenceIR,
+  StateIR,
+  TemplateIR,
+  TimelineIR,
+} from './ir.ts'
 import { TemplateId, VisualPlan } from './plan.ts'
 import { CriticReport } from './quality.ts'
 import { Translation } from './trace.ts'
@@ -57,7 +68,7 @@ export const SchemaName = z.enum([
 export type SchemaName = z.infer<typeof SchemaName>
 
 /** Parsed output type of a schema name. */
-export type SchemaOutput<S extends SchemaName> = z.infer<(typeof SCHEMAS)[S]>
+export type SchemaOutput<S extends SchemaName> = z.infer<typeof SCHEMAS[S]>
 
 export const RoleName = z.enum([
   'indexer',
@@ -93,50 +104,117 @@ export interface RoleSpec {
   readonly image?: boolean
 }
 
-const IR_SCHEMAS = ['GraphIR', 'SequenceIR', 'StateIR', 'ClassIR', 'ErIR', 'TemplateIR', 'ChartIR', 'MathIR', 'TimelineIR'] as const
+const IR_SCHEMAS = [
+  'GraphIR',
+  'SequenceIR',
+  'StateIR',
+  'ClassIR',
+  'ErIR',
+  'TemplateIR',
+  'ChartIR',
+  'MathIR',
+  'TimelineIR',
+] as const
 
 // Identity helper instead of `satisfies`: Next 12's SWC cannot parse `satisfies` (ADR 0009).
 const checkRoles = <T extends Record<RoleName, RoleSpec>>(roles: T): T => roles
 
 /** The §9 roles table. Owners of each prompt are listed in CLAUDE.md. */
 export const ROLES = checkRoles({
-  indexer: { tier: 'fast', escalationTier: 'standard', effort: 'medium', schemas: ['IndexerOutput'] },
+  indexer: {
+    tier: 'fast',
+    escalationTier: 'standard',
+    effort: 'low',
+    schemas: ['IndexerOutput'],
+  },
   glossary: { tier: 'fast', effort: 'low', schemas: ['GlossaryOutput'] },
-  'book-summary': { tier: 'fast', effort: 'low', schemas: ['BookSummary'] },
-  planner: { tier: 'standard', escalationTier: 'deep', effort: 'medium', schemas: ['VisualPlan'] },
-  'extractor.graph': { tier: 'standard', escalationTier: 'deep', effort: 'medium', schemas: ['GraphIR'] },
+  'book-summary': { tier: 'fast', effort: 'medium', schemas: ['BookSummary'] },
+  planner: {
+    tier: 'standard',
+    escalationTier: 'deep',
+    effort: 'medium',
+    schemas: ['VisualPlan'],
+  },
+  'extractor.graph': {
+    tier: 'standard',
+    escalationTier: 'deep',
+    effort: 'medium',
+    schemas: ['GraphIR'],
+  },
   'extractor.mermaid': {
     tier: 'standard',
     escalationTier: 'deep',
     effort: 'medium',
     schemas: ['SequenceIR', 'StateIR', 'ClassIR', 'ErIR'],
   },
-  'extractor.template': { tier: 'standard', escalationTier: 'deep', effort: 'medium', schemas: ['TemplateIR'] },
+  'extractor.template': {
+    tier: 'standard',
+    escalationTier: 'deep',
+    effort: 'medium',
+    schemas: ['TemplateIR'],
+  },
   'extractor.chart': { tier: 'standard', effort: 'low', schemas: ['ChartIR'] },
   'extractor.math': { tier: 'standard', effort: 'low', schemas: ['MathIR'] },
-  'extractor.timeline': { tier: 'standard', escalationTier: 'deep', effort: 'medium', schemas: ['TimelineIR'] },
-  animator: { tier: 'standard', escalationTier: 'deep', effort: 'medium', schemas: ['AnimationIR'] },
-  translator: { tier: 'standard', escalationTier: 'deep', effort: 'high', schemas: ['Translation'] },
-  'trace-fixer': { tier: 'standard', effort: 'medium', schemas: ['Translation'] },
-  patcher: { tier: 'standard', escalationTier: 'deep', effort: 'medium', schemas: ['PatchOutput'] },
-  critic: { tier: 'standard', effort: 'low', schemas: ['CriticReport'], image: true },
-  repair: { tier: 'standard', effort: 'medium', schemas: [...IR_SCHEMAS, 'AnimationIR'] },
+  'extractor.timeline': {
+    tier: 'standard',
+    escalationTier: 'deep',
+    effort: 'medium',
+    schemas: ['TimelineIR'],
+  },
+  animator: {
+    tier: 'standard',
+    escalationTier: 'deep',
+    effort: 'medium',
+    schemas: ['AnimationIR'],
+  },
+  translator: {
+    tier: 'standard',
+    escalationTier: 'deep',
+    effort: 'high',
+    schemas: ['Translation'],
+  },
+  'trace-fixer': {
+    tier: 'standard',
+    effort: 'medium',
+    schemas: ['Translation'],
+  },
+  patcher: {
+    tier: 'standard',
+    escalationTier: 'deep',
+    effort: 'medium',
+    schemas: ['PatchOutput'],
+  },
+  critic: {
+    tier: 'standard',
+    effort: 'low',
+    schemas: ['CriticReport'],
+    image: true,
+  },
+  repair: {
+    tier: 'standard',
+    effort: 'medium',
+    schemas: [...IR_SCHEMAS, 'AnimationIR'],
+  },
   'html-fallback': { tier: 'standard', effort: 'medium', schemas: ['HtmlIR'] },
 } as const)
 
-/** Effort of escalated calls: `deep` tier at `medium`, or `high` for `translator` (§9). */
-export function escalationEffort(role: RoleName): ReasoningEffort {
-  return role === 'translator' ? 'high' : 'medium'
+/** Effort of escalated calls: `deep` tier at `high` for every role (§9, ADR 0046). */
+export function escalationEffort(_role: RoleName): ReasoningEffort {
+  return 'high'
 }
 
 /** Schema names a role may return. */
-export type RoleSchemaName<R extends RoleName> = (typeof ROLES)[R]['schemas'][number]
+export type RoleSchemaName<R extends RoleName> =
+  typeof ROLES[R]['schemas'][number]
 
 /** Parsed output of a role (union when the role has several schemas). */
 export type RoleOutput<R extends RoleName> = SchemaOutput<RoleSchemaName<R>>
 
 /** True when `schemaName` is one the role may return. */
-export function roleAllowsSchema(role: RoleName, schemaName: SchemaName): boolean {
+export function roleAllowsSchema(
+  role: RoleName,
+  schemaName: SchemaName,
+): boolean {
   return (ROLES[role].schemas as readonly SchemaName[]).includes(schemaName)
 }
 
@@ -182,7 +260,14 @@ export const LlmUsage = z.object({
 export type LlmUsage = z.infer<typeof LlmUsage>
 
 /** Error codes of the gateway (§9). */
-export const LlmErrorCode = z.enum(['auth', 'signin-required', 'plan-limit', 'schema', 'upstream', 'timeout'])
+export const LlmErrorCode = z.enum([
+  'auth',
+  'signin-required',
+  'plan-limit',
+  'schema',
+  'upstream',
+  'timeout',
+])
 export type LlmErrorCode = z.infer<typeof LlmErrorCode>
 
 /** Response body of `POST /api/llm` (§9). `effort` is the effort actually sent (ADR 0003). */
@@ -212,7 +297,11 @@ export class LlmError extends Error {
   readonly retryAfterMs: number | undefined
   readonly issues: unknown[] | undefined
 
-  constructor(code: LlmErrorCode | 'aborted', message: string, extra: { retryAfterMs?: number; issues?: unknown[] } = {}) {
+  constructor(
+    code: LlmErrorCode | 'aborted',
+    message: string,
+    extra: { retryAfterMs?: number; issues?: unknown[] } = {},
+  ) {
     super(message)
     this.name = 'LlmError'
     this.code = code
