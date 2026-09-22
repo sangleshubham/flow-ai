@@ -296,6 +296,23 @@ describe('requestSection', () => {
     })
   })
 
+  test('a structural error (duplicate label) is retried with the validator report, not failed outright', async () => {
+    const repos = await seededRepos()
+    const good = make.graphIR()
+    const dup = { ...good, nodes: good.nodes.map((n, i) => (i === 1 ? { ...n, label: good.nodes[0]!.label } : n)) }
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': (c) => (c.ctx.body.includes('<validator_report') ? good : dup),
+      }),
+    )
+    const r = await collect(pipelineWith(repos, llm).requestSection(L))
+    const ex = llm.calls.filter((c) => c.role === 'extractor.graph')
+    expect(ex).toHaveLength(2)
+    expect(ex[1]!.ctx.body).toContain('duplicate-label')
+    expect(r.of('item-ready')[0]!.record).toMatchObject({ validation: { retried: true, escalated: false } })
+  })
+
   test('still failing after the retry → item-failed with the report; roles without escalation stop after the retry', async () => {
     const repos = await seededRepos()
     const badChart = {
