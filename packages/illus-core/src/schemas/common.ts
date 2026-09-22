@@ -11,6 +11,7 @@ export function maxWords(max: number) {
     .string()
     .min(1)
     .refine((s) => wordCount(s) <= max, { message: `must be at most ${max} words` })
+    .describe(`At most ${max} words.`)
 }
 
 /**
