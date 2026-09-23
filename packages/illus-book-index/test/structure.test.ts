@@ -87,6 +87,19 @@ describe('headings (§6 steps 4, 5)', () => {
     ])
   })
 
+  test('O\'Reilly HTMLBook <section data-type="sect1"> nests its h1 under the chapter h1', async () => {
+    const body =
+      '<section data-type="chapter" epub:type="chapter"><h1>Replication</h1><p>a</p>' +
+      '<section data-type="sect1"><h1>Single-Leader</h1><p>b</p><section data-type="sect2"><h2>Followers</h2><p>c</p></section></section>' +
+      '<section data-type="sect1"><h1>Leaderless</h1><p>d</p></section></section>'
+    expect(await titles([body])).toEqual([
+      [1, 'Replication', null, 'root'],
+      [2, 'Single-Leader', null, 'child'],
+      [3, 'Followers', null, 'child'],
+      [2, 'Leaderless', null, 'child'],
+    ])
+  })
+
   test('cfiStart is the heading, cfiEnd the end of the last block', async () => {
     const { sections, blocks } = await indexDocs(['<h1 id="h">A</h1><p>one</p><p>two</p>'])
     expect(sections[0]!.cfiStart).toBe('epubcfi(/6/2!/4/2[h])')

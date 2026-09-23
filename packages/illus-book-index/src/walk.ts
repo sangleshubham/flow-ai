@@ -313,7 +313,10 @@ class Walker {
     const kind = classify(el)
     if (kind === 'figure') return this.figure([el], el.querySelector('img, image'), el.querySelector('figcaption'))
     if (kind) return this.typed(kind, el)
-    const epubSection = tag === 'section' && epubTypes(el).some((t) => t === 'chapter' || t === 'subchapter')
+    // epub:type chapter/subchapter, or O'Reilly HTMLBook data-type chapter/sect1–sect5 (which reuse h1 for sect1).
+    const epubSection =
+      tag === 'section' &&
+      (epubTypes(el).some((t) => t === 'chapter' || t === 'subchapter') || /^(chapter|sect[1-5])$/.test(el.getAttribute('data-type') ?? ''))
     if (epubSection || [...el.children].some(isBlockLevel)) {
       const id = el.getAttribute('id')
       if (id) this.pending.push(id)
@@ -335,7 +338,7 @@ class Walker {
       this.pending.push(...ids)
       return
     }
-    // §6 step 4: honour <section epub:type="chapter|subchapter"> nesting (all-h1 books).
+    // §6 step 4: honour <section epub:type="chapter|subchapter"> / data-type="sectN" nesting (all-h1 books).
     const level = Math.min(4, Math.max(tagLevel, this.epubDepth))
     this.current = {
       kind: 'heading',
