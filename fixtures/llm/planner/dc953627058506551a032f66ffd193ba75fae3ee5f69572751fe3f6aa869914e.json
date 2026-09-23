@@ -1,8 +1,8 @@
 {
-  "key": "bbe5e896c25b52d91201e6a029be2cc8b3452ca73547a803acfd36d9081e3dd9",
+  "key": "dc953627058506551a032f66ffd193ba75fae3ee5f69572751fe3f6aa869914e",
   "source": "handwritten",
   "role": "planner",
-  "promptVersion": "1.1.0",
+  "promptVersion": "1.2.0",
   "model": "gpt-6.1-sol",
   "effort": "medium",
   "schemaName": "VisualPlan",
