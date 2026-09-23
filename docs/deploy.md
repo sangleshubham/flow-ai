@@ -2,6 +2,16 @@
 
 The reader is single-user and self-hosted (spec D6). It runs on your laptop, or on a personal VPS that only your Tailscale devices can reach ([ADR 0020](adr/0020-w11-login-gate-and-deployment.md)). Model calls run on your ChatGPT plan; sign-in itself is covered in [setup-chatgpt-signin.md](setup-chatgpt-signin.md).
 
+## Docker with ChatGPT sign-in and no secrets in `.env`
+
+Since [ADR 0047](adr/0047-remote-chatgpt-signin-and-zero-config.md), the Docker image needs no secrets in `.env`:
+
+- On first start, the entrypoint generates `ILLUS_TOKEN_ENC_KEY` and `ILLUS_SESSION_SECRET` and saves them in `/data/secrets.json` (mode 0600). If they are set in the environment, it saves those values instead, so an existing deployment can drop them from `.env` after one start.
+- The first account to finish "Continue with ChatGPT" becomes the owner (`ownerSub` in `/data/chatgpt-registration.json`). The entrypoint sets `ILLUS_ALLOWED_ACCOUNT_ID` from it, so on a fresh volume you restart once after that sign-in: `docker compose restart reader`. **Sign in straight after the first start.** Until then, anyone who reaches the reader can claim it. Setting `ILLUS_ALLOWED_ACCOUNT_ID` turns claiming off.
+- When `ILLUS_PUBLIC_URL` is not `http://127.0.0.1…`, sign-in ends with a paste step, because OpenAI redirects only to a loopback address. The ChatGPT tab finishes on a `http://127.0.0.1:7199/auth/chatgpt/callback?…` page that cannot load. Copy its full address into the reader's form within 10 minutes.
+- What is left to set: `ILLUS_PUBLIC_URL` (for the `Secure` cookie and paste sign-in), `ILLUS_LLM_MODE=live`, and optionally the request caps. `ILLUS_LOGIN_PASSWORD` is optional.
+- `/data/secrets.json` sits next to the encrypted tokens, so the data volume alone unlocks them. Treat volume backups as secrets, or keep `ILLUS_TOKEN_ENC_KEY` in the environment.
+
 ## Configuration
 
 | Variable | Needed | Value |

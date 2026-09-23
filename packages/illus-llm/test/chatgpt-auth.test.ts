@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   AccountRefusedError,
+  PASTE_REDIRECT_URI,
   SigninRequiredError,
   createChatGptAuth,
   createSessions,
@@ -18,10 +19,10 @@ import { createFakeOidc } from './fake-oidc.ts'
 
 const KEY = parseEncKey(Buffer.alloc(32, 7).toString('base64'))
 
-async function setup(o: { allowed?: string | null; grantScope?: string } = {}) {
+async function setup(o: { allowed?: string | null; grantScope?: string; claimOwner?: boolean; redirectUri?: string; sub?: string } = {}) {
   // openid-client checks ID-token times against the real clock, so the test clock starts now.
   let t = Date.now()
-  const oidc = createFakeOidc({ now: () => t, ...(o.grantScope && { grantScope: o.grantScope }) })
+  const oidc = createFakeOidc({ now: () => t, ...(o.grantScope && { grantScope: o.grantScope }), ...(o.sub && { sub: o.sub }) })
   const dir = await mkdtemp(join(tmpdir(), 'illus-auth-'))
   const store = createTokenStore({ dir, key: KEY })
   const auth = createChatGptAuth({
@@ -29,6 +30,8 @@ async function setup(o: { allowed?: string | null; grantScope?: string } = {}) {
     key: KEY,
     publicUrl: 'http://127.0.0.1:3000',
     ...(o.allowed !== null && { allowedAccountId: o.allowed ?? 'user-abc' }),
+    ...(o.claimOwner && { claimOwner: true }),
+    ...(o.redirectUri && { redirectUri: o.redirectUri }),
     issuer: oidc.issuer,
     fetch: oidc.fetch,
     now: () => t,
@@ -102,6 +105,39 @@ describe('Sign in with ChatGPT', () => {
     expect(await auth.status()).toMatchObject({ signedIn: false })
     const unset = await setup({ allowed: null })
     await expect(unset.signIn()).rejects.toThrow(/Set it to user-abc/)
+  })
+
+  it('with claimOwner, the first account to sign in becomes the owner and others are refused (ADR 0047)', async () => {
+    const { signIn, store, dir, oidc } = await setup({ allowed: null, claimOwner: true })
+    expect(await signIn()).toMatchObject({ sub: 'user-abc' })
+    expect(await store.loadRegistration()).toMatchObject({ ownerSub: 'user-abc', clientId: 'oaiapp_test123' })
+    expect(await signIn()).toMatchObject({ sub: 'user-abc' }) // the owner signs in again
+    // A second reader on the same data directory, reached by another account.
+    const other = createChatGptAuth({ store, key: KEY, publicUrl: 'http://127.0.0.1:3000', claimOwner: true, issuer: oidc.issuer, fetch: oidc.fetch })
+    oidc.state.sub = 'intruder'
+    const { url, pending } = await other.start()
+    const err = await other.callback(oidc.consent(url), pending).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(AccountRefusedError)
+    expect((await store.loadRegistration()).ownerSub).toBe('user-abc')
+    expect((await createTokenStore({ dir, key: KEY }).loadTokens())?.sub).toBe('user-abc')
+  })
+
+  it('an explicit ILLUS_ALLOWED_ACCOUNT_ID wins over claiming', async () => {
+    const { signIn, store } = await setup({ allowed: 'someone-else', claimOwner: true })
+    await expect(signIn()).rejects.toBeInstanceOf(AccountRefusedError)
+    expect((await store.loadRegistration()).ownerSub).toBeUndefined()
+  })
+
+  it('a remote reader sends the paste redirect URI and completes with the pasted parameters', async () => {
+    const { auth, oidc, store } = await setup({ redirectUri: PASTE_REDIRECT_URI })
+    expect(PASTE_REDIRECT_URI).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/auth\/chatgpt\/callback$/)
+    const { url, pending } = await auth.start()
+    expect(new URL(url).searchParams.get('redirect_uri')).toBe(PASTE_REDIRECT_URI)
+    const pasted = new URL(PASTE_REDIRECT_URI)
+    for (const [k, v] of oidc.consent(url)) pasted.searchParams.append(k, v)
+    expect(await auth.callback(new URL(pasted.href).searchParams, pending)).toMatchObject({ sub: 'user-abc' })
+    expect(oidc.state.tokenRequests[0]).toMatchObject({ redirect_uri: PASTE_REDIRECT_URI })
+    expect((await store.loadTokens())?.sub).toBe('user-abc')
   })
 
   it('getPlanToken returns the token, refreshes within 5 minutes of expiry, and serializes refreshes', async () => {

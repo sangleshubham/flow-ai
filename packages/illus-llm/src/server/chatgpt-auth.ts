@@ -15,6 +15,11 @@ export const CHATGPT_SCOPES = `openid profile email offline_access resource.invo
 export const DYNAMIC_CLIENT_ID = 'dynamic_agent_client'
 export const AGENT_NAME = 'AI Illustrated Reader'
 export const CALLBACK_PATH = '/auth/chatgpt/callback'
+/**
+ * Redirect URI for a reader that is not on `127.0.0.1` (ADR 0047). OpenAI only redirects to a loopback, so the
+ * browser lands on this address (where nothing listens) and the user pastes it back into the reader.
+ */
+export const PASTE_REDIRECT_URI = `http://127.0.0.1:7199${CALLBACK_PATH}`
 /** Refresh when the access token expires within this window (§9 step 2). */
 export const REFRESH_WINDOW_MS = 5 * 60_000
 const PENDING_TTL_MS = 10 * 60_000
@@ -29,7 +34,7 @@ const TERMINAL_REFRESH = new Set([
   'refresh_token_reused',
 ])
 
-/** The callback authenticated someone other than `ILLUS_ALLOWED_ACCOUNT_ID` (§17). Nothing was stored. */
+/** The callback authenticated someone other than the reader's owner (§17). Nothing was stored. */
 export class AccountRefusedError extends Error {
   readonly sub: string
   constructor(sub: string, configured: boolean) {
@@ -49,8 +54,15 @@ export interface ChatGptAuthOptions {
   key: Buffer
   /** `ILLUS_PUBLIC_URL`; the redirect URI is `${publicUrl}/auth/chatgpt/callback`. */
   publicUrl: string
-  /** `ILLUS_ALLOWED_ACCOUNT_ID` (the ID token `sub`). Unset refuses every account and reports its sub. */
+  /**
+   * `ILLUS_ALLOWED_ACCOUNT_ID` (the ID token `sub`). Unset: the owner saved in the registration, else the
+   * first account to sign in when `claimOwner` is set (ADR 0047), else every account is refused.
+   */
   allowedAccountId?: string
+  /** With no allowed account and no saved owner, the first account to sign in becomes the owner. */
+  claimOwner?: boolean
+  /** Overrides `${publicUrl}/auth/chatgpt/callback`, e.g. `PASTE_REDIRECT_URI` for a remote reader. */
+  redirectUri?: string
   /** `ILLUS_CHATGPT_CLIENT_ID`; otherwise the saved issued id, otherwise dynamic registration. */
   clientId?: string
   issuer?: string
@@ -93,7 +105,7 @@ export interface ChatGptAuth {
 export function createChatGptAuth(o: ChatGptAuthOptions): ChatGptAuth {
   const issuer = o.issuer ?? CHATGPT_ISSUER
   const now = o.now ?? Date.now
-  const redirectUri = new URL(CALLBACK_PATH, o.publicUrl).href
+  const redirectUri = o.redirectUri ?? new URL(CALLBACK_PATH, o.publicUrl).href
   let server: Promise<oidc.ServerMetadata> | undefined
   let refreshing: Promise<string> | undefined
 
@@ -201,8 +213,11 @@ export function createChatGptAuth(o: ChatGptAuthOptions): ChatGptAuth {
         clientId = returned
       } else if (returned && returned !== p.clientId) throw new Error('client_id mismatch in the callback')
 
-      const registration = await o.store.loadRegistration()
-      if (registration.clientId !== clientId && !o.clientId) await o.store.saveRegistration({ ...registration, clientId })
+      let registration = await o.store.loadRegistration()
+      if (registration.clientId !== clientId && !o.clientId) {
+        registration = { ...registration, clientId }
+        await o.store.saveRegistration(registration)
+      }
 
       const currentUrl = new URL(p.redirectUri)
       for (const [k, v] of params) currentUrl.searchParams.append(k, v)
@@ -216,9 +231,11 @@ export function createChatGptAuth(o: ChatGptAuthOptions): ChatGptAuth {
       if (!claims) throw new Error('no ID token in the token response')
       const sub = claims.sub
       const email = typeof claims.email === 'string' ? claims.email : undefined
-      if (!o.allowedAccountId || sub !== o.allowedAccountId) {
+      const allowed = o.allowedAccountId ?? registration.ownerSub
+      if (!allowed && o.claimOwner) await o.store.saveRegistration({ ...registration, ownerSub: sub })
+      else if (!allowed || sub !== allowed) {
         if (res.refresh_token) await revoke(clientId, res.refresh_token)
-        throw new AccountRefusedError(sub, !!o.allowedAccountId)
+        throw new AccountRefusedError(sub, !!allowed)
       }
       await o.store.saveTokens({
         issuer,

@@ -36,9 +36,11 @@ COPY --from=builder --chown=node:node /app/apps/reader/.next/static ./apps/reade
 # (public/pyodide, public/illus-trace-worker.mjs and its bootstrap dependencies, W7);
 # the standalone server does not include it.
 COPY --from=builder --chown=node:node /app/apps/reader/public ./apps/reader/public
+# Generates or loads the secrets and the owner from /data before starting server.js (ADR 0047).
+COPY --from=builder --chown=node:node /app/apps/reader/docker-entrypoint.mjs ./apps/reader/docker-entrypoint.mjs
 USER node
 VOLUME ["/data"]
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s CMD wget -q -O /dev/null http://127.0.0.1:3000/login || exit 1
 WORKDIR /app/apps/reader
-CMD ["node", "server.js"]
+CMD ["node", "docker-entrypoint.mjs"]
