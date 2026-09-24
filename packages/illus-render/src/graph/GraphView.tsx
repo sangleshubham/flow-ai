@@ -1,10 +1,12 @@
 // Graph renderer (§10): ELK layout in the worker, six node shapes, edges drawn from ELK's bend points.
+// Nodes and groups may carry an AWS Architecture icon and an accent colour (ADR 0049).
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import type { FrameState, GraphIR, GraphNode, LayoutGraphFn, LayoutGraphInput, LayoutGraphResult, LayoutPoint, ThemeTokens } from '@illus/core'
 
 import { GROUP_PADDING } from './elk.ts'
-import { canvasMeasure, graphLayoutInput, LINE_H, nodeText, SUB_H } from './measure.ts'
+import { ICON_SVGS } from './icons.generated.ts'
+import { canvasMeasure, graphLayoutInput, hasIcon, ICON_BAND, ICON_SIZE, LINE_H, nodeText, SUB_H } from './measure.ts'
 import type { AddedNode } from './measure.ts'
 
 const PAD = 8
@@ -64,7 +66,7 @@ export function GraphView({ ir, theme, frame, layout, layoutGraph, onLayout, onR
 
   if (!result) return <div className="illus-note">Laying out…</div>
 
-  const nodes = new Map<string, Pick<GraphNode, 'id' | 'label' | 'sublabel' | 'shape'> & { added?: true }>(
+  const nodes = new Map<string, Pick<GraphNode, 'id' | 'label' | 'sublabel' | 'shape' | 'icon' | 'color'> & { added?: true }>(
     ir.nodes.map((n) => [n.id, n]),
   )
   for (const a of added) nodes.set(a.id, { id: a.id, label: a.label, shape: 'box', added: true })
@@ -88,10 +90,12 @@ export function GraphView({ ir, theme, frame, layout, layoutGraph, onLayout, onR
       {groups.map((g) => {
         const b = result.nodes[g.id]
         if (!b) return null
+        const icon = g.icon ? ICON_SVGS[g.icon] : undefined
         return (
-          <g key={g.id} className="illus-el illus-group" data-ir-id={g.id} data-target={`group:${g.id}`} tabIndex={0} aria-label={g.label}>
+          <g key={g.id} className="illus-el illus-group" data-ir-id={g.id} data-target={`group:${g.id}`} data-color={g.color} tabIndex={0} aria-label={g.label}>
             <rect className="illus-group-box" x={b.x} y={b.y} width={b.width} height={b.height} rx={8} />
-            <text className="illus-group-label" x={b.x + GROUP_PADDING.side} y={b.y + 18}>
+            {icon && <Icon name={g.icon!} x={b.x + GROUP_PADDING.side} y={b.y + 6} size={16} />}
+            <text className="illus-group-label" x={b.x + GROUP_PADDING.side + (icon ? 21 : 0)} y={b.y + 18}>
               {g.label}
             </text>
           </g>
@@ -133,11 +137,13 @@ export function GraphView({ ir, theme, frame, layout, layoutGraph, onLayout, onR
             data-ir-id={n.id}
             data-target={`node:${n.id}`}
             data-shape={n.shape}
+            data-color={n.color}
             transform={`translate(${b.x}, ${b.y})`}
             tabIndex={n.added ? undefined : 0}
             aria-label={n.label}
           >
-            <Shape shape={n.shape} w={b.width} h={b.height} />
+            <Shape shape={n.shape} w={b.width} h={b.height} icon={hasIcon(n)} />
+            {hasIcon(n) && <Icon name={n.icon!} x={iconX(n.shape, b.width)} y={iconY(n.shape)} size={ICON_SIZE} />}
             <NodeLabel node={n} w={b.width} h={b.height} />
           </g>
         )
@@ -176,7 +182,23 @@ function EdgeLabel({ text, at }: { text: string; at: LayoutPoint }) {
   )
 }
 
-function Shape({ shape, w, h }: { shape: GraphNode['shape']; w: number; h: number }) {
+/** Icon centre column: the front box of a queue is 8 px narrower. */
+const iconX = (shape: GraphNode['shape'], w: number) => (shape === 'queue' ? (w - 8) / 2 : w / 2) - ICON_SIZE / 2
+/** Icon top: below a store's lid and a queue's back box. */
+const iconY = (shape: GraphNode['shape']) => (shape === 'store' ? 14 : shape === 'queue' ? 14 : 6)
+
+/** One catalog icon. The markup is generated from the AWS package and holds plain shapes only. */
+function Icon({ name, x, y, size }: { name: string; x: number; y: number; size: number }) {
+  const icon = ICON_SVGS[name]
+  if (!icon) return null
+  return (
+    <svg className="illus-icon" x={x} y={y} width={size} height={size} viewBox={icon.viewBox} aria-hidden="true" dangerouslySetInnerHTML={{ __html: icon.body }} />
+  )
+}
+
+function Shape({ shape, w, h, icon }: { shape: GraphNode['shape']; w: number; h: number; icon: boolean }) {
+  // With an icon, an actor is a box: the icon (a user, a client) replaces the stick figure.
+  if (icon && shape === 'actor') return <rect className="illus-shape" width={w} height={h} rx={6} />
   switch (shape) {
     case 'box':
       return <rect className="illus-shape" width={w} height={h} rx={6} />
@@ -219,9 +241,15 @@ function Shape({ shape, w, h }: { shape: GraphNode['shape']; w: number; h: numbe
 }
 
 /** Text block centred in the shape's text area (below the actor glyph, inside the front queue box). */
-function NodeLabel({ node, w, h }: { node: Pick<GraphNode, 'label' | 'sublabel' | 'shape'>; w: number; h: number }) {
+function NodeLabel({ node, w, h }: { node: Pick<GraphNode, 'label' | 'sublabel' | 'shape' | 'icon'>; w: number; h: number }) {
   const t = nodeText(node)
-  const area = node.shape === 'actor' ? { top: 30, bottom: h, cx: w / 2 } : node.shape === 'queue' ? { top: 8, bottom: h, cx: (w - 8) / 2 } : { top: 0, bottom: h, cx: w / 2 }
+  const icon = hasIcon(node)
+  const area =
+    node.shape === 'actor'
+      ? { top: icon ? ICON_BAND : 30, bottom: h, cx: w / 2 }
+      : node.shape === 'queue'
+        ? { top: 8 + (icon ? ICON_BAND : 0), bottom: h, cx: (w - 8) / 2 }
+        : { top: (icon ? ICON_BAND : 0) + (icon && node.shape === 'store' ? 8 : 0), bottom: h, cx: w / 2 }
   const block = t.lines.length * LINE_H + (t.sublabel ? SUB_H : 0)
   const y0 = area.top + (area.bottom - area.top - block) / 2 + 12
   return (
