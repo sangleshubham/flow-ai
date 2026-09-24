@@ -5,7 +5,7 @@ import { Component, useCallback, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { ChartView } from './chart/ChartView.tsx'
-import { Footer, Header, kindLabel } from './chrome.tsx'
+import { Footer, Header, kindLabel, Legend, Toolbar } from './chrome.tsx'
 import { evidenceIndex } from './elements.ts'
 import { download, exportPng, exportSvg } from './export.ts'
 import { GraphView } from './graph/GraphView.tsx'
@@ -49,7 +49,9 @@ export function VisualView({
   actions,
   sandboxUrl,
   className,
+  chrome = 'full',
 }: VisualViewProps) {
+  const compact = chrome === 'compact'
   const { ir } = spec
   const [version, setVersion] = useState(0)
   const [ready, setReady] = useState(false)
@@ -111,7 +113,9 @@ export function VisualView({
   return (
     <div
       ref={viewRef}
-      className={`illus-view${className ? ` ${className}` : ''}`}
+      className={`illus-view${compact ? ' illus-view-compact' : ''}${className ? ` ${className}` : ''}`}
+      aria-label={compact ? title : undefined}
+      role={compact ? 'figure' : undefined}
       style={themeVars(theme)}
       data-kind={ir.type}
       data-theme={theme.dark ? 'dark' : 'light'}
@@ -119,7 +123,17 @@ export function VisualView({
       data-step={frame?.step}
     >
       <style>{ILLUS_CSS}</style>
-      <Header title={title} ir={ir} groundingScore={spec.groundingScore} />
+      {compact ? (
+        <Toolbar
+          ir={ir}
+          groundingScore={spec.groundingScore}
+          actions={actions}
+          onExportSvg={canExport ? () => void exportAs('svg') : undefined}
+          onExportPng={canExport ? () => void exportAs('png') : undefined}
+        />
+      ) : (
+        <Header title={title} ir={ir} groundingScore={spec.groundingScore} />
+      )}
       {error ? (
         <div className="illus-note" role="alert">
           Could not draw this visual: {error}
@@ -132,19 +146,28 @@ export function VisualView({
           frame={frame}
           newIds={spec.newIds}
           version={version}
+          fill={compact}
           onEvidenceHover={onEvidenceHover}
           onEvidenceClick={onEvidenceClick}
         >
           <RenderBoundary onError={onError}>{body}</RenderBoundary>
         </Surface>
       )}
-      <Footer
-        legend={!!spec.newIds}
-        actions={actions}
-        kind={ir.type}
-        onExportSvg={canExport ? () => void exportAs('svg') : undefined}
-        onExportPng={canExport ? () => void exportAs('png') : undefined}
-      />
+      {compact ? (
+        spec.newIds && (
+          <div className="illus-footer">
+            <Legend />
+          </div>
+        )
+      ) : (
+        <Footer
+          legend={!!spec.newIds}
+          actions={actions}
+          kind={ir.type}
+          onExportSvg={canExport ? () => void exportAs('svg') : undefined}
+          onExportPng={canExport ? () => void exportAs('png') : undefined}
+        />
+      )}
     </div>
   )
 }

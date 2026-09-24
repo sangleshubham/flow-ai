@@ -69,5 +69,24 @@ export const ILLUS_CSS = `
 .illus-terms td:first-child { font-family: var(--illus-mono); white-space: nowrap; }
 .illus-chart { width: 520px; }
 .illus-iframe { width: 100%; height: 400px; border: 0; display: block; background: var(--illus-bg); }
+.illus-view-compact { position: relative; border: 0; border-radius: 0; flex: 1 1 auto; min-height: 320px; }
+.illus-view-compact .illus-iframe { height: 100%; min-height: 320px; }
+.illus-surface-fill { flex: 1 1 auto; min-height: 280px; }
+.illus-toolbar { position: absolute; top: 8px; right: 8px; z-index: 3; display: flex; gap: 6px; align-items: center; }
+.illus-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; font-size: 16px; line-height: 1; border-radius: 8px; background: var(--illus-bg); box-shadow: 0 1px 3px rgb(0 0 0 / 0.12); }
+.illus-icon-btn.illus-fit { font-size: 11px; font-weight: 600; }
+.illus-icon-btn:hover { border-color: var(--illus-accent); color: var(--illus-accent); }
+.illus-zoom { position: absolute; right: 8px; bottom: 8px; z-index: 2; display: flex; flex-direction: column; gap: 4px; opacity: 0.55; transition: opacity 0.15s; }
+.illus-surface:hover .illus-zoom, .illus-zoom:focus-within { opacity: 1; }
+.illus-menu { position: relative; }
+.illus-menu > summary { list-style: none; cursor: pointer; }
+.illus-menu > summary::-webkit-details-marker { display: none; }
+.illus-menu-panel { position: absolute; right: 0; top: 38px; min-width: 240px; display: flex; flex-direction: column; gap: 2px; padding: 6px; background: var(--illus-bg); color: var(--illus-fg); border: 1px solid var(--illus-line); border-radius: 10px; box-shadow: 0 10px 28px rgb(0 0 0 / 0.2); }
+.illus-menu-item { display: block; width: 100%; margin: 0; white-space: nowrap; text-align: left; font: inherit; font-size: 13px; padding: 7px 10px; border: 0; border-radius: 6px; background: none; color: var(--illus-fg); cursor: pointer; }
+.illus-menu-item:hover, .illus-menu-item:focus-visible { background: var(--illus-highlight); }
+.illus-menu-item[aria-pressed="true"] { color: var(--illus-accent); font-weight: 600; }
+.illus-menu-row { display: flex; gap: 2px; }
+.illus-menu-row .illus-menu-item { flex: 1; text-align: center; }
+.illus-menu-note { margin: 4px 0 0; padding: 6px 10px 2px; border-top: 1px solid var(--illus-line); font-size: 11px; color: var(--illus-muted); }
 ${SVG_CSS}
 `

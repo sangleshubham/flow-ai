@@ -153,6 +153,45 @@ describe('player', () => {
     })
   })
 })
+describe('autoplay (ADR 0048)', () => {
+  it('plays through once without a click and stops on the last frame', () => {
+    vi.useFakeTimers()
+    render(
+      <Player
+        frames={frames}
+        autoPlay
+        reducedMotion={false}
+        highlightWhilePlaying={false}
+        renderFrame={(f) => <p data-testid="frame">{f.step}</p>}
+      />,
+    )
+    expect(screen.getByText('Pause')).toBeTruthy()
+    for (let i = 0; i < frames.length + 2; i++)
+      act(() => vi.advanceTimersByTime(10_000))
+    expect(screen.getByTestId('frame').textContent).toBe(
+      String(frames.length - 1),
+    )
+    expect(screen.getByText('Play')).toBeTruthy()
+    expect(
+      (screen.getByLabelText('Highlight passage while playing') as HTMLInputElement)
+        .checked,
+    ).toBe(false)
+  })
+  it('never autoplays with reduced motion', () => {
+    vi.useFakeTimers()
+    render(
+      <Player
+        frames={frames}
+        autoPlay
+        reducedMotion
+        renderFrame={(f) => <p data-testid="frame">{f.step}</p>}
+      />,
+    )
+    act(() => vi.advanceTimersByTime(10_000))
+    expect(screen.getByTestId('frame').textContent).toBe('0')
+    expect(screen.getByText('Play')).toBeTruthy()
+  })
+})
 describe('every-frame validation', () => {
   it('handwritten replay examples parse and play against their permitted synthetic evidence', () => {
     expect(arrayFixture.source).toBe('handwritten')

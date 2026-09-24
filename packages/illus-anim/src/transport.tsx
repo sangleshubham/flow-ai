@@ -49,6 +49,18 @@ export function playbackKey(
   }
 }
 
+/** A glyph for sighted readers; the label stays the button's text (hidden by `.illus-sr` when styled). */
+function Icon({ glyph, label }: { glyph: string; label: string }) {
+  return (
+    <>
+      <span aria-hidden="true" className="illus-glyph-icon">
+        {glyph}
+      </span>
+      <span className="illus-sr">{label}</span>
+    </>
+  )
+}
+
 /** Evidence-independent controlled transport; usable for executed traces too. */
 export function PlaybackControls(p: PlaybackControlsProps) {
   const step = (index: number) => {
@@ -57,12 +69,13 @@ export function PlaybackControls(p: PlaybackControlsProps) {
   }
   return (
     <div
+      className="illus-transport"
       role="group"
       aria-label="Playback controls"
       onKeyDown={(e) => playbackKey(e, p)}
     >
       <button type="button" onClick={() => step(0)}>
-        Restart
+        <Icon glyph="⟲" label="Restart" />
       </button>
       <button
         type="button"
@@ -74,13 +87,18 @@ export function PlaybackControls(p: PlaybackControlsProps) {
       </button>
       <button
         type="button"
+        className="illus-transport-play"
         disabled={p.count < 2}
         onClick={() => {
           if (!p.playing && p.index >= p.count - 1) p.onIndex(0)
           p.onPlaying(!p.playing)
         }}
       >
-        {p.playing ? 'Pause' : 'Play'}
+        {p.playing ? (
+          <Icon glyph="❚❚" label="Pause" />
+        ) : (
+          <Icon glyph="▶" label="Play" />
+        )}
       </button>
       <button
         type="button"
