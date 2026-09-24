@@ -45,6 +45,7 @@ const FACTORY_SCHEMAS: [keyof typeof make, string][] = [
   ['visualPlan', 'VisualPlan'],
   ['planRecord', 'PlanRecord'],
   ['graphIR', 'GraphIR'],
+  ['graphSource', 'GraphSource'],
   ['sequenceIR', 'SequenceIR'],
   ['stateIR', 'StateIR'],
   ['classIR', 'ClassIR'],
@@ -96,7 +97,7 @@ describe('factories and schema round-trip', () => {
     const parts = new Set([
       'IrId', 'Label', 'Sha256Hex', 'Timestamp', 'ReasoningEffort', 'Tier', 'ProducedWith', 'BlockKind',
       'SectionLevel', 'IndexStatus', 'SectionFlags', 'VisualKind', 'TemplateId', 'ConceptModelKind',
-      'GraphNodeShape', 'GraphNode', 'GraphEdge', 'GraphGroup', 'SequenceParticipant', 'SequenceMessage',
+      'GraphNodeShape', 'GraphIcon', 'GraphColor', 'GraphNode', 'GraphEdge', 'GraphGroup', 'SequenceParticipant', 'SequenceMessage',
       'StateNode', 'StateTransition', 'Visibility', 'ClassField', 'ClassMethod', 'ClassNode',
       'ClassCardinality', 'ClassRelation', 'ErAttribute', 'ErEntity', 'ErCardinality', 'ErRelationship',
       'TemplateEvidence', 'ChartFn', 'ChartSeries', 'MathTerm', 'TimelineLane', 'TimelineEvent', 'IR',
@@ -222,8 +223,8 @@ describe('schema limits from the spec', () => {
 })
 
 describe('contracts amendments (ADR 0008, ADR 0030)', () => {
-  it('reports version 1.3.0', () => {
-    expect(core.CONTRACTS_VERSION).toBe('1.3.0')
+  it('reports version 1.4.0', () => {
+    expect(core.CONTRACTS_VERSION).toBe('1.4.0')
   })
 
   it('grounds quotes in code blocks whatever their whitespace (code text keeps its layout)', () => {

@@ -44,6 +44,7 @@ export const SAMPLE: Record<SchemaName, () => unknown> = {
   GlossaryOutput: () => make.glossaryOutput(),
   BookSummary: () => make.bookSummary(),
   VisualPlan: () => make.visualPlan(),
+  GraphSource: () => make.graphSource(),
   GraphIR: () => make.graphIR(),
   SequenceIR: () => make.sequenceIR(),
   StateIR: () => make.stateIR(),

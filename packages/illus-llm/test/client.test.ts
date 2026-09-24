@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 
 import { LlmError, ROLES, RoleName } from '@illus/core'
-import type { GraphIR, LlmRequest, LlmResponse, VisualPlan } from '@illus/core'
+import type { GraphIR, GraphSource, LlmRequest, LlmResponse, VisualPlan } from '@illus/core'
 import { createMemoryRepos, make } from '@illus/core/testing'
 
 import {
@@ -54,7 +54,8 @@ describe('createLlmClient', () => {
     const plan = await llm.call('planner', ctx)
     expectTypeOf(plan.data).toEqualTypeOf<VisualPlan>()
     const graph = await llm.call('extractor.graph', ctx)
-    expectTypeOf(graph.data).toEqualTypeOf<GraphIR>()
+    // extractor.graph returns GraphSource by default and may be asked for GraphIR (ADR 0049).
+    expectTypeOf(graph.data).toEqualTypeOf<GraphSource | GraphIR>()
   })
 
   it('replay misses say how to fix them and never touch the network', async () => {
