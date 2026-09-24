@@ -157,6 +157,8 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
     evidence?: EvidenceEvent['evidence']
   } | null>(null)
   const [mathBlock, setMathBlock] = useState<Block | undefined>()
+  const [expanded, setExpanded] = useState(false)
+  const [reporting, setReporting] = useState(false)
   const animationJson = record.animation ? JSON.stringify(record.animation) : ''
   const irJson = JSON.stringify(record.ir)
   // Renderers redraw when the IR identity changes; a fresh parse on every pane re-render would
@@ -222,6 +224,7 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
     setRegenerate(false)
     setWrong(null)
     setFeedbackOpen(false)
+    setReporting(false)
     setNote('')
     if (sourceBlockId) {
       void getRepos()
@@ -255,6 +258,7 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
         layout: record.layout as any,
         mathBlock,
       }}
+      chrome="compact"
       frame={frame}
       theme={theme}
       flags={pane.preferences.flags}
@@ -282,6 +286,26 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
       void vote(value)
     },
     vote: record.feedback?.vote,
+    onExpand: () => setExpanded((open) => !open),
+    expanded,
+    menuExtra: (
+      <>
+        <button
+          type="button"
+          className="illus-menu-item"
+          role="menuitem"
+          onClick={() => setReporting(true)}
+        >
+          Report a wrong element…
+        </button>
+        <p
+          className="illus-menu-note"
+          title="Input and output tokens for this illustration"
+        >
+          {record.usageTokens.toLocaleString()} tokens
+        </p>
+      </>
+    ),
   }
   const drawConcept = (
     view: SectionView,
@@ -295,6 +319,7 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
         newIds: view.newIds,
         groundingScore: record.validation.groundingScore,
       }}
+      chrome="compact"
       frame={frame}
       theme={theme}
       flags={pane.preferences.flags}
@@ -341,6 +366,8 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
       <Player
         frames={frames}
         renderFrame={renderFrame}
+        autoPlay
+        highlightWhilePlaying={false}
         defaultSpeed={pane.preferences.speed}
         reducedMotion={
           pane.preferences.reducedMotion === 'system'
@@ -363,8 +390,27 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
       renderFrame()
     )
   return (
+    <>
+    {expanded && (
+      <div
+        className="illus-backdrop"
+        aria-hidden="true"
+        onClick={() => setExpanded(false)}
+      />
+    )}
     <div
       className="illus-record"
+      data-expanded={expanded || undefined}
+      role={expanded ? 'dialog' : undefined}
+      aria-modal={expanded || undefined}
+      aria-label={expanded ? item?.intent ?? 'Illustration' : undefined}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && expanded) {
+          // Close the large view only; the pane's own Escape handler checks defaultPrevented.
+          e.preventDefault()
+          setExpanded(false)
+        }
+      }}
       onContextMenu={(e) => {
         const element = (e.target as Element).closest('[data-ir-id]')
         if (!element) return
@@ -387,12 +433,6 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
         <p role="status">Simulated illustration: {simulated.message}</p>
       )}
       {body}
-      <p
-        className="illus-token-usage"
-        title="Input and output tokens for this illustration"
-      >
-        {record.usageTokens.toLocaleString()} tokens
-      </p>
       {regenerate && (
         <form
           className="illus-inline-form"
@@ -438,20 +478,35 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
           <button>Save feedback</button>
         </form>
       )}
-      <details>
-        <summary>Element feedback</summary>
-        {irElements(shownIr).map((el) => (
-          <button
-            key={el.id}
-            onClick={() => {
-              setWrong({ irId: el.id, evidence: el.evidence })
-              setNote('')
-            }}
-          >
-            {el.label}: This is wrong
+      {reporting && !wrong && (
+        <div
+          className="illus-inline-form"
+          role="group"
+          aria-label="Element feedback"
+        >
+          <h3>Which element is wrong?</h3>
+          <p className="illus-hint">
+            Tip: right-click an element in the diagram to report it directly.
+          </p>
+          <div className="illus-element-list">
+            {irElements(shownIr).map((el) => (
+              <button
+                key={el.id}
+                onClick={() => {
+                  setWrong({ irId: el.id, evidence: el.evidence })
+                  setNote('')
+                  setReporting(false)
+                }}
+              >
+                {el.label}
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={() => setReporting(false)}>
+            Cancel
           </button>
-        ))}
-      </details>
+        </div>
+      )}
       {wrong && (
         <form
           className="illus-inline-form"
@@ -492,5 +547,6 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
         </form>
       )}
     </div>
+    </>
   )
 }

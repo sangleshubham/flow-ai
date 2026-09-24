@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { make } from '@illus/core/testing'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import React from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -19,11 +19,13 @@ const commands = (): PaneCommands => ({
   previous: vi.fn(),
   selection: vi.fn(),
   select: vi.fn(),
+  now: vi.fn(),
 })
 describe('every Illustrate pane state', () => {
   const expected = {
     idle: 'See what you’re reading',
     'indexing-required': 'Understand this book',
+    waiting: 'Stay on this section to illustrate it',
     planning: 'Planning the visual…',
     generating: 'Architecture',
     ready: 'saved visual',
@@ -195,6 +197,38 @@ describe('quality warning badge (§16 L4/L5)', () => {
     expect(screen.getByText('saved visual')).toBeDefined()
   })
 })
+const s_intent = () => make.planItem({ planItemId: 'a' }).intent
+describe('dwell countdown (ADR 0048)', () => {
+  it('counts down and offers to illustrate now', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(10_000)
+      const s = createPaneState()
+      s.status = 'waiting'
+      s.section = make.sectionNode()
+      s.dwellUntil = 15_000
+      const c = commands()
+      render(<PaneContent state={s} commands={c} renderVisual={() => null} />)
+      expect(screen.getByText('Starting in 5 s.')).toBeDefined()
+      act(() => {
+        vi.advanceTimersByTime(2_000)
+      })
+      expect(screen.getByText('Starting in 3 s.')).toBeDefined()
+      fireEvent.click(screen.getByRole('button', { name: 'Illustrate now' }))
+      expect(c.now).toHaveBeenCalledOnce()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+  it('titles the pane with the open section and keeps its path as a tooltip', () => {
+    const s = createPaneState()
+    s.section = make.sectionNode({ headingPath: ['5 Replication', '5.1 Leaders'] })
+    render(<PaneContent state={s} commands={commands()} renderVisual={() => null} />)
+    const title = screen.getByRole('heading', { level: 2 })
+    expect(title.textContent).toBe('5.1 Leaders')
+    expect(title.getAttribute('title')).toBe('5 Replication / 5.1 Leaders')
+  })
+})
 describe('stage text, overview and caption', () => {
   const view = (fill: (s: ReturnType<typeof createPaneState>) => void) => {
     const s = createPaneState()
@@ -219,6 +253,21 @@ describe('stage text, overview and caption', () => {
     s.stages = { a: 'animating' }
     rerender(ui())
     expect(screen.getByText('Adding animation…')).toBeDefined()
+  })
+  it('folds overview and caption under "About this diagram", collapsed', () => {
+    view((s) => {
+      s.status = 'ready'
+      s.records = [make.visualRecord({ planItemId: 'a' })]
+      s.overview = 'The overview'
+      s.items = [make.planItem({ planItemId: 'a', caption: 'The caption' })]
+    })
+    const about = document.querySelector('details.illus-about')!
+    expect(about.hasAttribute('open')).toBe(false)
+    expect(about.textContent).toContain('The caption')
+    expect(about.textContent).toContain('The overview')
+    // One visual: no tab strip, the visual is a labelled group.
+    expect(screen.queryByRole('tablist')).toBeNull()
+    expect(screen.getByRole('group', { name: s_intent() })).toBeDefined()
   })
   it('renders overview and caption only when present', () => {
     view((s) => {

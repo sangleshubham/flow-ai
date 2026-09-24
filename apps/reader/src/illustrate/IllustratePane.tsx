@@ -13,7 +13,7 @@ import type { PaneState } from './state'
 export function IllustratePane() {
   const s = useSnapshot(pane) as unknown as PaneState
   const r = useReaderSnapshot()
-  const { size } = useSplitViewItem('IllustratePane', { preferredSize: typeof window === 'undefined' ? 480 : Math.round(window.innerWidth * 0.4), minSize: 280, visible: s.open })
+  const { size } = useSplitViewItem('IllustratePane', { preferredSize: typeof window === 'undefined' ? 560 : Math.round(window.innerWidth * 0.45), minSize: 320, visible: s.open })
   useEffect(() => { void loadPreferences().catch((e) => { pane.message = e.message }) }, [])
   useEffect(() => {
     const tab = reader.focusedBookTab
@@ -37,6 +37,6 @@ export function IllustratePane() {
   return <div className="illus-pane-slot" style={{ width: size }}>
     <PaneContent state={s} commands={{ close: togglePane, pin: () => { void setPinned(!pane.pinned) }, approve: () => { void approveIndexing() }, retry: () => requestVisual(),
       force: () => requestVisual({ force: true }), report: () => { void reportError() }, previous: () => { void goPrevious() }, selection: illustrateSelection,
-      select: (id) => { pane.selectedItem = id } }} renderVisual={(record) => <RecordView key={record.cacheKey} record={record} />} />
+      select: (id) => { pane.selectedItem = id }, now: () => requestVisual() }} renderVisual={(record) => <RecordView key={record.cacheKey} record={record} />} />
   </div>
 }

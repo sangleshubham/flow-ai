@@ -53,9 +53,12 @@ import { db } from '../db'
 import { PROMPT_FILES } from './prompt-files'
 import {
   bindJob,
+  createDwell,
   DEFAULT_PREFERENCES,
+  dwellDelay,
   evidenceAction,
   pane,
+  parseDwellMs,
   whenCritic,
 } from './state'
 import type { Preferences } from './state'
@@ -90,6 +93,8 @@ let generation = 0
 const evidenceGeneration = { evidence: 0, step: 0 }
 const pinnedEvidence = { evidence: false, step: false }
 let locationId: string | null = null
+// ADR 0048: a new section waits for the reader to stay before any model call.
+const dwell = createDwell()
 let lastBook: { book: Book; bookId: string } | null = null
 let traceWorker: ReturnType<typeof createBrowserTraceWorker> | undefined
 let traceRunner: ReturnType<typeof createTraceRunner> | undefined
@@ -120,6 +125,7 @@ export async function loadPreferences() {
         ? p.reducedMotion
         : 'system',
     debugPrompts: p.debugPrompts === true,
+    dwellMs: parseDwellMs(p.dwellMs),
     flags: resolveFlags(p.flags),
   }
   pane.open = pane.preferences.enabled
@@ -130,6 +136,7 @@ export async function savePreferences(next: Preferences) {
   pane.preferences = {
     ...DEFAULT_PREFERENCES,
     ...next,
+    dwellMs: parseDwellMs(next.dwellMs),
     flags: resolveFlags(next.flags),
   }
   await (
@@ -172,6 +179,7 @@ export function deactivate() {
   evidenceGeneration.evidence++
   evidenceGeneration.step++
   pinnedEvidence.evidence = pinnedEvidence.step = false
+  dwell.cancel()
   currentJob?.cancel()
   unbind?.()
   unbind = undefined
@@ -329,12 +337,18 @@ async function onLocation(loc: ReaderLocation, own: number) {
   locationId = loc.sectionId
   pane.selection = null
   if (pane.pinned) return
+  dwell.cancel()
   const old = pane.section
   pane.section =
     active.sections.find((s) => s.sectionId === loc.sectionId) ?? null
   if (old && old.sectionId !== loc.sectionId && pane.records.length)
     pane.previousSectionId = old.sectionId
   if (old?.sectionId !== loc.sectionId) {
+    // The reader moved on: stop spending requests on the section they left.
+    currentJob?.cancel()
+    unbind?.()
+    unbind = undefined
+    currentJob = null
     pane.records = []
     pane.items = []
     pane.selectedItem = ''
@@ -344,7 +358,7 @@ async function onLocation(loc: ReaderLocation, own: number) {
     return
   }
   active.concepts.setOpenSection(pane.section.sectionId)
-  await showCached()
+  const cachedPlan = await showCached()
   if (own !== generation || pane.section?.sectionId !== loc.sectionId) return
   if (!navigator.onLine || !pane.indexingApproved) {
     pane.status = !navigator.onLine
@@ -354,7 +368,22 @@ async function onLocation(loc: ReaderLocation, own: number) {
       : 'indexing-required'
     return
   }
-  requestVisual()
+  const wait = dwellDelay({
+    cachedPlan,
+    dwellMs: pane.preferences.dwellMs,
+  })
+  if (!wait) return requestVisual()
+  const sectionId = loc.sectionId
+  pane.status = 'waiting'
+  pane.dwellUntil = Date.now() + wait
+  dwell.start(wait, () => {
+    if (
+      own === generation &&
+      pane.status === 'waiting' &&
+      pane.section?.sectionId === sectionId
+    )
+      requestVisual()
+  })
 }
 export async function approveIndexing() {
   if (!active) return
@@ -365,6 +394,7 @@ export async function approveIndexing() {
   requestVisual()
 }
 export function requestVisual(opts: RequestOptions = {}) {
+  dwell.cancel()
   if (!active || !pane.section || !pane.open) return
   if (!navigator.onLine) {
     void showCached().then(() => {
@@ -388,6 +418,7 @@ export function requestVisual(opts: RequestOptions = {}) {
 }
 export function illustrateSelection() {
   if (!active || !locationId || !pane.selection?.blockIds.length) return
+  dwell.cancel()
   currentJob?.cancel()
   unbind?.()
   const runtime = active
@@ -414,8 +445,9 @@ export async function setPinned(pinned: boolean) {
   else pane.pinned = true
   for (const r of pane.records) await updateRecord({ ...r, pinned })
 }
-export async function showCached() {
-  if (!active || !pane.section) return
+/** Shows the section's saved plan and visuals; true when a plan was saved. */
+export async function showCached(): Promise<boolean> {
+  if (!active || !pane.section) return false
   const section = pane.section
   const runtime = active
   const repos = await getRepos()
@@ -424,7 +456,7 @@ export async function showCached() {
     repos.plans.listBySection(runtime.bookId, section.sectionId),
   ])
   if (active !== runtime || pane.section?.sectionId !== section.sectionId)
-    return
+    return false
   const latest = new Map<string, VisualRecord>()
   for (const r of records.sort((a, b) => a.createdAt - b.createdAt))
     latest.set(r.planItemId, r)
@@ -433,6 +465,7 @@ export async function showCached() {
     plans.sort((a, b) => b.createdAt - a.createdAt)[0]?.plan.items ?? []
   pane.selectedItem =
     pane.items[0]?.planItemId ?? pane.records[0]?.planItemId ?? ''
+  return plans.length > 0
 }
 export function networkChanged() {
   if (!navigator.onLine) {

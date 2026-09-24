@@ -3,7 +3,7 @@ import React, { useState } from 'react'
 import { useSnapshot } from 'valtio'
 
 import { clearVisuals, downloadCache, reindex, savePreferences, togglePane, uploadCache } from './runtime'
-import { pane } from './state'
+import { DWELL_OPTIONS_MS, pane } from './state'
 import type { PaneState, Preferences } from './state'
 
 export function IllustrateSettings() {
@@ -19,6 +19,7 @@ export function IllustrateSettings() {
     {s.usage && <p>{s.usage.used5h} of {s.usage.max5h} requests in five hours; {s.usage.usedDay} of {s.usage.maxDay} today.</p>}
     <label><input type="checkbox" checked={s.open} onChange={togglePane} />Show Illustrate pane (Alt+I)</label>
     <label><input type="checkbox" checked={s.preferences.autoHighlight} onChange={(e) => change('autoHighlight', e.target.checked)} />Highlight evidence on focus and hover</label>
+    <label>Wait on a new section before illustrating<select value={s.preferences.dwellMs} onChange={(e) => change('dwellMs', Number(e.target.value))}>{DWELL_OPTIONS_MS.map((ms) => <option key={ms} value={ms}>{ms ? `${ms / 1000} s` : 'Don’t wait'}</option>)}</select></label>
     <label>Animation speed<select value={s.preferences.speed} onChange={(e) => change('speed', Number(e.target.value))}>{[0.5, 1, 1.5, 2].map((speed) => <option key={speed} value={speed}>{speed}×</option>)}</select></label>
     <label>Reduced motion<select value={s.preferences.reducedMotion} onChange={(e) => change('reducedMotion', e.target.value as Preferences['reducedMotion'])}><option value="system">Use system setting</option><option value="on">On</option><option value="off">Off</option></select></label>
     <fieldset><legend>Features</legend>{FlagName.options.map((flag) => <label key={flag}><input type="checkbox" checked={s.preferences.flags[flag]} onChange={(e) => change('flags', { ...pane.preferences.flags, [flag]: e.target.checked })} />{({ templates: 'Data structure templates', animations: 'Step animations', tracer: 'Executed code traces', conceptModels: 'Growing concept diagrams', critic: 'Visual quality review (uses plan requests)', htmlFallback: 'Sandboxed HTML illustrations' })[flag]}</label>)}</fieldset>

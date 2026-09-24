@@ -2,7 +2,7 @@ import type { VisualRecord } from '@illus/core'
 import React from 'react'
 import type { ReactNode } from 'react'
 
-import { catchUpText, PLANNING_TEXT, stageLabel } from './state'
+import { catchUpText, dwellSecondsLeft, PLANNING_TEXT, stageLabel } from './state'
 import type { PaneState } from './state'
 
 export interface PaneCommands {
@@ -15,6 +15,8 @@ export interface PaneCommands {
   previous(): void
   selection(): void
   select(id: string): void
+  /** Skip the dwell and illustrate the open section now. */
+  now(): void
 }
 export interface PaneContentProps {
   state: PaneState
@@ -34,6 +36,9 @@ export function PaneContent({
     (i) => i.planItemId === record?.planItemId,
   )?.caption
   const blocked = s.status === 'plan-limit' || s.status === 'signin-required'
+  const showVisual =
+    (s.status === 'ready' || s.status === 'offline' || blocked) && !!record
+  const path = s.section?.headingPath ?? []
   return (
     <section
       className="illus-pane"
@@ -42,10 +47,10 @@ export function PaneContent({
     >
       <header className="illus-pane-header">
         <div>
-          <h2>Illustrate</h2>
-          <p className="illus-path">
-            {s.section?.headingPath.join(' / ') || 'Your reading companion'}
-          </p>
+          <p className="illus-eyebrow">Illustrate</p>
+          <h2 title={path.join(' / ') || undefined}>
+            {path.at(-1) || 'Your reading companion'}
+          </h2>
         </div>
         <button
           onClick={c.pin}
@@ -58,16 +63,20 @@ export function PaneContent({
           ×
         </button>
       </header>
-      <div className="illus-meta">
-        <span>{s.progress || 'Open a book to begin'}</span>
-        {s.usage && (
-          <span title="Local request caps">
-            {s.usage.used5h}/{s.usage.max5h} requests · 5h; {s.usage.usedDay}/
-            {s.usage.maxDay} today
-          </span>
-        )}
-      </div>
-      <div className="illus-pane-body">
+      {!showVisual && (
+        <div className="illus-meta">
+          <span>{s.progress || 'Open a book to begin'}</span>
+          {s.usage && (
+            <span title="Local request caps">
+              {s.usage.used5h}/{s.usage.max5h} requests · 5h;{' '}
+              {s.usage.usedDay}/{s.usage.maxDay} today
+            </span>
+          )}
+        </div>
+      )}
+      <div
+        className={`illus-pane-body${showVisual ? ' illus-pane-body-visual' : ''}`}
+      >
         {s.status === 'idle' && (
           <div className="illus-state">
             <h3>See what you’re reading</h3>
@@ -92,6 +101,16 @@ export function PaneContent({
             {s.estimate && (
               <button onClick={c.approve}>Start indexing and illustrate</button>
             )}
+          </div>
+        )}
+        {s.status === 'waiting' && (
+          <div className="illus-state illus-waiting">
+            <h3>Stay on this section to illustrate it</h3>
+            <p>
+              <Countdown until={s.dwellUntil} /> Moving on cancels it, so
+              sections you skim past cost nothing.
+            </p>
+            <button onClick={c.now}>Illustrate now</button>
           </div>
         )}
         {s.status === 'planning' && (
@@ -181,61 +200,70 @@ export function PaneContent({
             </p>
           </div>
         )}
-        {(s.status === 'ready' || s.status === 'offline' || blocked) && record && (
+        {showVisual && record && (
           <>
-            {s.overview && <p className="illus-overview">{s.overview}</p>}
-            <div
-              className="illus-tabs"
-              role="tablist"
-              aria-label="Illustrations"
-            >
-              {s.items.map((i, index) => (
-                <button
-                  role="tab"
-                  id={`illus-tab-${index}`}
-                  aria-controls="illus-visual"
-                  aria-selected={i.planItemId === s.selectedItem}
-                  tabIndex={i.planItemId === s.selectedItem ? 0 : -1}
-                  key={i.planItemId}
-                  onClick={() => c.select(i.planItemId)}
-                  onKeyDown={(e) => {
-                    const next =
-                      e.key === 'ArrowRight'
-                        ? (index + 1) % s.items.length
-                        : e.key === 'ArrowLeft'
-                        ? (index + s.items.length - 1) % s.items.length
-                        : e.key === 'Home'
-                        ? 0
-                        : e.key === 'End'
-                        ? s.items.length - 1
-                        : -1
-                    if (next >= 0) {
-                      e.preventDefault()
-                      c.select(s.items[next]!.planItemId)
-                      ;(
-                        e.currentTarget.parentElement?.children[
-                          next
-                        ] as HTMLElement
-                      )?.focus()
-                    }
-                  }}
-                >
-                  {i.intent}
-                </button>
-              ))}
-            </div>
+            {s.items.length > 1 && (
+              <div
+                className="illus-tabs"
+                role="tablist"
+                aria-label="Illustrations"
+              >
+                {s.items.map((i, index) => (
+                  <button
+                    role="tab"
+                    id={`illus-tab-${index}`}
+                    aria-controls="illus-visual"
+                    aria-selected={i.planItemId === s.selectedItem}
+                    tabIndex={i.planItemId === s.selectedItem ? 0 : -1}
+                    key={i.planItemId}
+                    title={i.intent}
+                    onClick={() => c.select(i.planItemId)}
+                    onKeyDown={(e) => {
+                      const next =
+                        e.key === 'ArrowRight'
+                          ? (index + 1) % s.items.length
+                          : e.key === 'ArrowLeft'
+                          ? (index + s.items.length - 1) % s.items.length
+                          : e.key === 'Home'
+                          ? 0
+                          : e.key === 'End'
+                          ? s.items.length - 1
+                          : -1
+                      if (next >= 0) {
+                        e.preventDefault()
+                        c.select(s.items[next]!.planItemId)
+                        ;(
+                          e.currentTarget.parentElement?.children[
+                            next
+                          ] as HTMLElement
+                        )?.focus()
+                      }
+                    }}
+                  >
+                    {i.intent}
+                  </button>
+                ))}
+              </div>
+            )}
             <div
               id="illus-visual"
-              role="tabpanel"
+              className="illus-visual-panel"
+              role={s.items.length > 1 ? 'tabpanel' : 'group'}
               aria-label={
                 s.items.find((i) => i.planItemId === record.planItemId)
                   ?.intent ?? 'Illustration'
               }
             >
-              {caption && <p className="illus-caption">{caption}</p>}
               <QualityWarning record={record} />
               {renderVisual(record)}
             </div>
+            {(caption || s.overview) && (
+              <details className="illus-about">
+                <summary>About this diagram</summary>
+                {caption && <p className="illus-caption">{caption}</p>}
+                {s.overview && <p className="illus-overview">{s.overview}</p>}
+              </details>
+            )}
             {s.message && !blocked && <p role="status">{s.message}</p>}
           </>
         )}
@@ -252,6 +280,21 @@ export function PaneContent({
         {s.announcement}
       </div>
     </section>
+  )
+}
+
+/** Seconds until the dwell ends, ticking each second. */
+function Countdown({ until }: { until: number }) {
+  const [now, setNow] = React.useState(() => Date.now())
+  React.useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 250)
+    return () => clearInterval(timer)
+  }, [until])
+  const left = dwellSecondsLeft(until, now)
+  return (
+    <span className="illus-countdown" aria-live="off">
+      {left > 0 ? `Starting in ${left} s.` : 'Starting…'}
+    </span>
   )
 }
 

@@ -24,25 +24,35 @@
 }
 .illus-pane-header {
   display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  padding: 18px 16px 10px;
+  gap: 4px;
+  align-items: center;
+  padding: 10px 12px 8px 16px;
   border-bottom: 1px solid var(--illus-line);
 }
 .illus-pane-header > div {
   flex: 1;
   min-width: 0;
 }
-.illus-pane h2,
+.illus-pane-header button {
+  margin: 0;
+}
+.illus-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--illus-accent);
+}
+.illus-pane h2 {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .illus-settings h2 {
   font-size: 20px;
   font-weight: 500;
-}
-.illus-path {
-  font-size: 13px;
-  color: var(--illus-muted);
-  margin-top: 4px;
-  overflow-wrap: anywhere;
 }
 .illus-meta {
   display: flex;
@@ -54,8 +64,183 @@
 }
 .illus-pane-body {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 12px;
+}
+/* ADR 0048: with a visual on screen the diagram takes every spare pixel of the pane. */
+.illus-pane-body-visual {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  padding: 8px 10px 10px;
+}
+.illus-visual-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--illus-line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--illus-bg);
+}
+.illus-record,
+.illus-player,
+.illus-concept-model {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.illus-record {
+  overflow: auto;
+}
+.illus-player:focus {
+  outline: none;
+}
+.illus-player:focus-visible {
+  outline: 3px solid rgb(var(--md-sys-color-primary));
+  outline-offset: -3px;
+}
+.illus-record[data-expanded] {
+  position: fixed;
+  inset: 3vh 3vw;
+  z-index: 60;
+  border-radius: 16px;
+  background: var(--illus-bg);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.35);
+  overflow: hidden;
+}
+.illus-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 59;
+  background: rgb(0 0 0 / 0.45);
+}
+.illus-transport {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--illus-line);
+  font-size: 12px;
+  color: var(--illus-muted);
+}
+.illus-pane .illus-transport button {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  margin: 0;
+  border: 0;
+  border-radius: 15px;
+  color: var(--illus-fg);
+}
+.illus-pane .illus-transport .illus-transport-play {
+  min-width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  background: var(--illus-accent);
+  color: rgb(var(--md-sys-color-on-primary));
+}
+.illus-pane .illus-transport .illus-transport-play:hover {
+  background: var(--illus-accent);
+  opacity: 0.9;
+}
+.illus-transport input[type='range'] {
+  flex: 1;
+  min-width: 40px;
+  margin: 0 6px;
+  accent-color: var(--illus-accent);
+}
+.illus-transport output {
+  min-width: 34px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.illus-transport select {
+  background: transparent;
+  border: 0;
+  color: var(--illus-muted);
+}
+.illus-transport label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 4px;
+}
+.illus-narration {
+  min-height: 44px;
+  padding: 8px 14px;
+  font-size: 14px;
+  line-height: 1.45;
+  border-top: 1px solid var(--illus-line);
+}
+.illus-pane .illus-narration button {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  text-align: left;
+  color: var(--illus-fg);
+  font-size: 14px;
+}
+.illus-pane .illus-narration button:hover {
+  background: none;
+  text-decoration: underline dotted;
+}
+.illus-narration > span {
+  color: var(--illus-muted);
+}
+.illus-player-option {
+  padding: 0 14px 8px;
+  font-size: 12px;
+  color: var(--illus-muted);
+}
+.illus-player-option input {
+  margin-right: 6px;
+  accent-color: var(--illus-accent);
+}
+.illus-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.illus-about {
+  flex-shrink: 0;
+  max-height: 30%;
+  overflow: auto;
+  font-size: 13px;
+  color: var(--illus-muted);
+}
+.illus-about summary {
+  cursor: pointer;
+  padding: 2px 4px;
+  font-weight: 500;
+}
+.illus-about p {
+  margin: 6px 4px 0;
+}
+.illus-waiting h3 {
+  font-size: 16px;
+}
+.illus-countdown {
+  color: var(--illus-accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.illus-hint {
+  font-size: 12px;
+  color: var(--illus-muted);
+}
+.illus-element-list {
+  display: flex;
+  flex-wrap: wrap;
 }
 .illus-state {
   padding: 20px 8px;
@@ -69,8 +254,8 @@
   margin: 0 0 12px;
   overflow-wrap: anywhere;
 }
-.illus-pane button,
-.illus-settings button,
+.illus-pane :where(button),
+.illus-settings :where(button),
 .illus-button {
   display: inline-block;
   padding: 6px 10px;
@@ -80,8 +265,8 @@
   margin: 4px 6px 4px 0;
   font-size: 14px;
 }
-.illus-pane button:hover,
-.illus-settings button:hover {
+.illus-pane :where(button):hover,
+.illus-settings :where(button):hover {
   background: rgb(var(--md-sys-color-primary) / 0.08);
 }
 .illus-pane :focus-visible,
@@ -95,18 +280,26 @@
 }
 .illus-tabs {
   display: flex;
-  gap: 4px;
-  overflow-x: auto;
-  border-bottom: 1px solid var(--illus-line);
-  margin-bottom: 12px;
-}
-.illus-tabs button {
   flex-shrink: 0;
-  border: 0;
-  border-radius: 0;
+  gap: 6px;
+  overflow-x: auto;
 }
-.illus-tabs button[aria-selected='true'] {
-  border-bottom: 3px solid var(--illus-accent);
+.illus-pane .illus-tabs button {
+  flex: 0 1 auto;
+  max-width: 48%;
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--illus-muted);
+  font-size: 13px;
+}
+.illus-pane .illus-tabs button[aria-selected='true'] {
+  border-color: transparent;
+  background: rgb(var(--md-sys-color-secondary-container));
+  color: rgb(var(--md-sys-color-on-secondary-container));
 }
 .illus-live {
   min-height: 28px;
@@ -115,10 +308,25 @@
   border-top: 1px solid var(--illus-line);
 }
 .illus-skeleton {
-  height: 150px;
-  border-radius: 8px;
-  background: rgb(var(--md-sys-color-surface-variant));
+  height: 260px;
+  border-radius: 12px;
+  background: linear-gradient(
+    100deg,
+    rgb(var(--md-sys-color-surface-variant)) 40%,
+    rgb(var(--md-sys-color-surface)) 50%,
+    rgb(var(--md-sys-color-surface-variant)) 60%
+  );
+  background-size: 300% 100%;
+  animation: illus-shimmer 1.6s linear infinite;
   opacity: 0.7;
+}
+@keyframes illus-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
 }
 .illus-inline-form {
   border-top: 1px solid var(--illus-line);
@@ -136,11 +344,6 @@
   border: 1px solid var(--illus-line);
   border-radius: 4px;
   background: var(--illus-bg);
-}
-.illus-token-usage {
-  font-size: 12px;
-  color: var(--illus-muted);
-  margin: 8px 0;
 }
 .illus-toggle {
   position: fixed;
@@ -189,7 +392,7 @@
   }
 }
 .illus-quality-warning {
-  margin: 0 0 8px;
+  margin: 8px 8px 0;
   padding: 6px 10px;
   font-size: 13px;
   border: 1px solid rgb(var(--md-sys-color-error));
