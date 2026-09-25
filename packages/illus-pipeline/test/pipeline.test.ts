@@ -8,7 +8,7 @@ import type {
 import { make } from '@illus/core/testing'
 import { describe, expect, test } from 'vitest'
 
-import { createLimiter } from '../src/index.ts'
+import { createLimiter, reportBlock } from '../src/index.ts'
 import type { ReviewHook, SectionJob } from '../src/index.ts'
 import {
   SECTION_COMMIT_ID as C,
@@ -49,7 +49,7 @@ describe('requestSection', () => {
     const llm = fakeLlm(
       byRole({
         planner: () => plan(),
-        'extractor.graph': () => make.graphIR(),
+        'extractor.graph': () => make.graphSource(),
       }),
     )
     const pipeline = pipelineWith(repos, llm)
@@ -81,7 +81,7 @@ describe('requestSection', () => {
     expect(llm.calls[1]!.ctx.body).toContain(
       '<plan_item id="p1" kind="graph" animate="true">',
     )
-    expect(llm.calls[1]!.opts.schemaName).toBe('GraphIR')
+    expect(llm.calls[1]!.opts.schemaName).toBe('GraphSource')
 
     const second = await collect(pipeline.requestSection(L))
     expect(second.of('plan')[0]!.fromCache).toBe(true)
@@ -97,7 +97,7 @@ describe('requestSection', () => {
     const llm = fakeLlm(
       byRole({
         planner: () => plan(),
-        'extractor.graph': () => make.graphIR(),
+        'extractor.graph': () => make.graphSource(),
       }),
     )
     const kindsOf = (c: Call) =>
@@ -146,7 +146,7 @@ describe('requestSection', () => {
     const llm = fakeLlm(
       byRole({
         planner: () => plan({ overview, items: [make.planItem({ caption })] }),
-        'extractor.graph': () => make.graphIR(),
+        'extractor.graph': () => make.graphSource(),
       }),
     )
     const r = await collect(pipelineWith(repos, llm).requestSection(L))
@@ -173,7 +173,7 @@ describe('requestSection', () => {
                 items: [],
               })
         },
-        'extractor.graph': () => make.graphIR(),
+        'extractor.graph': () => make.graphSource(),
       }),
     )
     const pipeline = pipelineWith(repos, llm)
@@ -215,11 +215,11 @@ describe('requestSection', () => {
 
   test('a call that returns after cancel starts no retry, animation or repair', async () => {
     const cases: [string, Partial<Record<Call['role'], unknown>>][] = [
-      ['extractor.graph', { 'extractor.graph': badGraph() }],
-      ['extractor.graph', { 'extractor.graph': make.graphIR() }],
+      ['extractor.graph', { 'extractor.graph': make.graphSource(badGraph()) }],
+      ['extractor.graph', { 'extractor.graph': make.graphSource() }],
       [
         'animator',
-        { 'extractor.graph': make.graphIR(), animator: make.animationIR() },
+        { 'extractor.graph': make.graphSource(), animator: make.animationIR() },
       ],
     ]
     for (const [cancelIn, answers] of cases) {
@@ -269,7 +269,7 @@ describe('requestSection', () => {
       byRole({
         planner: () => plan(),
         'extractor.graph': (c) =>
-          c.opts.escalate ? make.graphIR() : badGraph(),
+          c.opts.escalate ? make.graphSource() : make.graphSource(badGraph()),
       }),
     )
     const r = await collect(pipelineWith(repos, llm).requestSection(L))
@@ -296,21 +296,41 @@ describe('requestSection', () => {
     })
   })
 
-  test('a structural error (duplicate label) is retried with the validator report, not failed outright', async () => {
+  test('a structural error (isolated nodes) is retried with the validator report, not failed outright', async () => {
     const repos = await seededRepos()
-    const good = make.graphIR()
-    const dup = { ...good, nodes: good.nodes.map((n, i) => (i === 1 ? { ...n, label: good.nodes[0]!.label } : n)) }
+    const good = make.graphSource()
+    const isolated = make.graphSource({ ...make.graphIR(), edges: [] })
     const llm = fakeLlm(
       byRole({
         planner: () => plan(),
-        'extractor.graph': (c) => (c.ctx.body.includes('<validator_report') ? good : dup),
+        'extractor.graph': (c) => (c.ctx.body.includes('<validator_report') ? good : isolated),
       }),
     )
     const r = await collect(pipelineWith(repos, llm).requestSection(L))
     const ex = llm.calls.filter((c) => c.role === 'extractor.graph')
     expect(ex).toHaveLength(2)
-    expect(ex[1]!.ctx.body).toContain('duplicate-label')
+    expect(ex[1]!.ctx.body).toContain('isolated-nodes')
     expect(r.of('item-ready')[0]!.record).toMatchObject({ validation: { retried: true, escalated: false } })
+  })
+
+  test('graph source lines that do not parse are dropped, counted and quoted back on a retry (ADR 0049)', async () => {
+    const repos = await seededRepos()
+    const good = make.graphSource()
+    const broken = { source: `${good.source}\nGhost @b99 "nothing here at all"\nLeader - Log @b0 "The leader accepts client requests"\nA [icon: server @b0 "x y z"` }
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': (c) => (c.ctx.body.includes('<validator_report') ? good : broken),
+      }),
+    )
+    const r = await collect(pipelineWith(repos, llm).requestSection(L))
+    const ex = llm.calls.filter((c) => c.role === 'extractor.graph')
+    // 3 of 11 statements dropped (27%): kept without a retry, the drops recorded in the report.
+    expect(ex).toHaveLength(1)
+    const v = r.of('item-ready')[0]!.record.validation
+    expect(v).toMatchObject({ ok: true, retried: false, counts: { dropped: 3, total: 11 } })
+    expect(v.issues.filter((i) => i.code.startsWith('dsl-')).map((i) => i.code)).toEqual(['dsl-unknown-block', 'dsl-bad-connector', 'dsl-syntax'])
+    expect(reportBlock(v)).toContain('dsl-unknown-block')
   })
 
   test('still failing after the retry → item-failed with the report; roles without escalation stop after the retry', async () => {
@@ -354,8 +374,8 @@ describe('requestSection', () => {
         planner: () => plan(),
         'extractor.graph': () => {
           if (n++ === 0)
-            throw new LlmError('schema', 'GraphIR output failed validation')
-          return make.graphIR()
+            throw new LlmError('schema', 'GraphSource output failed validation')
+          return make.graphSource()
         },
       }),
     )
@@ -391,7 +411,7 @@ describe('requestSection', () => {
         'extractor.graph': async () => {
           extractorStarted()
           await extractorGate
-          return make.graphIR()
+          return make.graphSource()
         },
       }),
     )
@@ -430,7 +450,7 @@ describe('requestSection', () => {
     const llm = fakeLlm(
       byRole({
         planner: () => plan(),
-        'extractor.graph': () => make.graphIR(),
+        'extractor.graph': () => make.graphSource(),
         'extractor.mermaid': () => make.sequenceIR(),
       }),
     )
@@ -469,7 +489,7 @@ describe('requestSection', () => {
     const llm = fakeLlm(
       byRole({
         planner: () => plan(),
-        'extractor.graph': () => make.graphIR(),
+        'extractor.graph': () => make.graphSource(),
       }),
     )
     const asked: string[] = []
@@ -509,7 +529,7 @@ describe('requestSection', () => {
     const llm = fakeLlm(
       byRole({
         planner: () => plan({ items }),
-        'extractor.graph': () => make.graphIR(),
+        'extractor.graph': () => make.graphSource(),
         animator: () => make.animationIR(),
         translator: () => make.translation(),
       }),
@@ -597,7 +617,7 @@ describe('requestSection', () => {
     const llm = fakeLlm(
       byRole({
         planner: () => plan(),
-        'extractor.graph': () => make.graphIR(),
+        'extractor.graph': () => make.graphSource(),
       }),
     )
     const seen: Parameters<ReviewHook>[1][] = []
@@ -658,7 +678,7 @@ describe('requestSection', () => {
     const llm = fakeLlm(
       byRole({
         planner: () => plan(),
-        'extractor.graph': () => make.graphIR(),
+        'extractor.graph': () => make.graphSource(),
       }),
     )
     const job = pipelineWith(repos, llm).requestSelection({
@@ -678,7 +698,7 @@ describe('requestSection', () => {
     const llm = fakeLlm(
       byRole({
         planner: () => plan(),
-        'extractor.graph': () => make.graphIR(),
+        'extractor.graph': () => make.graphSource(),
         animator: () => make.animationIR(),
       }),
     )
@@ -706,7 +726,7 @@ describe('requestSection', () => {
     const llm = fakeLlm(
       byRole({
         planner: () => plan(),
-        'extractor.graph': () => make.graphIR(),
+        'extractor.graph': () => make.graphSource(),
         animator: () => make.animationIR(),
         repair: () => make.animationIR(),
       }),
@@ -754,7 +774,7 @@ describe('requestSection', () => {
     const llm = fakeLlm(
       byRole({
         planner: () => plan(),
-        'extractor.graph': () => make.graphIR(),
+        'extractor.graph': () => make.graphSource(),
         animator: () => original,
         repair: () => repaired,
       }),
@@ -847,7 +867,7 @@ describe('limits', () => {
       peak = Math.max(peak, inFlight)
       await new Promise((r) => setTimeout(r, 5))
       inFlight--
-      return c.role === 'planner' ? plan({ items }) : make.graphIR()
+      return c.role === 'planner' ? plan({ items }) : make.graphSource()
     })
     const pipeline = pipelineWith(repos, llm, { maxLlmRequests: 1 })
     await collect(pipeline.requestSection(L))

@@ -8,6 +8,7 @@ import type { IrKind, RoleName } from '@illus/core'
 import { DEFAULT_MODELS, Fixture, createLlmClient, createPromptRegistry, fixtureKey, memoryFixtures, replayTransport, resolveRoute } from '@illus/llm'
 import { expect, test } from 'vitest'
 
+import { validateGraphSource } from '../src/index.ts'
 import { BROWSER_ROLES, browserAnswer } from './fixtures/browser-calls.ts'
 import { isBrowserFixture, writeFixtureProfile } from './fixtures/profile-writer.ts'
 import { ROOT, indexSyntheticBook } from './synthetic-book.ts'
@@ -74,8 +75,10 @@ test('captured browser contexts replay by their exact hashes and ground only in 
     const blocks = new Map(book.blocks.filter((block) => ids.has(block.blockId)).map((block) => [block.blockId, block]))
     expect([...ids].every((id) => blocks.has(id))).toBe(true)
     if (fixture.role.startsWith('extractor.')) {
-      const kind = (fixture.data as { type: IrKind }).type
-      const checked = validate(kind, result.data, { blocks, ground })
+      const ctx = { blocks, ground }
+      const checked = fixture.schemaName === 'GraphSource'
+        ? validateGraphSource(result.data, ctx, validate)
+        : validate((fixture.data as { type: IrKind }).type, result.data, ctx)
       expect(checked.report.ok, JSON.stringify(checked.report)).toBe(true)
       expect(checked.report.groundingScore).toBeGreaterThan(0.6)
     }

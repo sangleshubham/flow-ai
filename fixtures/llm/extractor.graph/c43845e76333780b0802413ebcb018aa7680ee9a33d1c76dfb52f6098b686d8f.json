@@ -1,0 +1,18 @@
+{
+  "key": "c43845e76333780b0802413ebcb018aa7680ee9a33d1c76dfb52f6098b686d8f",
+  "source": "handwritten",
+  "role": "extractor.graph",
+  "promptVersion": "2.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "GraphSource",
+  "data": {
+    "source": "title A replicated log\ndirection down\nLeader [icon: server, color: blue] @b0 \"The leader sends heartbeats so that followers know it is still alive.\"\nFollower [icon: server] @b0 \"The leader sends heartbeats so that followers know it is still alive.\"\nReplicated log [icon: logs, shape: store] @b0 \"A replicated log keeps every server in agreement about the order of commands.\"\nServer [icon: servers] @b0 \"Each server applies committed commands to its state machine in log order.\"\nState machine [icon: gear, shape: store] @b0 \"Each server applies committed commands to its state machine in log order.\"\nSnapshot [icon: cold-storage, shape: store] @b1 \"Snapshots compact the log once its prefix has been applied everywhere.\"\nLeader --> Follower: heartbeats @b0 \"The leader sends heartbeats so that followers know it is still alive.\"\nReplicated log > Server: order of commands @b0 \"A replicated log keeps every server in agreement about the order of commands.\"\nServer > State machine: applies commands @b0 \"Each server applies committed commands to its state machine in log order.\"\nSnapshot > Replicated log: compacts @b1 \"Snapshots compact the log once its prefix has been applied everywhere.\""
+  },
+  "usage": {
+    "input": 3533,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: extractor.graph for 3.1 An Oversized Section Without Subheadings (part 1) id=\"p1\". Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}
