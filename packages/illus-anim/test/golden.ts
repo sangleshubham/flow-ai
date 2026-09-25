@@ -127,3 +127,22 @@ export const graphAnimation: AnimationIR = {
     },
   ],
 }
+/** Muting and revealing restyle graph nodes; they must stay at their layout positions. */
+export const mutedGraphAnimation: AnimationIR = {
+  planItemId: 'mute',
+  initialHidden: [],
+  steps: [
+    {
+      id: 'mute',
+      narration: 'The source fades back.',
+      evidence,
+      actions: [{ op: 'highlight', target: 'node:a', tone: 'muted' }],
+    },
+    {
+      id: 'unmute',
+      narration: 'The source returns.',
+      evidence,
+      actions: [{ op: 'unhighlight', target: 'node:a' }],
+    },
+  ],
+}
