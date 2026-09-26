@@ -1,7 +1,7 @@
 // Public API of @illus/book-index (owner W1, spec §6 Phase A, §7 lexical index, §14 location → section).
 export { indexBookStructure, runInSlices, SLICE_MS } from './index-book.ts'
 export type { IdleScheduler, IndexOptions, IndexRepos, Progress } from './index-book.ts'
-export { getSectionAt } from './locate.ts'
+export { getSectionAt, getSectionForPage } from './locate.ts'
 export { buildLexicalIndex } from './lexical.ts'
 export type { LexicalHit, LexicalIndex, LexicalSearchOptions } from './lexical.ts'
 export {
