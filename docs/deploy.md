@@ -14,19 +14,19 @@ Since [ADR 0047](adr/0047-remote-chatgpt-signin-and-zero-config.md), the Docker 
 
 ## Configuration
 
-| Variable | Needed | Value |
-| --- | --- | --- |
-| `ILLUS_ALLOWED_ACCOUNT_ID` | always | Your ChatGPT account id (the ID token `sub`). Leave empty for the first sign-in: the refusal page shows the value to put here. |
-| `ILLUS_SESSION_SECRET` | always | At least 32 random characters: `openssl rand -base64 48`. Changing it signs every browser out. |
-| `ILLUS_TOKEN_ENC_KEY` | always | 32-byte key for the token store: `openssl rand -base64 32`. **Use the same key on the laptop and the VPS.** |
-| `ILLUS_PUBLIC_URL` | always | Laptop: `http://127.0.0.1:<port>` (OpenAI accepts only this form). VPS: its HTTPS tailnet URL, for example `https://reader.<tailnet>.ts.net`. |
-| `ILLUS_DATA_DIR` | always | Token store and usage log. `/data` in Docker (a volume). |
-| `ILLUS_LOGIN_PASSWORD` | VPS | Password for the login page, at least 16 characters: `openssl rand -base64 24`. Never reuse a password. Empty disables password login. |
-| `ILLUS_LLM_MODE` | always | `replay` (the default) serves fixtures; `live` calls the model; `record` calls the model and saves responses. |
-| `ILLUS_FIXTURES_DIR` | replay/record containers | Absolute container path. Compose defaults to `/fixtures/llm`, mounted read-only from `./fixtures/llm`. Recording needs a writable path, for example `/data/fixtures/llm`. |
-| `ILLUS_MAX_REQUESTS_5H`, `ILLUS_MAX_REQUESTS_DAY` | optional | Local soft caps, default 100 and 300. |
-| `ILLUS_MODELS_JSON`, `ILLUS_CHATGPT_CLIENT_ID`, `ILLUS_LLM_PROVIDER`, `ILLUS_OPENAI_API_KEY` | optional | See spec §9 and ADR 0007. |
-| `ILLUS_AUTH_GATE` | dev only | `off` skips the login gate under `pnpm dev`. Production builds ignore it. |
+| Variable                                                                                     | Needed                   | Value                                                                                                                                                                     |
+| -------------------------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ILLUS_ALLOWED_ACCOUNT_ID`                                                                   | always                   | Your ChatGPT account id (the ID token `sub`). Leave empty for the first sign-in: the refusal page shows the value to put here.                                            |
+| `ILLUS_SESSION_SECRET`                                                                       | always                   | At least 32 random characters: `openssl rand -base64 48`. Changing it signs every browser out.                                                                            |
+| `ILLUS_TOKEN_ENC_KEY`                                                                        | always                   | 32-byte key for the token store: `openssl rand -base64 32`. **Use the same key on the laptop and the VPS.**                                                               |
+| `ILLUS_PUBLIC_URL`                                                                           | always                   | Laptop: `http://127.0.0.1:<port>` (OpenAI accepts only this form). VPS: its HTTPS tailnet URL, for example `https://reader.<tailnet>.ts.net`.                             |
+| `ILLUS_DATA_DIR`                                                                             | always                   | Token store and usage log. `/data` in Docker (a volume).                                                                                                                  |
+| `ILLUS_LOGIN_PASSWORD`                                                                       | VPS                      | Password for the login page, at least 16 characters: `openssl rand -base64 24`. Never reuse a password. Empty disables password login.                                    |
+| `ILLUS_LLM_MODE`                                                                             | always                   | `replay` (the default) serves fixtures; `live` calls the model; `record` calls the model and saves responses.                                                             |
+| `ILLUS_FIXTURES_DIR`                                                                         | replay/record containers | Absolute container path. Compose defaults to `/fixtures/llm`, mounted read-only from `./fixtures/llm`. Recording needs a writable path, for example `/data/fixtures/llm`. |
+| `ILLUS_MAX_REQUESTS_5H`, `ILLUS_MAX_REQUESTS_DAY`                                            | optional                 | Local soft caps, default 100 and 300.                                                                                                                                     |
+| `ILLUS_MODELS_JSON`, `ILLUS_CHATGPT_CLIENT_ID`, `ILLUS_LLM_PROVIDER`, `ILLUS_OPENAI_API_KEY` | optional                 | See spec §9 and ADR 0007.                                                                                                                                                 |
+| `ILLUS_AUTH_GATE`                                                                            | dev only                 | `off` skips the login gate under `pnpm dev`. Production builds ignore it.                                                                                                 |
 
 Keep these in a file that is never committed: `apps/reader/.env.local` for `pnpm dev`/`next start`, or `.env` next to `docker-compose.yml` for Docker. Both names are git-ignored and excluded from the Docker build context.
 
@@ -84,6 +84,7 @@ The VPS is never exposed to the internet. ChatGPT sign-in cannot run there (Open
    ```
 
 5. **HTTPS on the tailnet**, one of:
+
    - `tailscale serve` (simplest): `sudo tailscale serve --bg --https=443 http://127.0.0.1:3000`. Only tailnet devices can connect; Tailscale issues the certificate.
    - Caddy bound to the tailnet address, if you prefer Caddy. Caddy gets the tailnet certificate from the local Tailscale daemon for `*.ts.net` names:
 
@@ -98,8 +99,32 @@ The VPS is never exposed to the internet. ChatGPT sign-in cannot run there (Open
      ```
 
      Never add a public hostname or bind Caddy to the public interface. With `tailscale serve`, the `x-middleware-subrequest` advisory is already fixed by Next 12.3.7, and the API routes check the session themselves.
+
 6. Check from a non-tailnet network that the VPS's public IP does not answer on 80, 443 or 3000 (a host firewall such as `ufw default deny incoming` plus `ufw allow in on tailscale0` makes sure).
 7. Open `https://<vps-name>.<tailnet>.ts.net/login` from a tailnet device and continue with the password.
+
+## Reverse proxy timeouts
+
+Model calls can take several minutes. `/api/llm` sends keep-alive data after 10 seconds while it waits for a slow call (ADR 0051), but the reverse proxy still needs a generous read timeout.
+
+### Nginx and Nginx Proxy Manager
+
+Plain nginx defaults `proxy_read_timeout` to 60 seconds. Nginx Proxy Manager (NPM) sets it to 90 seconds globally in `nginx.conf`, which can still be too short for a slow model call.
+
+In NPM, open **Proxy Hosts** → the reader host → **Advanced** and append these directives. Keep any existing websocket lines:
+
+```nginx
+proxy_read_timeout 600s;
+proxy_send_timeout 600s;
+```
+
+These server-level directives apply to NPM's generated `location /`; do not add a second `location /` block, which NPM does not allow you to redefine.
+
+### Caddy
+
+Caddy's `reverse_proxy` has no read timeout by default, so no timeout change is needed.
+
+To confirm the timeout is resolved, check the proxy error log for new `upstream timed out` entries for `/api/llm`.
 
 The OAuth callback URL is always `${ILLUS_PUBLIC_URL}/auth/chatgpt/callback`. It only matters where you sign in with ChatGPT, that is on the laptop, where it must be `http://127.0.0.1:<port>/auth/chatgpt/callback`. To sign in again later (a revoked or expired refresh token), repeat steps 1 and 4.
 
