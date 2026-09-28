@@ -433,3 +433,5 @@ export async function validateAnimationWithRepair(
   }
   return { ...result, repaired: true, staticFallback: !result.ok }
 }
+
+export { withDerivedVisibility } from './visibility.ts'

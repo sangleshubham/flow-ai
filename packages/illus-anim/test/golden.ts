@@ -146,3 +146,37 @@ export const mutedGraphAnimation: AnimationIR = {
     },
   ],
 }
+
+export const hiddenGraphIR: IR = {
+  type: 'graph',
+  title: 'Progressive flow',
+  direction: 'LR',
+  nodes: [
+    { id: 'a', label: 'A', shape: 'box', evidence },
+    { id: 'b', label: 'B', shape: 'box', evidence },
+    { id: 'c', label: 'C', shape: 'box', evidence },
+  ],
+  edges: [
+    { id: 'ab', from: 'a', to: 'b', style: 'solid', evidence },
+    { id: 'bc', from: 'b', to: 'c', style: 'solid', evidence },
+  ],
+  groups: [],
+}
+export const hiddenGraphAnimation: AnimationIR = {
+  planItemId: 'progressive',
+  initialHidden: ['node:b', 'node:c'],
+  steps: [
+    {
+      id: 'b',
+      narration: 'Show B.',
+      evidence,
+      actions: [{ op: 'reveal', target: 'node:b' }],
+    },
+    {
+      id: 'c',
+      narration: 'Show C.',
+      evidence,
+      actions: [{ op: 'reveal', target: 'node:c' }],
+    },
+  ],
+}
