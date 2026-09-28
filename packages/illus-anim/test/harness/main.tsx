@@ -11,18 +11,24 @@ import {
   graphIR,
   graphAnimation,
   mutedGraphAnimation,
+  hiddenGraphIR,
+  hiddenGraphAnimation,
 } from '../golden.ts'
 
 const params = new URLSearchParams(location.search)
 const kind = params.get('kind')
 const ir =
-    kind === 'graph' || kind === 'graph-muted'
+    kind === 'graph-hidden'
+      ? hiddenGraphIR
+      : kind === 'graph' || kind === 'graph-muted'
       ? graphIR
       : kind === 'sequence'
       ? sequenceIR
       : arrayIR,
   animation =
-    kind === 'graph'
+    kind === 'graph-hidden'
+      ? hiddenGraphAnimation
+      : kind === 'graph'
       ? graphAnimation
       : kind === 'graph-muted'
       ? mutedGraphAnimation
