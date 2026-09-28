@@ -2,20 +2,31 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 import { getIllusServer } from '../../../server/llm'
+import { respondWithKeepAlive } from '../../../server/llm/keepalive'
 
 export const config = { api: { bodyParser: { sizeLimit: '4mb' } } } // critic PNGs arrive as base64
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  res.setHeader('Cache-Control', 'no-store')
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse,
+) {
+  // Prevent Next's compression middleware from buffering keep-alive bytes.
+  res.setHeader('Cache-Control', 'no-store, no-transform')
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST')
-    return res.status(405).json({ ok: false, code: 'upstream', message: 'POST only' })
+    return res
+      .status(405)
+      .json({ ok: false, code: 'upstream', message: 'POST only' })
   }
   let server
   try {
     server = await getIllusServer()
   } catch (e) {
-    return res.status(500).json({ ok: false, code: 'upstream', message: `LLM gateway is misconfigured: ${(e as Error).message}` })
+    return res.status(500).json({
+      ok: false,
+      code: 'upstream',
+      message: `LLM gateway is misconfigured: ${(e as Error).message}`,
+    })
   }
   // A client that disconnects no longer wants the result; stop the upstream call.
   const abort = new AbortController()
@@ -23,6 +34,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!res.writableEnded) abort.abort()
   })
   const session = server.sessions.verify(req.headers.cookie) !== null
-  const result = await server.gateway.handle(req.body, { session, signal: abort.signal })
-  res.status(result.status).json(result.body)
+  await respondWithKeepAlive(
+    res,
+    server.gateway.handle(req.body, { session, signal: abort.signal }),
+  )
 }
