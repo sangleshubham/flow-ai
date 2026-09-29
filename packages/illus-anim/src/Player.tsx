@@ -9,6 +9,7 @@ import type { ReactNode } from 'react'
 import { animate } from 'motion'
 import { useReducedMotion } from 'motion/react'
 import type { Evidence, FrameState } from '@illus/core'
+import { HighlightToggle, useStepHighlight } from './highlight.tsx'
 import { PlaybackControls, playbackKey, usePlayback } from './transport.tsx'
 
 export interface PlayerProps {
@@ -23,8 +24,10 @@ export interface PlayerProps {
   reducedMotion?: boolean
   /** Play through once when the frames arrive (never with reduced motion), ending on the full picture. */
   autoPlay?: boolean
-  /** Initial value of "Highlight passage while playing". */
+  /** Initial passage-highlight value, or current value when controlled by the host. */
   highlightWhilePlaying?: boolean
+  /** When given, the host controls highlightWhilePlaying. */
+  onHighlightWhilePlayingChange?: (on: boolean) => void
 }
 
 /** A screen-pixel offset in the element's own coordinates (SVG viewBox scaling, pane zoom). */
@@ -59,9 +62,16 @@ export function Player({
   reducedMotion,
   autoPlay = false,
   highlightWhilePlaying = true,
+  onHighlightWhilePlayingChange,
 }: PlayerProps) {
   const [index, setIndex] = useState(0)
   const [autoHighlight, setAutoHighlight] = useState(highlightWhilePlaying)
+  const checked = onHighlightWhilePlayingChange
+    ? highlightWhilePlaying
+    : autoHighlight
+  useEffect(() => {
+    setAutoHighlight(highlightWhilePlaying)
+  }, [highlightWhilePlaying])
   const root = useRef<HTMLDivElement>(null)
   const [surfaceVersion, setSurfaceVersion] = useState(0)
   const systemReduced = useReducedMotion()
@@ -108,12 +118,11 @@ export function Player({
   useEffect(() => {
     onStepChange?.(safeIndex)
   }, [safeIndex, onStepChange])
-  useEffect(() => {
-    onEvidenceHighlight?.(
-      playback.playing && autoHighlight ? frame?.evidence ?? null : null,
-    )
-    return () => onEvidenceHighlight?.(null)
-  }, [playback.playing, autoHighlight, frame?.evidence, onEvidenceHighlight])
+  useStepHighlight({
+    evidence: frame?.evidence,
+    enabled: checked,
+    onEvidenceHighlight,
+  })
   const previous = useRef(
     new Map<string, { x: number; y: number; opacity: number; fill: string }>(),
   )
@@ -285,14 +294,10 @@ export function Player({
           <span>Initial state</span>
         )}
       </div>
-      <label className="illus-player-option">
-        <input
-          type="checkbox"
-          checked={autoHighlight}
-          onChange={(e) => setAutoHighlight(e.target.checked)}
-        />
-        Highlight passage while playing
-      </label>
+      <HighlightToggle
+        checked={checked}
+        onChange={onHighlightWhilePlayingChange ?? setAutoHighlight}
+      />
     </div>
   )
 }
