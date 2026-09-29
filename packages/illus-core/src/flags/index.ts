@@ -6,6 +6,7 @@ import { z } from 'zod'
 export const FlagName = z.enum([
   'templates',
   'animations',
+  'sceneAnimations',
   'tracer',
   'conceptModels',
   'critic',
@@ -19,6 +20,7 @@ export type Flags = Readonly<Record<FlagName, boolean>>
 export const FLAG_OWNERS: Readonly<Record<FlagName, string>> = {
   templates: 'W5',
   animations: 'W6',
+  sceneAnimations: 'W6',
   tracer: 'W7',
   conceptModels: 'W8',
   critic: 'W10',
@@ -28,6 +30,7 @@ export const FLAG_OWNERS: Readonly<Record<FlagName, string>> = {
 export const DEFAULT_FLAGS: Flags = {
   templates: true,
   animations: true,
+  sceneAnimations: false,
   tracer: false,
   conceptModels: false,
   critic: false,
