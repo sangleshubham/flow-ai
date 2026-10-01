@@ -34,6 +34,7 @@ import {
   parsedVisual,
   requestVisual,
   saveConceptLayout,
+  savePreferences,
   updateRecord,
 } from './runtime'
 import { pane } from './state'
@@ -367,7 +368,10 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
         frames={frames}
         renderFrame={renderFrame}
         autoPlay
-        highlightWhilePlaying={false}
+        highlightWhilePlaying={pane.preferences.highlightSteps}
+        onHighlightWhilePlayingChange={(on) =>
+          void savePreferences({ ...pane.preferences, highlightSteps: on })
+        }
         defaultSpeed={pane.preferences.speed}
         reducedMotion={
           pane.preferences.reducedMotion === 'system'
