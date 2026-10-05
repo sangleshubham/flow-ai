@@ -1,7 +1,7 @@
 {
   "source": "handwritten",
   "role": "animator",
-  "promptVersion": "1.0.0",
+  "promptVersion": "2.0.0",
   "model": "gpt-6.1-sol",
   "effort": "medium",
   "schemaName": "AnimationIR",
@@ -58,5 +58,6 @@
       }
     ]
   },
-  "note": "Original synthetic protocol worked example; condensed input lists validated IR ids."
+  "note": "Original synthetic protocol worked example; condensed input lists validated IR ids.",
+  "key": "c1c58386b83a6528e47533aa4f03049e86146e2a0deb74861d3ddc9eeb8716cc"
 }
