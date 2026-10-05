@@ -11,6 +11,8 @@ import type { ValidationIssue } from '../schemas/quality.ts'
 import { ground } from '../grounding/index.ts'
 import { projectTemplateFrame } from './project.ts'
 
+export { defaultStoryboard } from './storyboard.ts'
+
 export interface AnimationOptions {
   templates?: TemplateRegistry
   /** Mandatory for validateAnimation; only permitted section blocks may be supplied. */
