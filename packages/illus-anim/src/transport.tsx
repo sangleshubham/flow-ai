@@ -11,6 +11,8 @@ export interface PlaybackControlsProps {
   onSpeed: (speed: number) => void
   loop: boolean
   onLoop: (loop: boolean) => void
+  /** Disables every control and the keyboard shortcuts, e.g. while a scene player waits for its layout. */
+  disabled?: boolean
 }
 
 export function playbackKey(
@@ -63,6 +65,7 @@ function Icon({ glyph, label }: { glyph: string; label: string }) {
 
 /** Evidence-independent controlled transport; usable for executed traces too. */
 export function PlaybackControls(p: PlaybackControlsProps) {
+  const off = !!p.disabled
   const step = (index: number) => {
     p.onPlaying(false)
     p.onIndex(index)
@@ -72,15 +75,17 @@ export function PlaybackControls(p: PlaybackControlsProps) {
       className="illus-transport"
       role="group"
       aria-label="Playback controls"
-      onKeyDown={(e) => playbackKey(e, p)}
+      onKeyDown={(e) => {
+        if (!off) playbackKey(e, p)
+      }}
     >
-      <button type="button" onClick={() => step(0)}>
+      <button type="button" disabled={off} onClick={() => step(0)}>
         <Icon glyph="⟲" label="Restart" />
       </button>
       <button
         type="button"
         aria-label="Previous step"
-        disabled={p.index === 0}
+        disabled={off || p.index === 0}
         onClick={() => step(p.index - 1)}
       >
         ←
@@ -88,7 +93,7 @@ export function PlaybackControls(p: PlaybackControlsProps) {
       <button
         type="button"
         className="illus-transport-play"
-        disabled={p.count < 2}
+        disabled={off || p.count < 2}
         onClick={() => {
           if (!p.playing && p.index >= p.count - 1) p.onIndex(0)
           p.onPlaying(!p.playing)
@@ -103,7 +108,7 @@ export function PlaybackControls(p: PlaybackControlsProps) {
       <button
         type="button"
         aria-label="Next step"
-        disabled={p.index >= p.count - 1}
+        disabled={off || p.index >= p.count - 1}
         onClick={() => step(p.index + 1)}
       >
         →
@@ -114,6 +119,7 @@ export function PlaybackControls(p: PlaybackControlsProps) {
         min={0}
         max={Math.max(0, p.count - 1)}
         value={p.index}
+        disabled={off}
         onChange={(e) => step(Number(e.target.value))}
       />
       <output aria-label="Step number">
@@ -122,6 +128,7 @@ export function PlaybackControls(p: PlaybackControlsProps) {
       <select
         aria-label="Playback speed"
         value={p.speed}
+        disabled={off}
         onChange={(e) => p.onSpeed(Number(e.target.value))}
       >
         {[0.5, 1, 1.5, 2].map((s) => (
@@ -134,6 +141,7 @@ export function PlaybackControls(p: PlaybackControlsProps) {
         <input
           type="checkbox"
           checked={p.loop}
+          disabled={off}
           onChange={(e) => p.onLoop(e.target.checked)}
         />
         Loop

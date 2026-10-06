@@ -1,9 +1,14 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { gsap } from 'gsap'
 import { buildFrames, compileSceneTimeline, emptyFrame } from '@illus/core'
 import type { AnimationIR, FrameState, GraphIR } from '@illus/core'
 import { make } from '@illus/core/testing'
 import { VisualView, templateRegistry } from '@illus/render'
-import { buildSceneTimeline, readSceneGeometry } from '../../src/index.ts'
+import {
+  ScenePlayer,
+  buildSceneTimeline,
+  readSceneGeometry,
+} from '../../src/index.ts'
 import { evidence, hiddenGraphAnimation, hiddenGraphIR } from '../golden.ts'
 
 declare global {
@@ -14,6 +19,12 @@ declare global {
       /** The camera group's markup as React rendered it, before the timeline touched anything. */
       staticMarkup: string
     }
+    /** Harness only: the ScenePlayer's master timeline, found among GSAP's top-level children. */
+    __sceneTimeline?: () => gsap.core.Timeline | undefined
+    /** Harness only: how many playhead tweens are running on that timeline. */
+    __sceneRunning?: () => number
+    /** Harness only: what the ScenePlayer reported to its host. */
+    __sceneLog?: { highlights: (string | null)[]; clicks: string[] }
   }
 }
 
@@ -27,7 +38,7 @@ const chain: GraphIR = {
  * The chain is one node tall, so no camera could zoom into it. Two more children of `a`, revealed with
  * `c`, give the layout a second dimension: the first step zooms in and the last step shows everything.
  */
-const spread: GraphIR = {
+export const spread: GraphIR = {
   ...chain,
   nodes: [
     ...chain.nodes,
@@ -40,7 +51,7 @@ const spread: GraphIR = {
     { id: 'ae', from: 'a', to: 'e', style: 'solid', evidence },
   ],
 }
-const spreadAnimation: AnimationIR = {
+export const spreadAnimation: AnimationIR = {
   ...hiddenGraphAnimation,
   initialHidden: ['node:b', 'node:c', 'node:d', 'node:e'],
   steps: [
@@ -129,5 +140,86 @@ export function SceneHarness({ details }: { details: boolean }) {
         templates={templateRegistry}
       />
     </div>
+  )
+}
+
+/** The scene player on the spread graph: s0 shows `a`, s1 adds `b`, s2 adds `c`, `d` and `e`. */
+export function ScenePlayerHarness({
+  reducedMotion,
+  autoPlay,
+  swap,
+}: {
+  reducedMotion: boolean | undefined
+  autoPlay: boolean
+  /** Adds a button that hands the player a new (equal) frames array. */
+  swap: boolean
+}) {
+  const [frames, setFrames] = useState(() =>
+    buildFrames(spread, spreadAnimation),
+  )
+  const renderScene = useCallback(
+    () => (
+      <VisualView
+        spec={{ ir: spread }}
+        theme={make.themeTokens()}
+        templates={templateRegistry}
+      />
+    ),
+    [],
+  )
+  const log = useMemo(() => {
+    const entries = {
+      highlights: [] as (string | null)[],
+      clicks: [] as string[],
+    }
+    window.__sceneLog = entries
+    const timeline = () =>
+      gsap.globalTimeline
+        .getChildren(false, false, true)
+        .find(
+          (child): child is gsap.core.Timeline =>
+            'labels' in child && 's1' in child.labels,
+        )
+    window.__sceneTimeline = timeline
+    window.__sceneRunning = () => {
+      const tl = timeline()
+      return tl ? gsap.getTweensOf(tl, true).length : 0
+    }
+    return entries
+  }, [])
+  const onEvidenceHighlight = useCallback(
+    (e: { quote: string } | null) => log.highlights.push(e?.quote ?? null),
+    [log],
+  )
+  const onEvidenceClick = useCallback(
+    (e: { quote: string }) => log.clicks.push(e.quote),
+    [log],
+  )
+  const onStepChange = useCallback(
+    (index: number) =>
+      document.documentElement.setAttribute('data-step', String(index)),
+    [],
+  )
+  return (
+    <>
+      <ScenePlayer
+        ir={spread}
+        frames={frames}
+        renderScene={renderScene}
+        reducedMotion={reducedMotion}
+        autoPlay={autoPlay}
+        onEvidenceHighlight={onEvidenceHighlight}
+        onEvidenceClick={onEvidenceClick}
+        onStepChange={onStepChange}
+      />
+      {swap && (
+        <button
+          type="button"
+          onClick={() => setFrames(buildFrames(spread, spreadAnimation))}
+        >
+          Swap frames
+        </button>
+      )}
+    </>
   )
 }

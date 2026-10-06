@@ -1,9 +1,10 @@
+import { Fragment, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { buildFrames } from '@illus/core'
 import { make } from '@illus/core/testing'
 import { VisualView, templateRegistry } from '@illus/render'
 import { Player } from '../../src/index.ts'
-import { SceneHarness } from './scene.tsx'
+import { SceneHarness, ScenePlayerHarness } from './scene.tsx'
 import {
   arrayIR,
   arrayAnimation,
@@ -37,19 +38,29 @@ const ir =
       ? sequenceAnimation
       : arrayAnimation
 const frames = buildFrames(ir, animation, { templates: templateRegistry })
+const reducedMotion =
+  params.get('motion') === 'on'
+    ? true
+    : params.get('motion') === 'off'
+    ? false
+    : undefined
+/** `?strict=on` mounts the scene player under StrictMode, which replays effects (mount, cleanup, mount). */
+const Wrapper = params.get('strict') === 'on' ? StrictMode : Fragment
 createRoot(document.getElementById('root')!).render(
   kind === 'scene' || kind === 'scene-details' ? (
     <SceneHarness details={kind === 'scene-details'} />
+  ) : kind === 'scene-player' ? (
+    <Wrapper>
+      <ScenePlayerHarness
+        reducedMotion={reducedMotion}
+        autoPlay={params.get('autoplay') === 'on'}
+        swap={params.get('swap') === 'on'}
+      />
+    </Wrapper>
   ) : (
     <Player
       frames={frames}
-      reducedMotion={
-        params.get('motion') === 'on'
-          ? true
-          : params.get('motion') === 'off'
-          ? false
-          : undefined
-      }
+      reducedMotion={reducedMotion}
       renderFrame={(frame) => (
         <VisualView
           spec={{ ir }}

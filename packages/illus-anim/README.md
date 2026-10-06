@@ -21,9 +21,27 @@ Optional persisted settings: `defaultSpeed?: number` accepts 0.5/1/1.5/2 (defaul
 
 Controls: play/pause, previous/next, restart, range scrubber, 0.5×/1×/1.5×/2× speed, loop. Focus the player for Space, arrows and Home. Native form and button keys are preserved. Delay is `max(1500, narration.length * 45) / speed`. Motion tweens position, visibility and highlight colour; token overlays follow semantic edge paths for 600ms/speed, including the renderer's HTML and template SVG overlays. Reduced motion switches frames and tokens instantly.
 
-`PlaybackControls` is evidence-independent controlled transport for W7 traces. Props: `{count,index,onIndex,playing,onPlaying,speed,onSpeed,loop,onLoop}`. `usePlayback({count,index,onIndex,delayMs?})` returns `{playing,setPlaying,speed,setSpeed,loop,setLoop}` and performs auto-advance; supply these to the controlled component. Set `delayMs` to customise trace timing. `count` includes the base frame if one exists.
+`PlaybackControls` is evidence-independent controlled transport for W7 traces. Props: `{count,index,onIndex,playing,onPlaying,speed,onSpeed,loop,onLoop,disabled?}` (`disabled` greys every control and ignores the shortcut keys). `usePlayback({count,index,onIndex,delayMs?})` returns `{playing,setPlaying,speed,setSpeed,loop,setLoop}` and performs auto-advance; supply these to the controlled component. Set `delayMs` to customise trace timing. `count` includes the base frame if one exists.
 
 Scene timelines (graph IRs, ADR 0050): `readSceneGeometry(svg)` reads the `data-layout` and `data-box` attributes that `GraphView` writes (null until laid out), and `buildSceneTimeline(svg, compileSceneTimeline(ir, frames, geometry.boxes, geometry.full))` returns `{ tl, ctx }`: a paused GSAP master timeline with labels `s0…sN` (label `sI` is the finished picture of step `I`; `tl.seek` and `tl.tweenFromTo` jump between them) and the `gsap.context` that owns everything it created. `ctx.revert()` removes the overlay (token dots, annotations) and restores the static SVG. GSAP writes SVG transforms as `transform` attributes, and React renders one on each node's outer `<g>`, so GSAP only animates the inner `[data-anim-body]` wrappers and its own overlay elements; the camera group is moved through a `sceneCamera` plugin (a tween callback would be skipped by `seek`). The browser harness exposes `window.__scene` for the e2e tests only.
+
+`ScenePlayer` (graph IRs only, ADR 0050; the caller gates mounting with the `sceneAnimations` flag) plays the same frames as `Player` with one GSAP master timeline instead of per-frame measuring:
+
+```tsx
+const frames = useMemo(() => buildFrames(graphIr, animation), [graphIr, animation])
+const renderScene = useCallback(
+  () => <VisualView spec={{ ir: graphIr }} theme={theme} templates={templates} />, // no `frame`: the complete picture
+  [graphIr, theme, templates],
+)
+<ScenePlayer ir={graphIr} frames={frames} renderScene={renderScene} autoPlay onStepChange={…} onEvidenceClick={…} />
+```
+
+`ScenePlayerProps` is `PlayerProps` without `renderFrame`, plus `ir: GraphIR` and `renderScene(): ReactNode`. Memoise `ir`, `frames` and `renderScene`: the scene is rendered once per `renderScene` identity (index changes never re-render it), and a new `ir` or `frames` rebuilds the timeline. Markup, class names, aria and keys match `Player` (`illus-player` region, `aria-live` narration, Space/arrows/Home); the root also carries `data-scene-ready` (`true` once the timeline exists).
+
+- **Waiting for layout.** A `MutationObserver` waits for `.illus-view[data-ready="true"] svg[data-layout]` (GraphView lays out in a worker), then `readSceneGeometry` → `compileSceneTimeline(ir, frames, boxes, full)` → `buildSceneTimeline`, committed before the browser paints. Until then the static scene shows and the transport is disabled; playback, including autoplay, starts only once the timeline exists. When `frames`, `ir`, or the SVG (or its geometry) change, `ctx.revert()` runs and the timeline is built again, landing on the current step without playing. Unmounting reverts too. If building throws, the static scene stays with disabled controls and the error goes to `console.error`.
+- **Moving the playhead.** One step forward (button, key, auto-advance, or a scrub of exactly +1) kills any running playhead tween and plays `tl.tweenFromTo(s{prev}, s{next}, { duration: (label time difference) / speed, ease: 'none' })`. Every other move (back, scrub, restart, loop, jump) and every move under reduced motion is `tl.seek(s{next})`. A speed change never replays the step. Pausing lets the running step finish.
+- **Timing.** Auto-advance waits `max(1500, narration.length * 45) + (step.end - step.start) * 1000` milliseconds per step, divided by the speed.
+- **Highlight and narration.** The same `useStepHighlight`, controlled/uncontrolled checkbox ("Highlight passage while playing") and narration button as `Player`; the current step's passage is sent whether or not it is playing.
 
 Validation: `pnpm -F @illus/anim test` (component, real template invariants, grounding, repair) and `pnpm -F @illus/anim e2e` (actual array, Mermaid sequence and graph renderers). Browser goldens test play/pause, stepping, scrubbing, keyboard restart, token path travel and reduced-motion endpoint placement. Test assets use original synthetic text. Playwright runs a dedicated Vite harness at port 5206; browser results are ignored locally.
 
