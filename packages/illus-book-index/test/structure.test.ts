@@ -2,7 +2,12 @@
 import { createMemoryRepos, make } from '@illus/core/testing'
 import { describe, expect, test } from 'vitest'
 
-import { buildLexicalIndex, getSectionAt, getSectionForPage, runInSlices } from '../src/index.ts'
+import {
+  buildLexicalIndex,
+  getSectionAt,
+  getSectionForPage,
+  runInSlices,
+} from '../src/index.ts'
 import { indexDocs, prose } from './helpers.ts'
 
 const titles = async (...args: Parameters<typeof indexDocs>) =>
