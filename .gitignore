@@ -38,3 +38,10 @@ yarn-error.log*
 **/public/workbox-*
 **/public/sw.*
 **/public/fallback-*
+
+# TypeScript incremental state
+*.tsbuildinfo
+
+# Illustrated reader: private books and secrets never leave this machine
+fixtures/books/private/
+.env.local
