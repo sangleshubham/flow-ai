@@ -1,0 +1,32 @@
+{
+  "name": "@illus/core",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Contracts for the AI Illustrated Reader: Zod schemas, ids, hashing, flags, cache keys, repository and port interfaces, test factories (DOM-free).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts",
+    "./flags": "./src/flags/index.ts"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run",
+    "contracts": "node scripts/contracts.ts"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@illus/eslint-config": "workspace:*",
+    "eslint": "10.11.0",
+    "fast-check": "4.10.2",
+    "typedoc": "0.28.20",
+    "typedoc-plugin-markdown": "4.13.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}
