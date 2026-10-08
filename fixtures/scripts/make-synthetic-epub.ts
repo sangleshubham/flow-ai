@@ -250,7 +250,7 @@ files['OEBPS/content.opf'] = `<?xml version="1.0" encoding="UTF-8"?>
     <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
     <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
     <item id="css" href="style.css" media-type="text/css"/>
-    <item id="pixel" href="images/pixel.png" media-type="image/png"/>
+    <item id="pixel" href="images/pixel.png" media-type="image/png" properties="cover-image"/>
     <item id="front" href="front.xhtml" media-type="application/xhtml+xml"/>
     <item id="ch01" href="ch01.xhtml" media-type="application/xhtml+xml"/>
     <item id="ch02" href="ch02.xhtml" media-type="application/xhtml+xml" properties="mathml"/>
