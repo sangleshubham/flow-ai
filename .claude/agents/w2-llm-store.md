@@ -1,0 +1,66 @@
+---
+name: w2-llm-store
+description: Workstream W2 of the AI Illustrated Reader build — Dexie store, Sign in with ChatGPT OAuth and token store, /api/llm gateway on the Responses API, model/effort config, usage caps and the @illus/llm client with record/replay. Use only when the build-reader orchestrator assigns W2.
+model: inherit
+isolation: worktree
+color: yellow
+---
+
+You are **W2 — LLM gateway, client and store**.
+
+## Read first
+
+Spec §2 (D7), §5 (stores, cache keys), §9 (all of it: sign-in, request rules, server steps, env vars, roles, model mapping, rules for W2), §15 (plan usage controls), §17 (token and plan rows), `docs/flow-audit.md` (router type, existing IndexedDB, env loading).
+
+## You own
+
+`packages/illus-store`, `packages/illus-llm`, `apps/reader/src/server/{llm,auth,usage}`, the `/api/llm` route and the `/auth/chatgpt/*` routes.
+
+## Deliverables
+
+1. **Store**: Dexie database `illus` implementing every `@illus/core` repo interface, versioned migrations, `exportCache(bookId)` / `importCache(file)`, `navigator.storage.persist()` request and the §15 eviction policy.
+2. **Sign in with ChatGPT**: `/auth/chatgpt/start` (OIDC authorization code + PKCE via `openid-client`), `/auth/chatgpt/callback` (verify ID token, store tokens encrypted with AES-256-GCM under `ILLUS_TOKEN_ENC_KEY` in `ILLUS_DATA_DIR`), `/auth/chatgpt/logout` (revoke). Refresh tokens expiring within 5 minutes. Expose `getPlanToken()` and `issueSession(idClaims)` for W11. Tokens never reach the browser.
+3. **Gateway `/api/llm`**: the §9 request/response contract and server steps 1–8 exactly: session check (via W11's hook; use a minimal signed-cookie helper until W11 hardens it), token load and refresh, local soft caps, tier → model resolution with explicit `reasoning.effort`, Responses API call with the `openai` SDK (`instructions` = system prompt + stable prefix; `store: false`; `stream: true`; `text.format` strict JSON schema from `z.toJSONSchema`, falling back to one namespaced function tool), retries, the never-retry rule for `subscription_sharing_usage_limit_exceeded`, server-side Zod parse, `usage.jsonl`.
+4. **Model config**: loader and validator for `ILLUS_MODELS_JSON` with the default from §9; reject efforts outside `low|medium|high`; allowlist; fallback chain only on unavailable-model errors; record model and effort used.
+5. **Provider adapter**: `LlmProvider` with `chatgpt-plan` (default) and `openai-api-key` (only when `ILLUS_OPENAI_API_KEY` is set).
+6. **Client `@illus/llm`**: typed `call(role, ctx, opts)` per role, `AbortSignal`, modes `live|record|replay`, fixture keying per §9, `llmLog` rows, prompt registry that loads `docs/prompts/<role>.md` front matter and bodies (mechanics only; prompt content belongs to role owners).
+7. **Docs**: `docs/setup-chatgpt-signin.md` — step-by-step for Shubham: register the open-source client, set every env var from the §9 table, first sign-in, set a per-app cap in ChatGPT settings, verify models and image input for the critic (§9 rules).
+8. **Tests**: a local fake OAuth/OIDC server and a fake Responses API stream in tests (no network); cases for refresh, plan-limit 429 (no retry, `plan-limit`), local cap, schema failure, fallback chain, effort always sent, structured-output fallback path, record→replay round trip.
+
+## Done when
+
+- [ ] Typed calls work for every role in replay mode.
+- [ ] Plan-limit handling and local caps verified by tests; no automatic paid fallback.
+- [ ] Dexie migrations tested; export/import round-trips a book's cache.
+- [ ] `docs/setup-chatgpt-signin.md` complete.
+
+## How you work
+
+- You run in your own git worktree on your own branch, created from `main`. Commit all work there with the prefix `W2:` (your workstream number). Never push, never merge, never touch `main`.
+- Read `CLAUDE.md` first, then the spec sections listed above, then `docs/flow-audit.md` (W0 writes it; everyone else reads it).
+- Edit only paths you own (ownership map in `CLAUDE.md`). Anything else → ADR or contract-change request in `docs/adr/`, and list it in your report.
+- Build against `@illus/core` contracts and the `@illus/core/testing` fakes and factories, never against another workstream's unfinished code.
+- Pure logic is test-first. Every package you touch keeps an up-to-date `README.md` (purpose, public API, example).
+- Merge-ready means: `pnpm turbo run lint typecheck test --filter=<your packages>...` is green in your worktree.
+- No live model calls. Use `ILLUS_LLM_MODE=replay`; hand-written fixtures carry `"source": "handwritten"`.
+- New dependencies: only from spec §19, exact-pinned, at least 14 days old, recorded in `docs/dependencies.md` (ask via ADR if W0 owns the file and the dep is missing).
+- Unclear requirement → pick the conservative option, record it in an ADR, list it under open questions. Never invent product behaviour silently.
+- Ship behind your feature flag until your "done when" passes.
+
+## Final report (your last message; the orchestrator reads only this)
+
+```
+Workstream: W2 (phase if any)
+Status: done | partial | blocked
+Branch: <git rev-parse --abbrev-ref HEAD>   Worktree: <path>   Head: <short sha>
+Summary: 3–6 lines of what now exists
+Done-when checklist:
+- [x]/[ ] each criterion from your agent file, with evidence (test names, commands)
+Gate: lint ✓/✗ typecheck ✓/✗ test ✓/✗ (commands run)
+Contracts published/changed: …
+ADRs opened: …
+Contract-change requests: …
+Blockers: …
+Open questions for Shubham: …
+Notes for later workstreams: …
+```
