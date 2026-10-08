@@ -31,6 +31,8 @@ Deep imports (`@illus/core/src/...`) are rejected by lint.
   - LLM (§9): `RoleName`, `SchemaName`, `SCHEMAS`, `ROLES`, `RoleOutput<R>`, `LlmRequest`, `LlmResponse`, `LlmError`, `ReasoningEffort`, `Tier`.
 - **Ports** (implemented elsewhere, injected): `LlmCall` (W2), `ReaderBridge`, `ThemeTokens` (W9), `TraceRunner` (W7), `GroundingFn`, `Validator` (W10), `TemplateSpec`, `TemplateRegistry` (W5), `LayoutGraphFn` (W4).
 - **Repositories** (W2 implements with Dexie): `IllusRepos` and one interface per store of §5.
+- **Grounding** (W10, §16): `ground` (the `GroundingFn`), `findQuote(text, quote)` (exact, else fuzzy; original offsets; also for W9's `quoteToCfi`), `normalizeText` (NFKC, lowercase, unified quotes/dashes, no soft hyphens, collapsed whitespace, with an offset map) and `originalRange`, `groundingScore`, `FUZZY_THRESHOLD` (0.9), `MIN_QUOTE_WORDS` (3).
+- **Validation** (W10, §16 L1–L3): `validate(kind, ir, ctx)` (the `Validator`: Zod parse, grounding with drops and dangling cascade, structural rules and safe auto-fixes, template props and invariants through `ctx.templates`), `needsReextract(report)` (> 30% dropped or too few elements left), `addIssues(report, issues)` (merges animation or render issues and recomputes `ok`), `MAX_DROPPED_SHARE`.
 - **Utilities**: `sha256Hex`, `makeBookId`, `makeSectionId`, `parseSectionId`, `makeBlockId`, `parseBlockId`, `sectionContentHash`, `slugify`, `planKey`, `visualKey`, `traceKey`, `resolveFlags`, `parseFlagList`, `DEFAULT_FLAGS`.
 
 ## Example
@@ -47,6 +49,19 @@ const flags = resolveFlags(await repos.settings.get('flags'))
 const repos = createMemoryRepos()
 await repos.visuals.put(make.visualRecord({ sectionId }))
 ```
+
+### Grounding and validation
+
+```ts
+import { ground, validate, needsReextract } from '@illus/core'
+
+const blocks = new Map(usedBlocks.map((b) => [b.blockId, b])) // only the context's usedBlockIds
+const { ir, report } = validate('graph', modelOutput, { blocks, ground, aliases, templates })
+if (needsReextract(report)) {/* re-run the extractor once with the report attached (§8) */}
+else if (!report.ok) {/* one `repair` call with report.issues (§16 L3) */}
+```
+
+Issue codes: L2 `quote-not-found` and `dangling` (element dropped, warning, `autoFixed`), `half-grounded` (warning), `template-element-ungrounded` (error); L3 errors `duplicate-id`, `duplicate-label`, `*-endpoint-missing`, `isolated-nodes`, `group-cycle`, `too-few-elements`, `initial-missing`, `transition-event-missing`, `log-domain`, `duplicate-series`, `source-block-missing`, `lane-missing`, `message-target-missing`, `at-not-increasing`, `template-unknown`, `template-props`, `template-invariant`; L3 warnings `unreachable-state`, `template-unchecked`, `no-evidence`; safe auto-fixes `group-missing`, `participant-unused`, `final-missing`, `events-reordered`. Decisions behind these choices: ADR 0006.
 
 ## Conventions
 
