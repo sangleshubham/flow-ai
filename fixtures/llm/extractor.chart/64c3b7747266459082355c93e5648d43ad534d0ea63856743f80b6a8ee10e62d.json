@@ -1,5 +1,5 @@
 {
-  "key": "c12bd9c8874933a8132dcbc18f4c476525e52684c3ec66fa0b4c5d5f4f407bda",
+  "key": "64c3b7747266459082355c93e5648d43ad534d0ea63856743f80b6a8ee10e62d",
   "source": "handwritten",
   "role": "extractor.chart",
   "promptVersion": "1.0.0",
@@ -28,7 +28,7 @@
     "logY": false
   },
   "usage": {
-    "input": 715,
+    "input": 735,
     "output": 200,
     "cachedInput": 0
   },

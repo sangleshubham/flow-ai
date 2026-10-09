@@ -24,7 +24,9 @@ export function sectionKey(section: SectionNode, all: readonly SectionNode[]): S
   if (t.startsWith('2.3.1 ')) return '2.3.1'
   if (section.sectionId === firstLong[0]?.sectionId) return 'long1'
   if (section.sectionId === firstLong[1]?.sectionId) return 'long2'
-  if (t.startsWith('3.')) return 'long'
+  // Other chapter-3 parts: titled '3.2 …' or by their h5 sub-heading ('Part two'), so match by parent.
+  const parent = all.find((s) => s.sectionId === section.parentId)
+  if (t.startsWith('3.') || parent?.title.trim().startsWith('Chapter 3')) return 'long'
   return undefined
 }
 
