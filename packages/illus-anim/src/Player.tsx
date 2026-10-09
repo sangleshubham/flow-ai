@@ -17,6 +17,10 @@ export interface PlayerProps {
   onStepChange?: (index: number) => void
   onEvidenceClick?: (evidence: Evidence) => void
   onEvidenceHighlight?: (evidence: Evidence | null) => void
+  /** Persisted reader setting; reapplied only when this prop changes. */
+  defaultSpeed?: number
+  /** Undefined follows prefers-reduced-motion; explicit booleans override it. */
+  reducedMotion?: boolean
 }
 
 /** Precomputed frame player. The caller gates mounting with featureFlags.animation. */
@@ -26,12 +30,15 @@ export function Player({
   onStepChange,
   onEvidenceClick,
   onEvidenceHighlight,
+  defaultSpeed = 1,
+  reducedMotion,
 }: PlayerProps) {
   const [index, setIndex] = useState(0)
   const [autoHighlight, setAutoHighlight] = useState(true)
   const root = useRef<HTMLDivElement>(null)
   const [surfaceVersion, setSurfaceVersion] = useState(0)
-  const reduced = useReducedMotion()
+  const systemReduced = useReducedMotion()
+  const reduced = reducedMotion ?? systemReduced ?? false
   const safeIndex = Math.min(index, Math.max(0, frames.length - 1))
   const frame = frames[safeIndex]
   const change = useCallback(
@@ -43,6 +50,7 @@ export function Player({
     index: safeIndex,
     onIndex: change,
     delayMs: Math.max(1500, (frame?.narration?.length ?? 0) * 45),
+    initialSpeed: defaultSpeed,
   })
   const controls = {
     count: frames.length,
