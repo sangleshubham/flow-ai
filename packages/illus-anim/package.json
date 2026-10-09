@@ -12,15 +12,32 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run",
+    "e2e": "playwright test"
   },
   "dependencies": {
-    "@illus/core": "workspace:*"
+    "@illus/core": "workspace:*",
+    "motion": "13.4.3"
   },
   "devDependencies": {
     "@illus/eslint-config": "workspace:*",
+    "@illus/render": "workspace:*",
+    "@playwright/test": "1.63.0",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/dom": "10.4.2",
+    "@types/node": "24.13.6",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "jsdom": "30.1.1",
+    "react": "18.0.0",
+    "react-dom": "18.0.0",
+    "vite": "8.3.1",
     "eslint": "10.11.0",
     "typescript": "5.9.3",
     "vitest": "4.1.11"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
   }
 }

@@ -1,0 +1,62 @@
+{
+  "source": "handwritten",
+  "role": "animator",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "AnimationIR",
+  "prefix": "Animate a validated IR using grounded step actions. Return only AnimationIR JSON.",
+  "body": "<section><block id=\"animation-sequence\">The client sends a request. The server replies to the client.</block></section><plan_item id=\"protocol\"/><ir>{\"type\":\"sequence\",\"title\":\"Request and reply\",\"participants\":[{\"id\":\"client\",\"label\":\"client\"},{\"id\":\"server\",\"label\":\"server\"}],\"messages\":[{\"id\":\"request\",\"from\":\"client\",\"to\":\"server\",\"label\":\"request\",\"kind\":\"sync\"},{\"id\":\"reply\",\"from\":\"server\",\"to\":\"client\",\"label\":\"reply\",\"kind\":\"reply\"}]}</ir><targets>node:client, node:server, msg:request, msg:reply</targets><supported_actions>reveal,highlight,unhighlight</supported_actions>",
+  "data": {
+    "planItemId": "protocol",
+    "initialHidden": [
+      "msg:request",
+      "msg:reply"
+    ],
+    "steps": [
+      {
+        "id": "request",
+        "narration": "The client sends a request.",
+        "evidence": {
+          "blockId": "animation-sequence",
+          "quote": "The client sends a request. The server replies to the client."
+        },
+        "actions": [
+          {
+            "op": "reveal",
+            "target": "msg:request"
+          },
+          {
+            "op": "highlight",
+            "target": "msg:request",
+            "tone": "focus"
+          }
+        ]
+      },
+      {
+        "id": "reply",
+        "narration": "The server replies to the client.",
+        "evidence": {
+          "blockId": "animation-sequence",
+          "quote": "The client sends a request. The server replies to the client."
+        },
+        "actions": [
+          {
+            "op": "reveal",
+            "target": "msg:reply"
+          },
+          {
+            "op": "unhighlight",
+            "target": "all"
+          },
+          {
+            "op": "highlight",
+            "target": "msg:reply",
+            "tone": "success"
+          }
+        ]
+      }
+    ]
+  },
+  "note": "Original synthetic protocol worked example; condensed input lists validated IR ids."
+}

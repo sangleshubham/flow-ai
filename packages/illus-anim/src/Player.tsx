@@ -1,0 +1,252 @@
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
+import type { ReactNode } from 'react'
+import { animate } from 'motion'
+import { useReducedMotion } from 'motion/react'
+import type { Evidence, FrameState } from '@illus/core'
+import { PlaybackControls, playbackKey, usePlayback } from './transport.tsx'
+
+export interface PlayerProps {
+  frames: readonly FrameState[]
+  renderFrame: (frame: FrameState) => ReactNode
+  onStepChange?: (index: number) => void
+  onEvidenceClick?: (evidence: Evidence) => void
+  onEvidenceHighlight?: (evidence: Evidence | null) => void
+}
+
+/** Precomputed frame player. The caller gates mounting with featureFlags.animation. */
+export function Player({
+  frames,
+  renderFrame,
+  onStepChange,
+  onEvidenceClick,
+  onEvidenceHighlight,
+}: PlayerProps) {
+  const [index, setIndex] = useState(0)
+  const [autoHighlight, setAutoHighlight] = useState(true)
+  const root = useRef<HTMLDivElement>(null)
+  const [surfaceVersion, setSurfaceVersion] = useState(0)
+  const reduced = useReducedMotion()
+  const safeIndex = Math.min(index, Math.max(0, frames.length - 1))
+  const frame = frames[safeIndex]
+  const change = useCallback(
+    (i: number) => setIndex(Math.max(0, Math.min(frames.length - 1, i))),
+    [frames.length],
+  )
+  const playback = usePlayback({
+    count: frames.length,
+    index: safeIndex,
+    onIndex: change,
+    delayMs: Math.max(1500, (frame?.narration?.length ?? 0) * 45),
+  })
+  const controls = {
+    count: frames.length,
+    index: safeIndex,
+    onIndex: change,
+    playing: playback.playing,
+    onPlaying: playback.setPlaying,
+    speed: playback.speed,
+    onSpeed: playback.setSpeed,
+    loop: playback.loop,
+    onLoop: playback.setLoop,
+  }
+  const priorFrames = useRef(frames)
+  useEffect(() => {
+    if (priorFrames.current !== frames) {
+      priorFrames.current = frames
+      setIndex(0)
+      playback.setPlaying(false)
+    }
+  }, [frames, playback.setPlaying])
+  useEffect(() => {
+    onStepChange?.(safeIndex)
+  }, [safeIndex, onStepChange])
+  useEffect(() => {
+    onEvidenceHighlight?.(
+      playback.playing && autoHighlight ? frame?.evidence ?? null : null,
+    )
+    return () => onEvidenceHighlight?.(null)
+  }, [playback.playing, autoHighlight, frame?.evidence, onEvidenceHighlight])
+  const previous = useRef(
+    new Map<string, { x: number; y: number; opacity: number; fill: string }>(),
+  )
+  useEffect(() => {
+    if (!root.current) return
+    const observer = new MutationObserver((records) => {
+      if (
+        records.some((record) =>
+          Array.from(record.addedNodes).some(
+            (node) =>
+              node instanceof Element &&
+              (node.matches('[data-token-id]') ||
+                !!node.querySelector('[data-token-id]')),
+          ),
+        )
+      )
+        setSurfaceVersion((v) => v + 1)
+    })
+    observer.observe(root.current, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [])
+  useLayoutEffect(() => {
+    if (!root.current || !frame) return
+    const stops: { stop: () => void }[] = []
+    const next = new Map<
+      string,
+      { x: number; y: number; opacity: number; fill: string }
+    >()
+    const targets = Array.from(
+      root.current.querySelectorAll<SVGElement>('[data-target]'),
+    )
+    for (const element of targets) {
+      const target = element.getAttribute('data-target')!
+      const rect = element.getBoundingClientRect(),
+        css = getComputedStyle(element)
+      const now = {
+        x: rect.x,
+        y: rect.y,
+        opacity: Number(css.opacity),
+        fill: css.fill,
+      }
+      const before = previous.current.get(target)
+      next.set(target, now)
+      if (!reduced && before) {
+        const dx = before.x - now.x,
+          dy = before.y - now.y
+        if (
+          dx ||
+          dy ||
+          before.opacity !== now.opacity ||
+          before.fill !== now.fill
+        )
+          stops.push(
+            animate(
+              element,
+              {
+                x: [dx, 0],
+                y: [dy, 0],
+                opacity: [before.opacity, now.opacity],
+                fill: [before.fill, now.fill],
+              },
+              { duration: 0.3 / playback.speed },
+            ),
+          )
+      }
+    }
+    previous.current = next
+    const tokens = Array.from(
+      root.current.querySelectorAll<SVGGraphicsElement | HTMLElement>(
+        '[data-token-id]',
+      ),
+    )
+    for (const token of frame.tokens) {
+      const element = tokens.find(
+        (el) => el.getAttribute('data-token-id') === token.id,
+      )
+      if (!element) continue
+      const paths = token.path
+        .map((id) =>
+          targets.find((el) => el.getAttribute('data-target') === `edge:${id}`),
+        )
+        .map((el) =>
+          el?.matches('path,line') ? el : el?.querySelector('path,line'),
+        )
+        .filter(
+          (el): el is SVGGeometryElement =>
+            !!el &&
+            typeof (el as SVGGeometryElement).getPointAtLength === 'function',
+        )
+      if (!paths.length) continue
+      const lengths = paths.map((p) => p.getTotalLength()),
+        total = lengths.reduce((a, b) => a + b, 0)
+      const svgToken = element instanceof SVGGraphicsElement
+      const box = svgToken ? element.getBBox() : null,
+        origin = box
+          ? { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+          : { x: 0, y: 0 }
+      const position = (progress: number) => {
+        let distance = progress * total,
+          i = 0
+        while (i < paths.length - 1 && distance > lengths[i]!) {
+          distance -= lengths[i]!
+          i++
+        }
+        const path = paths[i]!,
+          point = path.getPointAtLength(Math.min(distance, lengths[i]!))
+        if (svgToken) {
+          const parentMatrix =
+            element.parentElement instanceof SVGGraphicsElement
+              ? element.parentElement.getCTM()
+              : null
+          const world = new DOMPoint(point.x, point.y).matrixTransform(
+            path.getCTM() ?? new DOMMatrix(),
+          )
+          const local = parentMatrix
+            ? world.matrixTransform(parentMatrix.inverse())
+            : world
+          element.setAttribute(
+            'transform',
+            `translate(${local.x - origin.x} ${local.y - origin.y})`,
+          )
+        } else {
+          const world = new DOMPoint(point.x, point.y).matrixTransform(
+            path.getScreenCTM() ?? new DOMMatrix(),
+          )
+          const parent = element.parentElement!.getBoundingClientRect(),
+            scale = Number(
+              element.closest('[data-zoom]')?.getAttribute('data-zoom') ?? 1,
+            )
+          element.style.left = `${(world.x - parent.left) / scale}px`
+          element.style.top = `${(world.y - parent.top) / scale}px`
+        }
+      }
+      if (reduced) position(1)
+      else {
+        position(0)
+        stops.push(
+          animate(0, 1, { duration: 0.6 / playback.speed, onUpdate: position }),
+        )
+      }
+    }
+    return () => stops.forEach((s) => s.stop())
+  }, [frame, reduced, playback.speed, surfaceVersion])
+  if (!frame) return <p>No animation frames available.</p>
+  return (
+    <div
+      ref={root}
+      tabIndex={0}
+      role="region"
+      aria-label="Animation player"
+      data-reduced-motion={!!reduced}
+      onKeyDown={(e) => playbackKey(e, controls)}
+    >
+      {renderFrame(frame)}
+      <PlaybackControls {...controls} />
+      <div aria-live="polite" aria-atomic="true">
+        {frame.narration ? (
+          <button
+            type="button"
+            onClick={() => frame.evidence && onEvidenceClick?.(frame.evidence)}
+          >
+            {frame.narration}
+          </button>
+        ) : (
+          <span>Initial state</span>
+        )}
+      </div>
+      <label>
+        <input
+          type="checkbox"
+          checked={autoHighlight}
+          onChange={(e) => setAutoHighlight(e.target.checked)}
+        />
+        Highlight passage while playing
+      </label>
+    </div>
+  )
+}
