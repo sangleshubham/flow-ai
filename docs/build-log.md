@@ -78,3 +78,36 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
 - Decisions by Shubham: W1 split-part titles come from the sub-heading, and caption-less images become figure blocks (W1, wave 2).
 - Open questions for Shubham: `apps/website` (Flow marketing site) gets 4 type errors under React 18 types; it is outside the gate and CI. Remove it, or have someone fix it? Align the `@types/react` pins in `packages/internal` and `apps/website` to 18.3.31?
 - Follow-ups: W1 implements v1.2 code-block whitespace, bumps INDEX_VERSION, reverts `erasableSyntaxOnly: false`, tightens `fixtures/scripts/test/eval-mini.test.ts`. W11: CI now runs `next build`; Sentry's `withSentryConfig` is still in place until W11 removes it.
+
+## Wave 2 — 2026-10-09
+- Agents: w3-pipeline, w5-templates, w11-deploy-security, plus w1-book-index (v1.2 follow-ups) and w0-foundation (eval-mini test). All four wave agents hit the account session limit once and were resumed.
+- Branches merged: W1 (3603510) with W0 (9cde423) in the same step; W5 (60217ec); W3 (0b403b0), gate red on synthetic.e2e after W1's index change, W3 re-keyed 8 replay fixtures (a917fc5, answers and assertions unchanged); W11 (b2bff5d).
+- Gate: lint ✓ typecheck ✓ test ✓ (44/44) · `pnpm --filter @flow/reader build` ✓ · e2e n.a. (package-level e2e reported green: book-index 1/1, render templates 45/45 + W4 63/63, reader security 11/11 against `next start` and the Docker image)
+- W3 reported "partial": the IR compilers belong to W4's @illus/render since ADR 0008; only `COMPILER_VERSION` is in @illus/core/compile. W3's own scope is done. W3 regenerated docs/contracts.md (generated file, +10 lines).
+- W11 edited `createSessions` in @illus/llm/server (W2-owned) as its agent file assigns; backward compatible, W2's tests pass.
+- ADRs opened (proposed): 0010-w3-context-concepts-pipeline-decisions, 0015-w5-template-library, 0020-w11-login-gate-and-deployment, 0025-w1-code-text-split-titles-captionless-figures.
+- Contract-change requests (pending Shubham):
+  1. W5 → W0: optional `TemplateSpec.targets?(props)` and `initialFrame?(props)` (W6 needs them).
+  2. W5 → W0: `make.templateIR()` uses `pointers: { majority: 1 }`; should be `[{ name: 'majority', index: 1 }]`, evidence `pointers.0`.
+  3. W5 → W10: `evals/replay/mini-stack.json`, `mini-bst.json` props don't match template schemas; `validate()` should catch `TemplateDropError` and keep the grounding error.
+  4. W5 → W4: add the template visual suite to `pnpm e2e`; link templates README.
+  5. W3, W11 → W4/W2: `fixtures/llm/html-fallback/*.json` use an old `{request, response}` shape; `fileFixtures()` throws, so any replay server loading `fixtures/llm` fails every `/api/llm` call. Must fix before W9 e2e.
+  6. W11 → W0: dependencies.md (next 12.3.7; drop `@sentry/nextjs`, `dropbox`, `nookies`, `swr`; apps/reader uses vitest and @playwright/test); CI runs `pnpm --filter @flow/reader e2e`.
+  7. W11: spec §9/§17 wording per ADR 0020; optional `rate-limit` code in `LlmResponse`.
+  8. W1 → W0 (optional): caption-less image at the end of synthetic.epub §2.2, with W1 updating its snapshot in the same change.
+- Open questions for Shubham:
+  - W1: first part after an h5 split keeps the TOC title? Caption-less figures keep alt only in `figure.alt` (empty `text`)?
+  - W5: hash-table resize and tree rotate shown as two visuals (no §11 op)? Stack top = last item? Visual baselines darwin only.
+  - W3: accept ADR 0010 (no repair after failed escalation; version bump regenerates instead of showing stale)? Planner sees concept models only with the conceptModels flag? Default for `indexConfirmThresholdTokens`?
+  - W11: accept password login (`ILLUS_LOGIN_PASSWORD`) as the VPS gate? Session cookie `Secure` on http://127.0.0.1?
+  - Still open from the W0 amend: `apps/website` type errors (remove or fix?); align `@types/react` pins in packages/internal and apps/website.
+  - Untracked `.agents/`, `.codex/` and a modified `AGENTS.md` appeared in the working tree, not from any agent; left uncommitted.
+- Follow-ups for later waves:
+  - W9: pass `templateRegistry` to VisualView, `validate` and `createIllusServer` only with the `templates` flag; subscribe right after `requestSection`; pass the concept pass and `buildLexicalIndex(...)`; `estimateIndexUsage` for the pre-index prompt; figure `cfiRange` may be a node CFI; use `blockTextOfRange(range, block.kind)`; expect small conflicts in Reader.tsx, index.tsx, settings.tsx, _app.tsx, _document.tsx; production-build e2e needs a session cookie (`apps/reader/e2e/env.ts`), dev uses `ILLUS_AUTH_GATE=off`.
+  - W6: `validateAnimation(ir, animation)` for the pipeline; seed frames from `initialFrame`, targets from `targets`; containers `stack`/`queue`/`frames`/`order`; swap moves position contents.
+  - W7: provide `traceRunner`; trace-fixer and simulated fallback not wired; Pyodide assets in `apps/reader/public/pyodide` (CSP already allows wasm).
+  - W8: implement `ConceptModelRoute` and `conceptModelState` for packContext slot 7.
+  - W10 phase B: `critic(record)` hook; repair loop to wire; fix the two template replay cases.
+  - W4: property tests over random IR and a Vega-Lite schema check for compilers.
+  - After any INDEX_VERSION, context-packer or W3 prompt version change: `pnpm --filter @illus/pipeline fixtures:llm`.
+  - Flow's unused sync/remote-import i18n strings remain in locale files.
