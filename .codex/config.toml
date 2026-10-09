@@ -1,0 +1,6 @@
+# Project-scoped Codex config for the AI Illustrated Reader build.
+# Verify key names against the Codex Config Reference for your Codex version.
+
+[agents]
+# Largest wave has 4 workstreams; leave headroom for one retry.
+max_concurrent_threads_per_session = 5

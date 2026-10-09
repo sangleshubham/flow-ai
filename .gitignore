@@ -48,3 +48,4 @@ fixtures/books/private/
 
 # Agent worktrees created by the build orchestrator
 .claude/worktrees/
+.worktrees/
