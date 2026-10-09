@@ -1,0 +1,76 @@
+{
+  "key": "6e5753cd3697063d819004ba809c609c2db14351562a726bf75a4edac4268332",
+  "source": "handwritten",
+  "role": "repair",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "GraphIR",
+  "prefix": "<book_context>Replicated Logs, A Small Example</book_context>",
+  "body": "<section id=\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1\"><block id=\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b0\" kind=\"paragraph\">The leader accepts client requests and appends each command to its log as a new entry.</block><block id=\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b1\" kind=\"paragraph\">The leader then sends AppendEntries messages to every follower in parallel.</block><block id=\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b2\" kind=\"paragraph\">A follower appends the entries to its own log and replies to the leader with a success flag.</block></section>\n<plan_item id=\"p1\" kind=\"graph\">How a client request reaches the log and the followers</plan_item>\n<ir kind=\"graph\">{\"type\":\"graph\",\"title\":\"Request path\",\"direction\":\"LR\",\"nodes\":[{\"id\":\"leader\",\"label\":\"Leader\",\"shape\":\"box\",\"evidence\":{\"blockId\":\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b0\",\"quote\":\"The leader accepts client requests\"}},{\"id\":\"log\",\"label\":\"Log\",\"shape\":\"store\",\"evidence\":{\"blockId\":\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b0\",\"quote\":\"appends each command to its log as a new entry\"}},{\"id\":\"followers\",\"label\":\"Followers\",\"shape\":\"box\",\"evidence\":{\"blockId\":\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b1\",\"quote\":\"sends AppendEntries messages to every follower in parallel\"}}],\"edges\":[{\"id\":\"e1\",\"from\":\"leader\",\"to\":\"log\",\"label\":\"append\",\"style\":\"solid\",\"evidence\":{\"blockId\":\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b0\",\"quote\":\"appends each command to its log as a new entry\"}},{\"id\":\"e2\",\"from\":\"leader\",\"to\":\"follower\",\"label\":\"AppendEntries\",\"style\":\"solid\",\"evidence\":{\"blockId\":\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b1\",\"quote\":\"sends AppendEntries messages to every follower in parallel\"}}],\"groups\":[]}</ir>\n<issues>[{\"layer\":\"structure\",\"severity\":\"error\",\"code\":\"edge-endpoint-missing\",\"message\":\"edge e2 points at unknown node \\\"follower\\\"\",\"elementId\":\"e2\"}]</issues>",
+  "data": {
+    "type": "graph",
+    "title": "Request path",
+    "direction": "LR",
+    "nodes": [
+      {
+        "id": "leader",
+        "label": "Leader",
+        "shape": "box",
+        "evidence": {
+          "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b0",
+          "quote": "The leader accepts client requests"
+        }
+      },
+      {
+        "id": "log",
+        "label": "Log",
+        "shape": "store",
+        "evidence": {
+          "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b0",
+          "quote": "appends each command to its log as a new entry"
+        }
+      },
+      {
+        "id": "followers",
+        "label": "Followers",
+        "shape": "box",
+        "evidence": {
+          "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b1",
+          "quote": "sends AppendEntries messages to every follower in parallel"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "from": "leader",
+        "to": "log",
+        "label": "append",
+        "style": "solid",
+        "evidence": {
+          "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b0",
+          "quote": "appends each command to its log as a new entry"
+        }
+      },
+      {
+        "id": "e2",
+        "from": "leader",
+        "to": "followers",
+        "label": "AppendEntries",
+        "style": "solid",
+        "evidence": {
+          "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b1",
+          "quote": "sends AppendEntries messages to every follower in parallel"
+        }
+      }
+    ],
+    "groups": []
+  },
+  "usage": {
+    "input": 539,
+    "output": 150,
+    "cachedInput": 0
+  },
+  "note": "evals/test/quality-prompts.test.ts: repair-endpoint"
+}

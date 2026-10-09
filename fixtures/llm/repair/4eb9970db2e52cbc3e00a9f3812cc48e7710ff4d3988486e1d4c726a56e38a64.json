@@ -1,0 +1,63 @@
+{
+  "key": "4eb9970db2e52cbc3e00a9f3812cc48e7710ff4d3988486e1d4c726a56e38a64",
+  "source": "handwritten",
+  "role": "repair",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "SequenceIR",
+  "prefix": "<book_context>Replicated Logs, A Small Example</book_context>",
+  "body": "<section id=\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1\"><block id=\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b0\" kind=\"paragraph\">The leader accepts client requests and appends each command to its log as a new entry.</block><block id=\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b1\" kind=\"paragraph\">The leader then sends AppendEntries messages to every follower in parallel.</block><block id=\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b2\" kind=\"paragraph\">A follower appends the entries to its own log and replies to the leader with a success flag.</block></section>\n<plan_item id=\"p1\" kind=\"graph\">How a client request reaches the log and the followers</plan_item>\n<ir kind=\"sequence\">{\"type\":\"sequence\",\"title\":\"One replication round\",\"participants\":[{\"id\":\"leader\",\"label\":\"Leader\",\"evidence\":{\"blockId\":\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b1\",\"quote\":\"The leader then sends AppendEntries messages\"}},{\"id\":\"follower\",\"label\":\"Follower\",\"evidence\":{\"blockId\":\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b2\",\"quote\":\"A follower appends the entries to its own log\"}}],\"messages\":[{\"id\":\"m1\",\"from\":\"leader\",\"to\":\"follower\",\"label\":\"AppendEntries\",\"kind\":\"async\",\"evidence\":{\"blockId\":\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b1\",\"quote\":\"sends AppendEntries messages to every follower in parallel\"}},{\"id\":\"m2\",\"from\":\"leader\",\"to\":\"follower\",\"label\":\"success flag\",\"kind\":\"reply\",\"evidence\":{\"blockId\":\"0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b2\",\"quote\":\"replies to the leader with a success flag\"}}]}</ir>\n<issues>[{\"elementId\":\"m2\",\"kind\":\"wrong-direction\",\"note\":\"The success reply points from Leader to Follower.\"}]</issues>",
+  "data": {
+    "type": "sequence",
+    "title": "One replication round",
+    "participants": [
+      {
+        "id": "leader",
+        "label": "Leader",
+        "evidence": {
+          "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b1",
+          "quote": "The leader then sends AppendEntries messages"
+        }
+      },
+      {
+        "id": "follower",
+        "label": "Follower",
+        "evidence": {
+          "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b2",
+          "quote": "A follower appends the entries to its own log"
+        }
+      }
+    ],
+    "messages": [
+      {
+        "id": "m1",
+        "from": "leader",
+        "to": "follower",
+        "label": "AppendEntries",
+        "kind": "async",
+        "evidence": {
+          "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b1",
+          "quote": "sends AppendEntries messages to every follower in parallel"
+        }
+      },
+      {
+        "id": "m2",
+        "from": "follower",
+        "to": "leader",
+        "label": "success flag",
+        "kind": "reply",
+        "evidence": {
+          "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b2",
+          "quote": "replies to the leader with a success flag"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input": 472,
+    "output": 150,
+    "cachedInput": 0
+  },
+  "note": "evals/test/quality-prompts.test.ts: repair-direction"
+}
