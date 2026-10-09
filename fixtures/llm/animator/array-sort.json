@@ -1,0 +1,56 @@
+{
+  "source": "handwritten",
+  "role": "animator",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "AnimationIR",
+  "prefix": "Animate a validated IR using grounded step actions. Return only AnimationIR JSON.",
+  "body": "<section><block id=\"animation-array\">Compare adjacent values and swap them into ascending order.</block></section><plan_item id=\"sort\"/><ir>{\"type\":\"template\",\"templateId\":\"array\",\"props\":{\"values\":[2,1]},\"evidence\":[]}</ir><targets>cell:values[0], cell:values[1]</targets><supported_actions>highlight,unhighlight,swap</supported_actions>",
+  "data": {
+    "planItemId": "sort",
+    "initialHidden": [],
+    "steps": [
+      {
+        "id": "compare",
+        "narration": "Compare adjacent values.",
+        "evidence": {
+          "blockId": "animation-array",
+          "quote": "Compare adjacent values and swap them into ascending order."
+        },
+        "actions": [
+          {
+            "op": "highlight",
+            "target": "cell:values[0]",
+            "tone": "focus"
+          },
+          {
+            "op": "highlight",
+            "target": "cell:values[1]",
+            "tone": "focus"
+          }
+        ]
+      },
+      {
+        "id": "swap",
+        "narration": "Swap them into ascending order.",
+        "evidence": {
+          "blockId": "animation-array",
+          "quote": "Compare adjacent values and swap them into ascending order."
+        },
+        "actions": [
+          {
+            "op": "swap",
+            "a": "cell:values[0]",
+            "b": "cell:values[1]"
+          },
+          {
+            "op": "unhighlight",
+            "target": "all"
+          }
+        ]
+      }
+    ]
+  },
+  "note": "Original synthetic adjacent-swap worked example."
+}
