@@ -24,11 +24,19 @@ services:
       ILLUS_OPENAI_API_KEY: ${ILLUS_OPENAI_API_KEY:-} # optional fallback provider; empty = plan usage only
       # W2 additions (ADR 0007)
       ILLUS_LLM_MODE: ${ILLUS_LLM_MODE:-replay} # set live in .env to call the model (CLAUDE.md rule 6)
+      ILLUS_FIXTURES_DIR: ${ILLUS_FIXTURES_DIR:-/fixtures/llm} # standalone replay needs an explicit path (ADR 0031)
       ILLUS_LLM_PROVIDER: ${ILLUS_LLM_PROVIDER:-chatgpt-plan}
       # W11 (ADR 0020): password login for the Tailscale-only VPS; empty disables it.
       ILLUS_LOGIN_PASSWORD: ${ILLUS_LOGIN_PASSWORD:-}
     volumes:
       - illus-data:/data
+      # Replay input stays read-only. Record mode writes under /data instead (docs/deploy.md).
+      - type: bind
+        source: ./fixtures/llm
+        target: /fixtures/llm
+        read_only: true
+        bind:
+          create_host_path: false
 
 volumes:
   illus-data:

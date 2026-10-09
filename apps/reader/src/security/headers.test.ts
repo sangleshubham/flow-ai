@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { appCsp, runtimeCaching, SANDBOX_CSP, securityHeaders } from '../../security-headers.js'
+import { appCsp, runtimeCaching, SANDBOX_CSP, securityHeaders, TRACE_WORKER_CSP } from '../../security-headers.js'
 
 describe('security headers', () => {
   it('app CSP is the §17 policy plus the ADR 0001 exceptions, with no unsafe-inline or unsafe-eval scripts', () => {
@@ -17,10 +17,19 @@ describe('security headers', () => {
   it('the sandbox page gets only the §17 sandbox policy, without frame-ancestors', () => {
     expect(SANDBOX_CSP).toBe("default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:")
     const rules = securityHeaders({ dev: false }) as { source: string; headers: { key: string; value: string }[] }[]
-    expect(rules.map((r) => r.source)).toEqual(['/:path((?!illus-sandbox\\.html$).*)', '/illus-sandbox.html'])
+    expect(rules.map((r) => r.source)).toEqual(['/:path((?!(?:illus-sandbox\\.html|illus-trace-worker\\.mjs)$).*)', '/illus-sandbox.html', '/illus-trace-worker.mjs'])
     const sandbox = rules[1]!.headers.find((h) => h.key === 'Content-Security-Policy')
     expect(sandbox?.value).toBe(SANDBOX_CSP)
     expect(sandbox?.value).not.toContain('frame-ancestors')
+  })
+
+  it('the trace worker bootstraps self-hosted wasm and scripts without child workers or documents', () => {
+    expect(TRACE_WORKER_CSP).toBe("default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
+    expect(TRACE_WORKER_CSP).not.toMatch(/unsafe-inline|(?:^|\s)'unsafe-eval'|blob:|https?:/)
+    const rules = securityHeaders({ dev: true }) as { source: string; headers: { key: string; value: string }[] }[]
+    const worker = rules.find((r) => r.source === '/illus-trace-worker.mjs')!
+    expect(worker.headers.find((h) => h.key === 'Content-Security-Policy')?.value).toBe(TRACE_WORKER_CSP)
+    expect(worker.headers.find((h) => h.key === 'X-Content-Type-Options')?.value).toBe('nosniff')
   })
 
   it('the service worker never caches sign-in, login or API responses', () => {
