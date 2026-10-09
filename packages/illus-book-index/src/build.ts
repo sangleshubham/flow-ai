@@ -140,9 +140,12 @@ function flatten(spines: readonly SpineInput[], toc: Map<string, TocEntry>): Fla
       const base = { spineIndex: spine.spineIndex, spineHref: spine.spineHref, level, ...(number && { number }) }
       const parts = splitBlocks(raw.blocks)
       parts.forEach((blocks, p) => {
+        // The first part keeps the heading's title (it holds the heading and its anchors); later parts are
+        // titled by the h5/h6 they start with, or "(part k)" after a paragraph-boundary split (ADR 0025).
+        const byHeading = raw.blocks.some((b) => b.splitBefore)
         out.push({
           ...base,
-          title: parts.length > 1 ? `${title} (part ${p + 1})` : title,
+          title: parts.length === 1 || (byHeading && p === 0) ? title : byHeading ? blocks[0]!.text : `${title} (part ${p + 1})`,
           anchors: p === 0 ? raw.anchors : [],
           cfiStart: p === 0 ? raw.cfiStart : blocks[0]!.cfiStart,
           cfiEnd: blocks.at(-1)?.cfiEnd ?? raw.cfiEnd,
