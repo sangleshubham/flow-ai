@@ -33,7 +33,5 @@
     "**/*.tsx",
     "../../packages/illus-render/src/templates/d3-hierarchy.d.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }
