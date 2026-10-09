@@ -89,7 +89,7 @@ async function typedocReference(): Promise<string> {
     return (readdirSync(tmp, { recursive: true }) as string[])
       .filter((f) => f.endsWith('.md'))
       .sort()
-      .map((f) => readFileSync(join(tmp, f), 'utf8').replace(/^#/gm, '##'))
+      .map((f) => readFileSync(join(tmp, f), 'utf8').replace(/^#/gm, '##').replace(/[\t ]+$/gm, ''))
       .join('\n\n')
   } finally {
     rmSync(tmp, { recursive: true, force: true })

@@ -6638,8 +6638,8 @@ Error thrown by `LlmCall.call`. `aborted` is client-side only (the caller's Abor
 
 ```ts
 new LlmError(
-   code, 
-   message, 
+   code,
+   message,
    extra?
 ): LlmError;
 ```
@@ -6681,7 +6681,7 @@ Error.cause
 ###### code
 
 ```ts
-readonly code: 
+readonly code:
   | "schema"
   | "auth"
   | "signin-required"
@@ -6740,6 +6740,33 @@ Error.stack
 ```
 
 ### Interfaces
+
+#### AnimationOptions
+
+##### Properties
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-grounding"></a> `grounding?` | [`GroundingContext`](#groundingcontext) | Mandatory for validateAnimation; only permitted section blocks may be supplied. |
+| <a id="property-templates"></a> `templates?` | [`TemplateRegistry`](#templateregistry)\<[`TemplateSpec`](#templatespec)\<`unknown`\>\> | - |
+
+***
+
+#### AnimationValidation
+
+##### Properties
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-animation"></a> `animation?` | `object` | - |
+| `animation.initialHidden` | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[] | Elements revealed by later steps (progressive build-up). |
+| `animation.planItemId` | `string` | - |
+| `animation.steps` | `object`[] | - |
+| <a id="property-frames"></a> `frames?` | `object`[] | - |
+| <a id="property-issues"></a> `issues` | `object`[] | - |
+| <a id="property-ok"></a> `ok` | `boolean` | - |
+
+***
 
 #### BlocksRepo
 
@@ -8059,8 +8086,8 @@ Implemented by `@illus/llm`; replay mode serves fixtures only.
 
 ```ts
 call<R, S>(
-   role, 
-   ctx, 
+   role,
+   ctx,
    opts?
 ): Promise<LlmResult<SchemaOutput<S>>>;
 ```
@@ -9920,7 +9947,7 @@ put(value): Promise<void>;
 | <a id="property-aliases-1"></a> `aliases?` | `ReadonlyMap`\<`string`, readonly `string`[]\> | Canonical name → aliases, for the relevance check. |
 | <a id="property-blocks-2"></a> `blocks` | `ReadonlyMap`\<`string`, \{ `blockId`: `string`; `cfiRange`: `string`; `code?`: \{ `langHint?`: `string`; `source`: `string`; \}; `figure?`: \{ `alt?`: `string`; `caption?`: `string`; `imgHref?`: `string`; \}; `kind`: \| `"quote"` \| `"paragraph"` \| `"code"` \| `"figure"` \| `"table"` \| `"math"` \| `"list"` \| `"aside"`; `label?`: `string`; `math?`: \{ `mathml?`: `string`; `tex?`: `string`; \}; `sectionId`: `string`; `table?`: \{ `html`: `string`; `rows`: `string`[][]; \}; `text`: `string`; \}\> | - |
 | <a id="property-ground"></a> `ground` | [`GroundingFn`](#groundingfn) | - |
-| <a id="property-templates"></a> `templates?` | [`TemplateRegistry`](#templateregistry)\<[`TemplateSpec`](#templatespec)\<`unknown`\>\> | Template registry, for `template` IRs. |
+| <a id="property-templates-1"></a> `templates?` | [`TemplateRegistry`](#templateregistry)\<[`TemplateSpec`](#templatespec)\<`unknown`\>\> | Template registry, for `template` IRs. |
 
 ***
 
@@ -16461,6 +16488,257 @@ The extractor was re-run once with this report attached (§8 stage 3 step 3).
 
 ***
 
+#### apply()
+
+```ts
+function apply(previous, actions): object;
+```
+
+Pure step reducer. Build through buildFrames to resolve targets and validate invariants.
+
+##### Parameters
+
+| Parameter | Type | Description |
+| ------ | ------ | ------ |
+| `previous` | \{ `added`: `object`[]; `annotations`: `Record`\<`string`, `string`\>; `containers`: `Record`\<`string`, `object`[]\>; `evidence?`: \{ `blockId`: `string`; `end?`: `number`; `fuzzy?`: `boolean`; `quote`: `string`; `start?`: `number`; \}; `focus`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `"all"` \| `null`; `hidden`: ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]; `highlights`: `Record`\<`string`, `"success"` \| `"focus"` \| `"warning"` \| `"muted"`\>; `narration?`: `string`; `pointers`: `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\>; `relayout`: `boolean`; `removed`: ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]; `slots`: `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\>; `step`: `number`; `stepId?`: `string`; `tokens`: `object`[]; `values`: `Record`\<`string`, `string` \| `number`\>; \} | - |
+| `previous.added` | `object`[] | Elements created by `add`, in order. |
+| `previous.annotations` | `Record`\<`string`, `string`\> | Annotations of the current step only. |
+| `previous.containers` | `Record`\<`string`, `object`[]\> | Container id → current items, for containers touched by `push`/`pop`/`enqueue`/`dequeue`. |
+| `previous.evidence?` | \{ `blockId`: `string`; `end?`: `number`; `fuzzy?`: `boolean`; `quote`: `string`; `start?`: `number`; \} | - |
+| `previous.evidence.blockId` | `string` | - |
+| `previous.evidence.end?` | `number` | - |
+| `previous.evidence.fuzzy?` | `boolean` | - |
+| `previous.evidence.quote` | `string` | - |
+| `previous.evidence.start?` | `number` | - |
+| `previous.focus` | \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `"all"` \| `null` | Camera target; `null` means the default framing. |
+| `previous.hidden` | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[] | Hidden elements: `initialHidden` plus `hide`, minus `reveal`. |
+| `previous.highlights` | `Record`\<`string`, `"success"` \| `"focus"` \| `"warning"` \| `"muted"`\> | - |
+| `previous.narration?` | `string` | - |
+| `previous.pointers` | `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\> | Pointer name → target it points at. |
+| `previous.relayout` | `boolean` | True when this step changed structure (`add`, `remove`, `push`, `pop`, node `reveal`): re-run layout (§11). |
+| `previous.removed` | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[] | Elements removed by `remove`, `pop` or `dequeue`; renderers fade them out. |
+| `previous.slots` | `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\> | Element → slot it currently occupies after `swap`s (only moved elements are listed). |
+| `previous.step` | `number` | Number of steps applied (0 = base frame). |
+| `previous.stepId?` | `string` | Id of the step that produced this frame; absent on the base frame. |
+| `previous.tokens` | `object`[] | Tokens of the current step only. |
+| `previous.values` | `Record`\<`string`, `string` \| `number`\> | Values written by `set` (target → displayed value). |
+| `actions` | readonly ( \| \{ `op`: `"highlight"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; `tone`: `"success"` \| `"focus"` \| `"warning"` \| `"muted"`; \} \| \{ `op`: `"unhighlight"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `"all"`; \} \| \{ `op`: `"reveal"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; \} \| \{ `op`: `"hide"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; \} \| \{ `op`: `"set"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; `value`: `string` \| `number`; \} \| \{ `a`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; `b`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; `op`: `"swap"`; \} \| \{ `name`: `string`; `op`: `"pointer"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `null`; \} \| \{ `container`: `string`; `id`: `string`; `op`: `"push"` \| `"enqueue"`; `value`: `string` \| `number`; \} \| \{ `container`: `string`; `op`: `"pop"` \| `"dequeue"`; \} \| \{ `element`: \{ `id`: `string`; `label`: `string`; \}; `op`: `"add"`; `parent?`: `string`; \} \| \{ `op`: `"remove"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; \} \| \{ `id`: `string`; `label?`: `string`; `op`: `"token"`; `path`: `string`[]; \} \| \{ `op`: `"annotate"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``; `text`: `string`; \} \| \{ `op`: `"focus"`; `target`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `"all"`; \})[] | - |
+
+##### Returns
+
+###### added
+
+```ts
+added: object[];
+```
+
+Elements created by `add`, in order.
+
+###### annotations
+
+```ts
+annotations: Record<string, string>;
+```
+
+Annotations of the current step only.
+
+###### containers
+
+```ts
+containers: Record<string, object[]>;
+```
+
+Container id → current items, for containers touched by `push`/`pop`/`enqueue`/`dequeue`.
+
+###### evidence?
+
+```ts
+optional evidence?: object;
+```
+
+####### evidence.blockId
+
+```ts
+blockId: string;
+```
+
+####### evidence.end?
+
+```ts
+optional end?: number;
+```
+
+####### evidence.fuzzy?
+
+```ts
+optional fuzzy?: boolean;
+```
+
+####### evidence.quote
+
+```ts
+quote: string;
+```
+
+####### evidence.start?
+
+```ts
+optional start?: number;
+```
+
+###### focus
+
+```ts
+focus:
+  | `node:${string}`
+  | `edge:${string}`
+  | `group:${string}`
+  | `msg:${string}`
+  | `cell:${string}[${number}]`
+  | `item:${string}`
+  | "all"
+  | null;
+```
+
+Camera target; `null` means the default framing.
+
+###### hidden
+
+```ts
+hidden: (
+  | `node:${string}`
+  | `edge:${string}`
+  | `group:${string}`
+  | `msg:${string}`
+  | `cell:${string}[${number}]`
+  | `item:${string}`)[];
+```
+
+Hidden elements: `initialHidden` plus `hide`, minus `reveal`.
+
+###### highlights
+
+```ts
+highlights: Record<string, "success" | "focus" | "warning" | "muted">;
+```
+
+###### narration?
+
+```ts
+optional narration?: string;
+```
+
+###### pointers
+
+```ts
+pointers: Record<string,
+  | `node:${string}`
+  | `edge:${string}`
+  | `group:${string}`
+  | `msg:${string}`
+  | `cell:${string}[${number}]`
+| `item:${string}`>;
+```
+
+Pointer name → target it points at.
+
+###### relayout
+
+```ts
+relayout: boolean;
+```
+
+True when this step changed structure (`add`, `remove`, `push`, `pop`, node `reveal`): re-run layout (§11).
+
+###### removed
+
+```ts
+removed: (
+  | `node:${string}`
+  | `edge:${string}`
+  | `group:${string}`
+  | `msg:${string}`
+  | `cell:${string}[${number}]`
+  | `item:${string}`)[];
+```
+
+Elements removed by `remove`, `pop` or `dequeue`; renderers fade them out.
+
+###### slots
+
+```ts
+slots: Record<string,
+  | `node:${string}`
+  | `edge:${string}`
+  | `group:${string}`
+  | `msg:${string}`
+  | `cell:${string}[${number}]`
+| `item:${string}`>;
+```
+
+Element → slot it currently occupies after `swap`s (only moved elements are listed).
+
+###### step
+
+```ts
+step: number;
+```
+
+Number of steps applied (0 = base frame).
+
+###### stepId?
+
+```ts
+optional stepId?: string;
+```
+
+Id of the step that produced this frame; absent on the base frame.
+
+###### tokens
+
+```ts
+tokens: object[];
+```
+
+Tokens of the current step only.
+
+###### values
+
+```ts
+values: Record<string, string | number>;
+```
+
+Values written by `set` (target → displayed value).
+
+***
+
+#### buildFrames()
+
+```ts
+function buildFrames(
+   ir,
+   animation,
+   options?
+): object[];
+```
+
+Builds validated frame states, including frame zero; never mutates the IR or template seeds.
+
+##### Parameters
+
+| Parameter | Type | Description |
+| ------ | ------ | ------ |
+| `ir` | \| \{ `direction`: `"LR"` \| `"TB"`; `edges`: `object`[]; `groups`: `object`[]; `nodes`: `object`[]; `title`: `string`; `type`: `"graph"`; \} \| \{ `messages`: `object`[]; `participants`: `object`[]; `title`: `string`; `type`: `"sequence"`; \} \| \{ `final`: `string`[]; `initial`: `string`; `states`: `object`[]; `title`: `string`; `transitions`: `object`[]; `type`: `"state"`; \} \| \{ `classes`: `object`[]; `relations`: `object`[]; `title`: `string`; `type`: `"class"`; \} \| \{ `entities`: `object`[]; `relationships`: `object`[]; `title`: `string`; `type`: `"er"`; \} \| \{ `evidence`: `object`[]; `props`: `unknown`; `templateId`: \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"`; `type`: `"template"`; \} \| \{ `domain`: \[`number`, `number`\]; `logY`: `boolean`; `series`: `object`[]; `title`: `string`; `type`: `"chart"`; `xLabel`: `string`; `yLabel`: `string`; \} \| \{ `sourceBlockId`: `string`; `terms`: `object`[]; `type`: `"math"`; \} \| \{ `events`: `object`[]; `lanes`: `object`[]; `simulated`: `true`; `type`: `"timeline"`; \} \| \{ `html`: `string`; `reason`: `string`; `type`: `"html"`; \} | - |
+| `animation` | \{ `initialHidden`: ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]; `planItemId`: `string`; `steps`: `object`[]; \} | - |
+| `animation.initialHidden` | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[] | Elements revealed by later steps (progressive build-up). |
+| `animation.planItemId` | `string` | - |
+| `animation.steps` | `object`[] | - |
+| `options` | [`AnimationOptions`](#animationoptions) | - |
+
+##### Returns
+
+***
+
 #### criticPasses()
 
 ```ts
@@ -16560,7 +16838,7 @@ optional start?: number;
 ###### focus
 
 ```ts
-focus: 
+focus:
   | `node:${string}`
   | `edge:${string}`
   | `group:${string}`
@@ -16602,7 +16880,7 @@ optional narration?: string;
 ###### pointers
 
 ```ts
-pointers: Record<string, 
+pointers: Record<string,
   | `node:${string}`
   | `edge:${string}`
   | `group:${string}`
@@ -16638,7 +16916,7 @@ Elements removed by `remove`, `pop` or `dequeue`; renderers fade them out.
 ###### slots
 
 ```ts
-slots: Record<string, 
+slots: Record<string,
   | `node:${string}`
   | `edge:${string}`
   | `group:${string}`
@@ -16946,8 +17224,8 @@ space, trimmed (§16 step 1). Idempotent: `normalizeText(normalizeText(s).text).
 
 ```ts
 function originalRange(
-   n, 
-   from, 
+   n,
+   from,
    to
 ): object;
 ```
@@ -16983,7 +17261,7 @@ start: number;
 #### parseBlockId()
 
 ```ts
-function parseBlockId(blockId): 
+function parseBlockId(blockId):
   | {
   n: number;
   sectionId: string;
@@ -17191,10 +17469,10 @@ function traceKey(i): Promise<string>;
 
 ```ts
 function validate<K>(
-   kind, 
-   ir, 
+   kind,
+   ir,
    ctx
-): ValidationResult<K extends 
+): ValidationResult<K extends
   | "math"
   | "html"
   | "graph"
@@ -17227,7 +17505,7 @@ when any error remains (the caller then runs `repair` once, §16). Never throws 
 
 ##### Returns
 
-[`ValidationResult`](#validationresult)\<`K` *extends* 
+[`ValidationResult`](#validationresult)\<`K` *extends*
   \| `"math"`
   \| `"html"`
   \| `"graph"`
@@ -17238,6 +17516,60 @@ when any error remains (the caller then runs `repair` once, §16). Never throws 
   \| `"template"`
   \| `"chart"`
   \| `"timeline"` ? [`IrOf`](#irof)\<`K`\> : `unknown`\>
+
+***
+
+#### validateAnimation()
+
+```ts
+function validateAnimation(
+   ir,
+   input,
+   options?
+): AnimationValidation;
+```
+
+Schema, target, renderer capability, every-frame invariants and grounded narration checks.
+
+##### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `ir` | \| \{ `direction`: `"LR"` \| `"TB"`; `edges`: `object`[]; `groups`: `object`[]; `nodes`: `object`[]; `title`: `string`; `type`: `"graph"`; \} \| \{ `messages`: `object`[]; `participants`: `object`[]; `title`: `string`; `type`: `"sequence"`; \} \| \{ `final`: `string`[]; `initial`: `string`; `states`: `object`[]; `title`: `string`; `transitions`: `object`[]; `type`: `"state"`; \} \| \{ `classes`: `object`[]; `relations`: `object`[]; `title`: `string`; `type`: `"class"`; \} \| \{ `entities`: `object`[]; `relationships`: `object`[]; `title`: `string`; `type`: `"er"`; \} \| \{ `evidence`: `object`[]; `props`: `unknown`; `templateId`: \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"`; `type`: `"template"`; \} \| \{ `domain`: \[`number`, `number`\]; `logY`: `boolean`; `series`: `object`[]; `title`: `string`; `type`: `"chart"`; `xLabel`: `string`; `yLabel`: `string`; \} \| \{ `sourceBlockId`: `string`; `terms`: `object`[]; `type`: `"math"`; \} \| \{ `events`: `object`[]; `lanes`: `object`[]; `simulated`: `true`; `type`: `"timeline"`; \} \| \{ `html`: `string`; `reason`: `string`; `type`: `"html"`; \} |
+| `input` | `unknown` |
+| `options` | [`AnimationOptions`](#animationoptions) |
+
+##### Returns
+
+[`AnimationValidation`](#animationvalidation)
+
+***
+
+#### validateAnimationWithRepair()
+
+```ts
+function validateAnimationWithRepair(
+   ir,
+   input,
+   options,
+   repair
+): Promise<AnimationValidation & object>;
+```
+
+The caller supplies the replay-capable repair port. Exactly one attempt, then static fallback.
+
+##### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `ir` | \| \{ `direction`: `"LR"` \| `"TB"`; `edges`: `object`[]; `groups`: `object`[]; `nodes`: `object`[]; `title`: `string`; `type`: `"graph"`; \} \| \{ `messages`: `object`[]; `participants`: `object`[]; `title`: `string`; `type`: `"sequence"`; \} \| \{ `final`: `string`[]; `initial`: `string`; `states`: `object`[]; `title`: `string`; `transitions`: `object`[]; `type`: `"state"`; \} \| \{ `classes`: `object`[]; `relations`: `object`[]; `title`: `string`; `type`: `"class"`; \} \| \{ `entities`: `object`[]; `relationships`: `object`[]; `title`: `string`; `type`: `"er"`; \} \| \{ `evidence`: `object`[]; `props`: `unknown`; `templateId`: \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"`; `type`: `"template"`; \} \| \{ `domain`: \[`number`, `number`\]; `logY`: `boolean`; `series`: `object`[]; `title`: `string`; `type`: `"chart"`; `xLabel`: `string`; `yLabel`: `string`; \} \| \{ `sourceBlockId`: `string`; `terms`: `object`[]; `type`: `"math"`; \} \| \{ `events`: `object`[]; `lanes`: `object`[]; `simulated`: `true`; `type`: `"timeline"`; \} \| \{ `html`: `string`; `reason`: `string`; `type`: `"html"`; \} |
+| `input` | `unknown` |
+| `options` | [`AnimationOptions`](#animationoptions) |
+| `repair` | (`input`, `issues`) => `Promise`\<`unknown`\> |
+
+##### Returns
+
+`Promise`\<[`AnimationValidation`](#animationvalidation) & `object`\>
 
 ***
 
