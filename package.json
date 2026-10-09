@@ -12,6 +12,7 @@
     "test": "turbo run test",
     "e2e": "turbo run e2e",
     "eval": "pnpm --filter @illus/evals eval",
+    "illus:export-feedback": "pnpm --filter @illus/evals export-feedback",
     "contracts": "pnpm --filter @illus/core contracts",
     "fixtures:epub": "node fixtures/scripts/make-synthetic-epub.ts && node fixtures/scripts/make-eval-mini-epub.ts"
   },

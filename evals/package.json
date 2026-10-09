@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
-    "eval": "node bin/run.mjs src/cli.ts"
+    "eval": "node bin/run.mjs src/cli.ts",
+    "export-feedback": "node bin/run.mjs src/export-feedback.ts"
   },
   "dependencies": {
     "@flow/epubjs": "workspace:*",
