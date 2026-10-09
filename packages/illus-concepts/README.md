@@ -1,5 +1,7 @@
 # @illus/concepts
 
+Browser compatibility: array-valued repository results are awaited into locals before calls such as `Map.set`. This preserves empty and multi-block section arrays under Next 12's async compiler (ADR 0037).
+
 Concept pass (indexer batches, glossary merge, book summary), concept registry, and (in `src/models`, W8) progressive concept models.
 
 - Owner: W3 (W8 owns `src/models`)
