@@ -26,7 +26,7 @@ Every external library v1 may use (spec §19), pinned to an exact version **at l
 | `vega-embed` | 7.3.0 | 2026-09-23 | BSD-3-Clause | `render` | peers `vega`, `vega-lite` ✓ | [vega-embed](https://github.com/vega/vega-embed) |
 | `katex` | 0.18.9 | 2026-09-23 | MIT | `render` | Self-host fonts (CSP `font-src 'self'`) | [katex.org/docs](https://katex.org/docs/) (→ `/docs/browser.html`) |
 | `d3-hierarchy` | 3.1.2 | 2022-04-02 | ISC | `render` | ESM; stable, no newer release | [d3js.org/d3-hierarchy](https://d3js.org/d3-hierarchy) |
-| `motion` | 13.4.3 | 2026-09-24 | MIT | `anim` | peer `react ^18 \|\| ^19` ✓ (React 18.0.0); 14.0.0 is newer than the cut-off | [motion.dev/docs/react](https://motion.dev/docs/react) |
+| `motion` | 13.4.3 | 2026-09-24 | MIT | `anim` (runtime, W6) | Published at 11:51:17.709Z, more than 14 days before addition; peers `react`, `react-dom ^18 \|\| ^19` ✓ (React 18.0.0); 14.0.0 is newer than the cut-off | [motion.dev/docs/react](https://motion.dev/docs/react) |
 | `shiki` | 4.4.3 | 2026-08-10 | MIT | `tracer` | ESM, Node ≥ 20 for tests | [shiki.style](https://shiki.style) |
 | `pyodide` | 314.0.7 | 2026-09-14 | MPL-2.0 | `tracer` | Assets copied to `apps/reader/public/pyodide/` (self-hosted, §12) | [pyodide.org](https://pyodide.org/en/stable/) |
 | `comlink` | 4.4.2 | 2024-11-07 | Apache-2.0 | `render`, `tracer` | Latest release | [comlink](https://github.com/GoogleChromeLabs/comlink) |
@@ -37,6 +37,14 @@ Every external library v1 may use (spec §19), pinned to an exact version **at l
 | `zustand` | **not used** | — | — | — | Flow already has Valtio (flow-audit §4); §19 allows Zustand only if Flow has no state library | [docs](https://zustand.docs.pmnd.rs) |
 
 W11 removed the reader's direct dependencies on `@sentry/nextjs` (7.12.1), `dropbox` (10.32.0), `nookies` (2.5.2) and `swr` (1.3.0) in wave 2 alongside cloud sync, remote import and Sentry integration ([ADR 0020](adr/0020-w11-login-gate-and-deployment.md)). These are no longer reader runtime dependencies; this records the existing manifest and lockfile changes, without introducing new pins.
+
+W6 materialised the approved Motion pin in `@illus/anim` ([ADR 0034](adr/0034-w6-animation-decisions.md)). The following transitive versions are fixed by `pnpm-lock.yaml`; npm registry metadata was checked on 2026-10-09, and every release predates the 14-day cut-off. These are records of the existing resolution, not new direct dependencies or overrides. Motion and Framer Motion also reuse the existing lockfile's `tslib` 2.8.1.
+
+| Transitive library | Locked version | Published (UTC) | Licence | Required by | Metadata |
+| --- | --- | --- | --- | --- | --- |
+| `framer-motion` | 13.4.3 | 2026-09-24 11:50:14.098 | MIT | `motion` 13.4.3 | [npm registry](https://registry.npmjs.org/framer-motion/13.4.3) |
+| `motion-dom` | 13.4.2 | 2026-09-23 15:24:25.043 | MIT | `framer-motion` 13.4.3 | [npm registry](https://registry.npmjs.org/motion-dom/13.4.2) |
+| `motion-utils` | 13.3.0 | 2026-09-14 14:55:24.620 | MIT | `framer-motion` 13.4.3, `motion-dom` 13.4.2 | [npm registry](https://registry.npmjs.org/motion-utils/13.3.0) |
 
 ## Development and test tooling
 
