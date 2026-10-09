@@ -1,6 +1,6 @@
 # 0041 — Stale extractor.template fixture fails W5's array schema
 
-- Status: proposed (contract-change request to W3)
+- Status: accepted (resolved by W3 in 027433b / main 0ff7f97)
 - Date: 2026-10-09
 - Workstream: W2 (request to W3)
 - Spec sections: §8, §9, §16
@@ -26,3 +26,9 @@ with evidence paths that exist in the new props.
 - Until W3 updates it, replaying that fixture through the real reader server yields a `schema`
   error for the template step (pipeline/e2e paths that rely on it will show the error state).
 - After the update, flip the W2 test to expect `200` with the fixture data.
+
+## Resolution
+
+W3 replaced the stale fixture with schema-valid `fixtures/llm/extractor.template/a4ab5142….json`
+(Figure 2.2 array props). The W2 test now expects `200 { ok: true, data }`; malformed array props
+are still covered by the `rejects malformed array props` cases (`422 schema` at `props.values`).
