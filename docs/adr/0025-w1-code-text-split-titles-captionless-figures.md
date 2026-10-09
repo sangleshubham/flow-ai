@@ -1,6 +1,6 @@
 # 0025 — Indexer: code text layout, split-part titles, caption-less figures (INDEX_VERSION 2)
 
-- Status: proposed (implements Shubham's decisions after wave 1 and contracts v1.2)
+- Status: accepted (Shubham, 2026-10-09)
 - Date: 2026-10-09
 - Workstream: W1
 - Spec sections: §5, §6 Phase A steps 6, 9, 11, §14
@@ -22,3 +22,7 @@ Shubham decided after wave 1 that `code` blocks keep their layout (contracts v1.
 - W9: a figure block's `cfiRange` may be a node CFI, not a range. `display(cfi)` works; a highlight of it is empty. `blockTextOfRange(range, kind)` takes the block kind, so code ranges compare correctly.
 - W3/W7: code text is ready to execute or translate. The lexical index still folds whitespace (`foldForMatch`).
 - W0 (contract-change request): `fixtures/scripts/test/eval-mini.test.ts` must compare against `EVAL_MINI_SECTIONS` directly (remove the collapse workaround). It fails against INDEX_VERSION 2 until then. Please also add a caption-less image to `synthetic.epub`, so the browser CFI test covers rule 3 in a real rendition (today only jsdom covers it).
+
+## Decision (Shubham, 2026-10-09)
+
+Accepted as built: the first part after an h5/h6 split keeps the TOC title, and caption-less figures keep their alt text only in `figure.alt` (`text` stays empty). `synthetic.epub` ends §2.2 with a caption-less image (block `…2-2-figures:2#b6`, [ADR 0042](0042-w0-post-wave3-port.md)); W1, W3 and W10 re-key their fixtures afterwards.

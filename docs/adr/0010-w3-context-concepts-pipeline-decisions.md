@@ -1,6 +1,6 @@
 # 0010 — W3: context, concept pass and orchestrator decisions
 
-- Status: proposed
+- Status: accepted (Shubham, 2026-10-09)
 - Date: 2026-10-09
 - Workstream: W3
 - Spec sections: §5, §6 phase B, §7, §8, §9, §15, §16
@@ -37,3 +37,7 @@ The spec leaves several details of the context packer, the concept pass and the 
 - W4: owns the compilers and their parser tests; property tests over random IR and a Vega-Lite schema check are not in `@illus/render` yet.
 - W6, W7, W8, W10: plug in through `PipelineDeps` (`validateAnimation`, `traceRunner`, `conceptModels`, `critic`).
 - W9: subscribes to `SectionJob` events (Valtio store), passes the concept pass as `concepts`, W1's lexical index as `lexical`, and decides how to show stale records.
+
+## Decision (Shubham, 2026-10-09)
+
+Accepted as built, including no `repair` call after a failed escalation and regeneration (not a stale record) on a version bump. The planner sees concept models only with the `conceptModels` flag on. `indexConfirmThresholdTokens` defaults to **200,000** input tokens. No settings schema in `@illus/core` holds this default today, so the code that reads the setting (W9's pre-index prompt, through `estimateIndexUsage`) uses 200,000 when the setting is absent.
