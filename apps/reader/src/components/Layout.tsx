@@ -39,7 +39,7 @@ import { TimelineView } from './viewlets/TimelineView'
 import { TocView } from './viewlets/TocView'
 import { TypographyView } from './viewlets/TypographyView'
 
-const IllustratePane = dynamic(() => import('../illustrate/IllustratePane').then((m) => m.IllustratePane), {
+const IllustratePane = dynamic(() => import('../illustrate/IllustratePane').then((m) => m.IllustratePane).catch((error) => { console.error('Illustrate import failed', error); throw error }), {
   ssr: false,
   loading: ({ error }) => error ? <p role="alert">Illustrate could not load: {error.message}</p> : null,
 })
