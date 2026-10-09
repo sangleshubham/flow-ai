@@ -62,3 +62,19 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
   - W10 phase B: `exportPng` for the critic; wait for `data-ready="true"`; verify synthetic `sectionId`s in evals/cases against W1's indexer.
   - W11: auth rewrite has no `locale: false` (it 404s in Next 12.3.4 with i18n), so the middleware matcher must cover `/auth/chatgpt/*` and `/<locale>/auth/chatgpt/*`; harden `createSessions`; next-pwa must not cache `/auth/` or `/api/`; 60/min rate limit on `/api/llm`; CSP header on `/illus-sandbox.html` without `frame-ancestors 'self'`.
   - All: `pnpm e2e` needs `pnpm exec playwright install chromium` once.
+
+## W0 amend (between waves 1 and 2) — 2026-10-09
+- Agents: w0-foundation ("amend contracts", plus two follow-ups).
+- Branches merged: W0 amend (9fb4e78, then d614740).
+- Gate: lint ✓ typecheck ✓ test ✓ (43/43, fresh install) · `pnpm --filter @flow/reader build` ✓ · e2e n.a.
+- Contracts: v1.0 → v1.2. Approved 1, 2, 4, 5, 6 (W4's proposal), 7. Rejected 3 (`Block.matchText`). Deferred 8 (Linux baselines + renderer tests in CI) to the final gate. v1.2: `code` blocks keep line breaks and indentation in `Block.text` (Shubham).
+- App build: TS 5.9.3, Flow type fixes, apps/reader `typecheck` in the gate, `next build` in CI. On main the build had failed because the hoisted `@types/react` resolved to 17.0.43 or 18.3.31 depending on install order; now pinned workspace-wide to 18.3.31 / react-dom 18.3.7 via pnpm overrides (ADR 0009).
+- ADRs: 0008-contracts-v1-1 (accepted), 0009-reader-build-on-typescript-5 (accepted), 0005 now accepted.
+- Decisions (orchestrator, delegated by Shubham):
+  - ADR 0005: next 12.3.7 + interim measures by W11; Tailscale-only; Next 15.5 migration after M1.
+  - Flow's Dropbox sync, remote-URL import and Sentry are removed by W11 in wave 2.
+  - W4's ctrl/⌘ wheel zoom, small LR graphs until retry, and fixed 400 px HTML fallback are accepted as built.
+  - ADR 0006-w10's rule choices are accepted. The eval-mini EPUB is built at fixtures/books/eval/eval-mini.epub and stays there (Shubham).
+- Decisions by Shubham: W1 split-part titles come from the sub-heading, and caption-less images become figure blocks (W1, wave 2).
+- Open questions for Shubham: `apps/website` (Flow marketing site) gets 4 type errors under React 18 types; it is outside the gate and CI. Remove it, or have someone fix it? Align the `@types/react` pins in `packages/internal` and `apps/website` to 18.3.31?
+- Follow-ups: W1 implements v1.2 code-block whitespace, bumps INDEX_VERSION, reverts `erasableSyntaxOnly: false`, tightens `fixtures/scripts/test/eval-mini.test.ts`. W11: CI now runs `next build`; Sentry's `withSentryConfig` is still in place until W11 removes it.
