@@ -107,10 +107,9 @@ All new code is added as `@illus/*` workspace packages inside the Flow monorepo;
 ```
 flow/
 ├─ apps/
-│  ├─ reader/                       # Flow's Next.js app (modified)
-│  │  ├─ src/illustrate/            # pane, settings page, hooks (UI glue only)
-│  │  └─ <api route>/llm            # LLM gateway (router type decided in W0 audit)
-│  └─ website/                      # untouched
+│  └─ reader/                       # Flow's Next.js app (modified); Flow's apps/website removed (ADR 0042)
+│     ├─ src/illustrate/            # pane, settings page, hooks (UI glue only)
+│     └─ <api route>/llm            # LLM gateway (router type decided in W0 audit)
 ├─ packages/
 │  ├─ illus-core/        # types, Zod schemas, IR, compilers, validators, ids, hashing (DOM-free)
 │  ├─ illus-book-index/  # EPUB walk, section tree, blocks, cross-refs, CFI mapping

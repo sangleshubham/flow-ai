@@ -4,10 +4,6 @@
 
 <p align="center">Free. Open source. Browser-based.</p>
 
-<p align="center"><img src="apps/website/public/screenshots/01.webp"/>
-
-</p>
-
 ## Features
 
 - Grid layout
