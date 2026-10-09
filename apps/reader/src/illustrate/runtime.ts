@@ -11,6 +11,7 @@ import type { BridgeRendition, ManagedReaderBridge } from '@illus/reader-bridge'
 import { templateRegistry } from '@illus/render'
 import type { EvidenceEvent } from '@illus/render'
 import { createDexieRepos, exportCache, importCache, openIllusDb, requestPersistence } from '@illus/store'
+import { createBrowserTraceWorker, createTraceRunner, TRACER_VERSION } from '@illus/tracer'
 import { z } from 'zod'
 
 import type { Book } from '@flow/epubjs'
@@ -35,6 +36,12 @@ let generation = 0
 let evidenceGeneration = 0
 let locationId: string | null = null
 let lastBook: { book: Book; bookId: string } | null = null
+let traceWorker: ReturnType<typeof createBrowserTraceWorker> | undefined
+let traceRunner: ReturnType<typeof createTraceRunner> | undefined
+function getTraceRunner() {
+  traceWorker ??= createBrowserTraceWorker()
+  return traceRunner ??= createTraceRunner({ worker: traceWorker })
+}
 let disposers: (() => void)[] = []
 
 export async function loadPreferences() {
@@ -66,7 +73,7 @@ export async function refreshUsage() {
     if (usage.ok) pane.usage = await usage.json()
     if (account.ok) {
       const status = await account.json()
-      pane.account = status.accountId ?? status.account?.email ?? (status.signedIn ? 'ChatGPT account connected' : 'Reader session active; connect ChatGPT for plan usage')
+      pane.account = status.email ?? status.sub ?? (status.signedIn ? 'ChatGPT account connected' : 'Reader session active; connect ChatGPT for plan usage')
     }
   } catch { /* Offline cached reading remains available. */ }
 }
@@ -103,6 +110,7 @@ export async function activate(tab: BookTabLike) {
     } })
     const pipeline = createPipeline({ repos, llm, prompts, models: DEFAULT_MODELS, concepts,
       flags: () => pane.preferences.flags, lexical: buildLexicalIndex(blocks, sections), templates: templateRegistry,
+      traceRunner: { runTrace: (input, opts) => getTraceRunner().runTrace(input, opts) }, tracerVersion: TRACER_VERSION,
       validateAnimation: (ir, animation, context) => {
         const parsed = IR.safeParse(ir)
         return parsed.success ? validateAnimation(parsed.data, animation, { templates: templateRegistry, grounding: { blocks: context.blocks } }).issues : [{ layer: 'animation', severity: 'error', code: 'animation-base-ir', message: 'Invalid base visual.' }]

@@ -22,6 +22,7 @@ const withTM = require('next-transpile-modules')([
   '@illus/llm',
   '@illus/book-index',
   '@illus/anim',
+  '@illus/tracer',
   '@illus/concepts',
   '@illus/context',
   '@illus/pipeline',
