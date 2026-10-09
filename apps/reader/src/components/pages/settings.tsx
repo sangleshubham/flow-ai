@@ -141,7 +141,10 @@ const Synchronization: React.FC = () => {
 interface PartProps {
   title: string
 }
-const Item: React.FC<PartProps> = ({ title, children }) => {
+const Item: React.FC<React.PropsWithChildren<PartProps>> = ({
+  title,
+  children,
+}) => {
   return (
     <div>
       <h3 className="typescale-title-small text-on-surface-variant">{title}</h3>

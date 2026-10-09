@@ -45,3 +45,6 @@ yarn-error.log*
 # Illustrated reader: private books and secrets never leave this machine
 fixtures/books/private/
 .env.local
+
+# Agent worktrees created by the build orchestrator
+.claude/worktrees/
