@@ -77,7 +77,12 @@ export async function createIllusServer(env: Record<string, string | undefined>,
     },
     ...(o.now && { now: o.now }),
   })
-  const sessions = createSessions({ secret: env.ILLUS_SESSION_SECRET, secure: publicUrl.startsWith('https:'), ...(o.now && { now: o.now }) })
+  const sessions = createSessions({
+    secret: env.ILLUS_SESSION_SECRET,
+    secure: publicUrl.startsWith('https:'),
+    allowedSub: env.ILLUS_ALLOWED_ACCOUNT_ID?.trim() || undefined,
+    ...(o.now && { now: o.now }),
+  })
 
   let auth: ChatGptAuth | undefined
   if (env.ILLUS_TOKEN_ENC_KEY && env.ILLUS_PUBLIC_URL) {

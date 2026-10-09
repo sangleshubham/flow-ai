@@ -1,13 +1,34 @@
-version: '3.8'
-
+# AI Illustrated Reader (docs/deploy.md). Every §9 variable is listed; values come from a `.env` file next
+# to this one (git-ignored, never baked into the image). Placeholders below are not secrets.
 services:
   reader:
     container_name: reader
     build:
       context: .
       dockerfile: ./Dockerfile
-    restart: always
+    restart: unless-stopped
+    # Loopback only: reach it through Caddy, `tailscale serve`, or an SSH tunnel (docs/deploy.md).
     ports:
-      - 3000:3000
-    env_file:
-      - ./apps/reader/.env.local
+      - 127.0.0.1:3000:3000
+    environment:
+      # Spec §9
+      ILLUS_CHATGPT_CLIENT_ID: ${ILLUS_CHATGPT_CLIENT_ID:-} # optional override (ADR 0007)
+      ILLUS_PUBLIC_URL: ${ILLUS_PUBLIC_URL:-http://127.0.0.1:3000}
+      ILLUS_ALLOWED_ACCOUNT_ID: ${ILLUS_ALLOWED_ACCOUNT_ID:-} # empty refuses everyone; the first sign-in shows your id
+      ILLUS_TOKEN_ENC_KEY: ${ILLUS_TOKEN_ENC_KEY:?set a 32-byte key (openssl rand -base64 32)}
+      ILLUS_SESSION_SECRET: ${ILLUS_SESSION_SECRET:?set at least 32 random characters (openssl rand -base64 48)}
+      ILLUS_MAX_REQUESTS_5H: ${ILLUS_MAX_REQUESTS_5H:-100}
+      ILLUS_MAX_REQUESTS_DAY: ${ILLUS_MAX_REQUESTS_DAY:-300}
+      ILLUS_DATA_DIR: /data
+      ILLUS_MODELS_JSON: ${ILLUS_MODELS_JSON:-}
+      ILLUS_OPENAI_API_KEY: ${ILLUS_OPENAI_API_KEY:-} # optional fallback provider; empty = plan usage only
+      # W2 additions (ADR 0007)
+      ILLUS_LLM_MODE: ${ILLUS_LLM_MODE:-replay} # set live in .env to call the model (CLAUDE.md rule 6)
+      ILLUS_LLM_PROVIDER: ${ILLUS_LLM_PROVIDER:-chatgpt-plan}
+      # W11 (ADR 0020): password login for the Tailscale-only VPS; empty disables it.
+      ILLUS_LOGIN_PASSWORD: ${ILLUS_LOGIN_PASSWORD:-}
+    volumes:
+      - illus-data:/data
+
+volumes:
+  illus-data:
