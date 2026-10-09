@@ -1,6 +1,6 @@
 {
   "name": "@illus/core",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Contracts for the AI Illustrated Reader: Zod schemas, ids, hashing, flags, cache keys, repository and port interfaces, test factories (DOM-free).",

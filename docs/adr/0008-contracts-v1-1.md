@@ -7,7 +7,7 @@
 
 ## Context
 
-Wave 1 (W1, W2, W4, W10) filed eight contract-change requests, listed in `docs/build-log.md` under "Wave 1". Shubham decided each one. This ADR records the decisions and what W0 changed. Contracts move from v1.0 to **v1.1** (minor: every change is additive or a documentation change; v1.0 producers and consumers stay valid).
+Wave 1 (W1, W2, W4, W10) filed eight contract-change requests, listed in `docs/build-log.md` under "Wave 1". Shubham decided each one. This ADR records the decisions and what W0 changed. Contracts move from v1.0 to **v1.1** (minor: every change is additive or a documentation change; v1.0 producers and consumers stay valid), then to **v1.2** for code-block text (below).
 
 ## Decision
 
@@ -26,9 +26,22 @@ Also in v1.1, from the app build fix ([ADR 0009](0009-reader-build-on-typescript
 
 `CONTRACTS_VERSION` is `1.1.0`; `docs/contracts.md` is regenerated and now opens with a changelog (written by `packages/illus-core/scripts/contracts.ts`). Its status line reads "approved by Shubham", since v1.0 and every v1.1 item were approved.
 
-## Open question (contract-change request, not applied)
+## v1.2: code blocks keep their layout (approved after this amend)
 
-**Code block text loses its layout.** §5 (`Block.text`: "whitespace collapsed") and §6 step 9 collapse whitespace in every block, so `@illus/book-index` stores a Python listing as `def total(xs): s = 0 for x in xs: s += x return s`. W10's `eval-mini` sections keep line breaks and indentation, and W7's translator (§12) needs them: indentation is syntax in Python. Proposal: for `kind: 'code'` blocks, `Block.text` keeps line breaks and leading indentation (NFC, soft hyphens removed, trailing whitespace trimmed per line, tabs kept); grounding is unaffected because §16 normalises both sides before matching. Owners if accepted: W0 (schema doc, contracts v1.2), W1 (indexer). `fixtures/scripts/test/eval-mini.test.ts` currently compares code text with whitespace collapsed and must be tightened if this is accepted.
+W0 raised it as an open question during this amend; Shubham approved it the same day.
+
+**Problem.** §5 (`Block.text`: "whitespace collapsed") and §6 step 9 collapsed whitespace in every block, so `@illus/book-index` stored a Python listing as `def total(xs): s = 0 for x in xs: s += x return s`. W10's `eval-mini` sections keep line breaks and indentation, and W7's translator (§12) needs them, because indentation is syntax in Python.
+
+**Decision.**
+
+- For `kind: 'code'` blocks, `Block.text` keeps line breaks and indentation, tabs included. Only trailing whitespace on each line and blank lines at the start and end are trimmed; NFC and soft-hyphen removal still apply.
+- Every other block kind still collapses whitespace.
+- Grounding stays whitespace-insensitive: §16 collapses whitespace in both quote and block before matching (`normalizeText` in `@illus/core/grounding`), so a quote from a code block matches whatever its spacing. A test in `packages/illus-core/test/schemas.test.ts` checks this.
+- Contracts move to **v1.2.0**. Only the doc comment of `Block` changes, plus the changelog in `docs/contracts.md`. `docs/spec.md` is not edited.
+
+**Owners.** W1 implements the indexer change in wave 2 and updates the code comparison in `fixtures/scripts/test/eval-mini.test.ts`, which still expects collapsed code until then. Existing caches index again on the next `INDEX_VERSION` bump (W1).
+
+**Related decision.** `eval-mini.epub` stays in `fixtures/books/eval/`, outside W1's per-book snapshot test.
 
 ## Consequences
 

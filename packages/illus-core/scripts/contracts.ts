@@ -99,6 +99,10 @@ async function typedocReference(): Promise<string> {
 /** Contract history. Each amendment names its ADR; add the newest first. */
 const CHANGELOG = `## Changelog
 
+### v1.2 (2026-10-09, [ADR 0008](adr/0008-contracts-v1-1.md))
+
+- \`Block.text\` of \`kind: 'code'\` blocks keeps line breaks and indentation (tabs included); only trailing whitespace per line and leading/trailing blank lines are trimmed. Every other kind still collapses whitespace (§6 step 9). Grounding stays whitespace-insensitive: quote and block are both collapsed before matching (§16), so a code quote matches with any spacing. W1 implements it in the indexer (wave 2). \`docs/spec.md\` is not edited.
+
 ### v1.1 (2026-10-09, [ADR 0008](adr/0008-contracts-v1-1.md))
 
 Additive; every v1.0 producer and consumer stays valid.

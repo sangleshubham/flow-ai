@@ -12,6 +12,11 @@ minimumReleaseAge: 20160
 # parsed by TypeScript 5 (false no-unused-vars). 5.62.0 is the last v5 release (ADR 0009).
 overrides:
   "@typescript-eslint/parser@<6": 5.62.0
+  # One copy of the React types in the whole workspace (React is 18.0.0 everywhere). Packages without their own
+  # @types/react (next 12, react-use, react-icons…) resolve it through pnpm's hoisted dir, so two versions in
+  # the lockfile made the JSX types depend on install order (ADR 0009).
+  "@types/react": 18.3.31
+  "@types/react-dom": 18.3.7
 
 # Inherited Flow advisories (high/critical) accepted as a baseline on 2026-10-09 so that CI fails only on NEW
 # ones (ADR 0004). None comes from an @illus package. Shrink this list as Flow dependencies are upgraded.
