@@ -15,6 +15,8 @@ export default defineConfig({
       'comlink',
       'shiki',
       '@illus/core > zod',
+      '@illus/anim > motion/react',
+      '@illus/anim > motion',
       ...[
         'mermaid',
         'vega-embed',

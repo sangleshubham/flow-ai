@@ -92,6 +92,7 @@ export function createTraceRunner({
             failure = error instanceof Error ? error.message : String(error)
             break
           }
+          aborted(opts?.signal)
           if (raw.error) {
             failure = raw.error
             break
@@ -113,7 +114,7 @@ export function createTraceRunner({
                 translation.lineMap.find((m) => m.py === s.pyLine)?.orig ?? [],
             })),
           }
-          const compressed = compressTrace(mapped)
+          const compressed = compressTrace(mapped, translation.python)
           const stored = ScenarioTrace.parse({
             label: scenario.label,
             trace: {

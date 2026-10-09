@@ -12,6 +12,41 @@ const step = (i: number, pyLine: number, depth = 1): TraceStep => ({
   stdout: '',
 })
 describe('trace compression', () => {
+  it('collapses source loop iterations with differing branch lengths', () => {
+    const python =
+      'def f():\n  for i in range(10):\n    if i % 2:\n      x = 1\n    else:\n      x = 2\n  return x'
+    const steps = Array.from({ length: 10 }, (_, i) => [
+      step(i * 3, 2),
+      step(i * 3 + 1, 3),
+      step(i * 3 + 2, i % 2 ? 4 : 6),
+    ]).flat()
+    steps.push(step(30, 2), {
+      ...step(31, 7),
+      event: 'return',
+      returnValue: { prim: 1 },
+    })
+    const out = compressTrace({ steps, truncated: false }, python)
+    expect(out.steps.find((s) => s.skipped)?.skipped).toEqual({ iterations: 5 })
+    expect(out.steps.filter((s) => s.pyLine === 2)).toHaveLength(6)
+    expect(out.steps.at(-1)?.returnValue).toEqual({ prim: 1 })
+  })
+  it('caps even a single oversized untrusted snapshot', () => {
+    const out = compressTrace({
+      steps: [
+        {
+          ...step(0, 1),
+          origLines: Array(1000000).fill(1),
+          returnValue: { prim: 'x'.repeat(3000000) },
+        },
+      ],
+      truncated: false,
+      error: 'e'.repeat(3000000),
+    })
+    expect(
+      new TextEncoder().encode(JSON.stringify(out)).length,
+    ).toBeLessThanOrEqual(2 * 1024 * 1024)
+    expect(out.truncated).toBe(true)
+  })
   it('keeps first three and last two loop iterations with skipped end state', () => {
     const steps = Array.from({ length: 10 }, (_, i) => [
       step(i * 2, 2),

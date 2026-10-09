@@ -17,6 +17,7 @@
     "e2e": "pnpm build:assets && playwright test"
   },
   "dependencies": {
+    "@illus/anim": "workspace:*",
     "@illus/core": "workspace:*",
     "@illus/render": "workspace:*",
     "comlink": "4.4.2",

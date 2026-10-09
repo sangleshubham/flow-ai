@@ -22,8 +22,8 @@ Everything public is exported from `src/index.ts`. Deep imports are rejected by 
   caches through the frozen repos. The existing section pipeline already owns caching.
 - `TRACER_VERSION`, `compressTrace(raw)`, `projectHint(step,hint,hints)` are public pure helpers.
 - `<TraceView record originalCode langHint flags controls? onStep?>` shows original/Python code,
-  measured structures, stack/locals changes, stdout, scenarios and assumptions. Inject W6's
-  `PlaybackControls` through `controls`; standalone controls follow the same controlled interface.
+  measured structures, stack/locals changes, stdout, scenarios and assumptions. Uses W6's
+  `PlaybackControls` and `usePlayback` directly; `controls` optionally overrides the transport.
 
 ## Example
 
