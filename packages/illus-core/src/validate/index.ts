@@ -16,7 +16,8 @@ import { RULES } from './rules.ts'
 /** Share of dropped elements above which the extractor is re-run once (§8 stage 3 step 3, §16 L2). */
 export const MAX_DROPPED_SHARE = 0.3
 
-const SCHEMA_OF: Record<IrKind, keyof typeof SCHEMAS> = {
+/** Output schema of each IR kind. */
+export const SCHEMA_OF: Record<IrKind, keyof typeof SCHEMAS> = {
   graph: 'GraphIR',
   sequence: 'SequenceIR',
   state: 'StateIR',
@@ -69,3 +70,8 @@ export function addIssues(report: ValidationReport, issues: readonly ValidationI
   const all = [...report.issues, ...issues]
   return { ...report, issues: all, ok: !all.some((i) => i.severity === 'error') }
 }
+
+export { critique, criticBody, escapeXml, summarizeIr } from './critic.ts'
+export type { CritiqueInput } from './critic.ts'
+export { repairBody, repairIr } from './repair.ts'
+export type { RepairFinding, RepairInput } from './repair.ts'
