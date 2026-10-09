@@ -124,3 +124,10 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
 - ADRs opened: 0030-w0-wave3-contracts (accepted), 0031-w2-replay-fixture-resolution.
 - Contract-change requests: none outstanding for these prerequisites.
 - Follow-ups: standalone Docker replay/record requires mounted fixtures and `ILLUS_FIXTURES_DIR` (image excludes workspace manifests/fixtures). Vendored epub.js still masks its inherited lint errors; no lint rules or assertions were weakened.
+
+## Wave 3 interrupted and resumed — 2026-10-09
+- Account usage limit interrupted W3 integration, W7 tracer and W9 reader work; Shubham explicitly requested continuation after the reported reset time. Worktrees and uncommitted edits were preserved.
+- Main remains at the completed prerequisite baseline (`86b4a9a` before this log entry). Feature work is isolated on `ws/w6-wave3`, `ws/w7-wave3`, `ws/w9-wave3`, `ws/w3-integration-wave3` and `ws/w11-assets-wave3`.
+- W3 committed `e239243`: bounded trace repair and grounded simulated fallbacks, code-source whitelist checks and an animation validation context restricted to the packed blocks. Reported scoped gate: 20 tasks, 51 pipeline tests passed; exact browser fixture integration remains in progress.
+- W11 committed `c2c4ab6`: worker CSP, Docker asset checks and replay fixture mounts/docs. Reported 55 unit tests and 11 existing production checks passed; two tracer integration tests and Docker verification await W7 assets and W9 build wiring.
+- W6, W7 and W9 resumed from their saved edits. Wave 3 has not passed its integrated gate; no completion or live-model-quality claim is made.
