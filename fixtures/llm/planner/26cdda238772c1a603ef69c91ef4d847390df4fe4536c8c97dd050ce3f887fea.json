@@ -1,5 +1,5 @@
 {
-  "key": "72f06f74b171935c9d3ff8785a94374473d005ca74883fdd8718458552679203",
+  "key": "26cdda238772c1a603ef69c91ef4d847390df4fe4536c8c97dd050ce3f887fea",
   "source": "handwritten",
   "role": "planner",
   "promptVersion": "1.0.0",
@@ -7,7 +7,7 @@
   "effort": "medium",
   "schemaName": "VisualPlan",
   "data": {
-    "sectionId": "c911e05c7aff3525:1:chapter-1-basics/1-1-lists-and-tables:1",
+    "sectionId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1",
     "needsVisual": true,
     "reason": "Table 1.1 is a small data model of message types.",
     "items": [

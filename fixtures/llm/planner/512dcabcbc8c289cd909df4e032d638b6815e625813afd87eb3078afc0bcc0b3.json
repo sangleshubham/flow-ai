@@ -1,5 +1,5 @@
 {
-  "key": "7c52b6fc34e0bc469b470ed5446a7b417c822094519e2d469b615d65e1f181ed",
+  "key": "512dcabcbc8c289cd909df4e032d638b6815e625813afd87eb3078afc0bcc0b3",
   "source": "handwritten",
   "role": "planner",
   "promptVersion": "1.0.0",
@@ -7,7 +7,7 @@
   "effort": "medium",
   "schemaName": "VisualPlan",
   "data": {
-    "sectionId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1",
+    "sectionId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1",
     "needsVisual": true,
     "reason": "A formula with two named terms and a logarithmic growth rate.",
     "items": [

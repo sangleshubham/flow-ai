@@ -1,5 +1,5 @@
 {
-  "key": "3ebb2f2d66e6be50bd425f132c9b9813c774a28675a1650eeb59c4be039670b4",
+  "key": "0dcd10afc7ec8137334f9fcc7cfb6135cbf3805934c4411f234471f946d95542",
   "source": "handwritten",
   "role": "extractor.mermaid",
   "promptVersion": "1.0.0",
@@ -16,7 +16,7 @@
         "id": "follower",
         "label": "Follower",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
           "quote": "When a follower misses heartbeats it starts an election for a new term."
         }
       },
@@ -24,7 +24,7 @@
         "id": "election",
         "label": "Election",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
           "quote": "it starts an election for a new term."
         }
       }
@@ -36,7 +36,7 @@
         "to": "election",
         "event": "misses heartbeats",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
           "quote": "When a follower misses heartbeats it starts an election for a new term."
         }
       }

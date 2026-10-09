@@ -1,5 +1,5 @@
 {
-  "key": "8c7c9109480318c499defa10c9e961ae884598e5c0a76e522591ef026fd65149",
+  "key": "446272089310e3b4c2c1b7aabe14486ea6e514e604cceece8a4d6da26df202be",
   "source": "handwritten",
   "role": "extractor.math",
   "promptVersion": "1.0.0",
@@ -8,13 +8,13 @@
   "schemaName": "MathIR",
   "data": {
     "type": "math",
-    "sourceBlockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b1",
+    "sourceBlockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1#b1",
     "terms": [
       {
         "symbol": "steps",
         "meaning": "the number of steps of the search",
         "evidence": {
-          "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b0",
+          "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1#b0",
           "quote": "The number of steps of the search in Listing 1.1 is bounded by the formula below."
         }
       },
@@ -22,7 +22,7 @@
         "symbol": "n",
         "meaning": "the number of items",
         "evidence": {
-          "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b2",
+          "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1#b2",
           "quote": "Here n is the number of items."
         }
       }

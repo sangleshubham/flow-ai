@@ -1,5 +1,5 @@
 {
-  "key": "bf01cc8796af4e6a89564c67ac3562126323d9c11a3fcafa571c3f862bc21243",
+  "key": "aa60710460c3ffa262e2a66f7a1f26ed7447d1ebcef4afad832251774ea828f3",
   "source": "handwritten",
   "role": "indexer",
   "promptVersion": "1.0.0",
@@ -9,7 +9,7 @@
   "data": {
     "sections": [
       {
-        "sectionId": "c911e05c7aff3525:0:preface:0",
+        "sectionId": "9604b90977df58f0:0:preface:0",
         "summary": "The book exists to test an EPUB indexer; its text is original and released under CC0.",
         "defines": [],
         "uses": [
@@ -29,7 +29,7 @@
         }
       },
       {
-        "sectionId": "c911e05c7aff3525:1:chapter-1-basics:0",
+        "sectionId": "9604b90977df58f0:1:chapter-1-basics:0",
         "summary": "The chapter introduces the basic building blocks.",
         "defines": [],
         "uses": [],
@@ -45,13 +45,13 @@
         }
       },
       {
-        "sectionId": "c911e05c7aff3525:1:chapter-1-basics/1-1-lists-and-tables:1",
+        "sectionId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1",
         "summary": "A server can be a follower, candidate or leader. Table 1.1 lists the RequestVote and AppendEntries messages with their senders and purposes; a term is a monotonically increasing election number.",
         "defines": [
           {
             "name": "term",
             "evidence": {
-              "blockId": "c911e05c7aff3525:1:chapter-1-basics/1-1-lists-and-tables:1#b3",
+              "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b3",
               "quote": "Term A monotonically increasing election number."
             }
           }
@@ -91,20 +91,20 @@
         }
       },
       {
-        "sectionId": "c911e05c7aff3525:1:chapter-1-basics/1-2-code:2",
+        "sectionId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2",
         "summary": "Listing 1.1 is a binary search that halves the range on every step; its loop invariant keeps the target between lo and hi.",
         "defines": [
           {
             "name": "binary search",
             "evidence": {
-              "blockId": "c911e05c7aff3525:1:chapter-1-basics/1-2-code:2#b1",
+              "blockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b1",
               "quote": "Listing 1.1 Binary search"
             }
           },
           {
             "name": "loop invariant",
             "evidence": {
-              "blockId": "c911e05c7aff3525:1:chapter-1-basics/1-2-code:2#b6",
+              "blockId": "9604b90977df58f0:1:chapter-1-basics/1-2-code:2#b6",
               "quote": "the loop invariant is that the target, if present, lies between lo and hi."
             }
           }
@@ -126,7 +126,7 @@
         }
       },
       {
-        "sectionId": "c911e05c7aff3525:2:chapter-2-math-and-figures:0",
+        "sectionId": "9604b90977df58f0:2:chapter-2-math-and-figures:0",
         "summary": "The chapter recalls the search of Chapter 1 and covers formulas and figures.",
         "defines": [],
         "uses": [
@@ -146,13 +146,13 @@
         }
       },
       {
-        "sectionId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1",
+        "sectionId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1",
         "summary": "The number of steps of the search is bounded by floor(log2 n) + 1, where n is the number of items. A quorum needs more than n/2 votes.",
         "defines": [
           {
             "name": "quorum",
             "evidence": {
-              "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b2",
+              "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-1-formulas:1#b2",
               "quote": "A quorum needs q>n2 votes."
             }
           }
@@ -174,7 +174,7 @@
         }
       },
       {
-        "sectionId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-2-figures:2",
+        "sectionId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-2-figures:2",
         "summary": "Figure 2.1 shows a cluster of three servers and Figure 2.2 a log with five entries.",
         "defines": [],
         "uses": [
@@ -202,7 +202,7 @@
     ]
   },
   "usage": {
-    "input": 1407,
+    "input": 1444,
     "output": 200,
     "cachedInput": 0
   },
