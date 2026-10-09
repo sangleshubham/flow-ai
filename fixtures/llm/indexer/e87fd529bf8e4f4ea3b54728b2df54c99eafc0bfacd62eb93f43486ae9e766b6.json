@@ -1,5 +1,5 @@
 {
-  "key": "97d644933ce3573a1ebc2cb6a86f68e3a8a5ae6506abd4d14bb5cd5d960c2a2e",
+  "key": "e87fd529bf8e4f4ea3b54728b2df54c99eafc0bfacd62eb93f43486ae9e766b6",
   "source": "handwritten",
   "role": "indexer",
   "promptVersion": "1.0.0",
@@ -9,7 +9,7 @@
   "data": {
     "sections": [
       {
-        "sectionId": "c911e05c7aff3525:3:chapter-3-long-sections/3-2-an-oversized-section-with-h5-subheadings:4",
+        "sectionId": "9604b90977df58f0:3:chapter-3-long-sections/3-2-an-oversized-section-with-h5-subheadings:4",
         "summary": "A replicated log keeps servers in agreement about command order. The leader sends heartbeats; a follower that misses them starts an election for a new term. Terms order leaders, followers reject mismatched entries, and snapshots compact the log.",
         "defines": [],
         "uses": [
@@ -53,7 +53,7 @@
         }
       },
       {
-        "sectionId": "c911e05c7aff3525:3:chapter-3-long-sections/part-two:5",
+        "sectionId": "9604b90977df58f0:3:chapter-3-long-sections/part-two:5",
         "summary": "A replicated log keeps servers in agreement about command order. The leader sends heartbeats; a follower that misses them starts an election for a new term. Terms order leaders, followers reject mismatched entries, and snapshots compact the log.",
         "defines": [],
         "uses": [
@@ -97,7 +97,7 @@
         }
       },
       {
-        "sectionId": "c911e05c7aff3525:3:chapter-3-long-sections/part-three:6",
+        "sectionId": "9604b90977df58f0:3:chapter-3-long-sections/part-three:6",
         "summary": "A replicated log keeps servers in agreement about command order. The leader sends heartbeats; a follower that misses them starts an election for a new term. Terms order leaders, followers reject mismatched entries, and snapshots compact the log.",
         "defines": [],
         "uses": [
@@ -141,7 +141,7 @@
         }
       },
       {
-        "sectionId": "c911e05c7aff3525:4:chapter-4-scripted-content:0",
+        "sectionId": "9604b90977df58f0:4:chapter-4-scripted-content:0",
         "summary": "A one-sentence chapter that checks scripts inside the book never run.",
         "defines": [],
         "uses": [],

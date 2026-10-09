@@ -1,5 +1,5 @@
 {
-  "key": "3b0080576c0c2393c8d98b00500e639dc1908464a28c75282428cb9e4d0936b8",
+  "key": "c0c9203350fbcbb213b2fcedfb0fea6cdf6d81b70f09dcf4ce32c434945b424e",
   "source": "handwritten",
   "role": "extractor.timeline",
   "promptVersion": "1.0.0",
@@ -27,7 +27,7 @@
         "label": "send heartbeats",
         "to": "follower",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b2",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b2",
           "quote": "The leader sends heartbeats so that followers know it is still alive."
         }
       },
@@ -37,7 +37,7 @@
         "at": 2,
         "label": "misses heartbeats",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b2",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b2",
           "quote": "When a follower misses heartbeats it starts an election for a new term."
         }
       },
@@ -47,7 +47,7 @@
         "at": 3,
         "label": "starts an election",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b2",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b2",
           "quote": "it starts an election for a new term."
         }
       }

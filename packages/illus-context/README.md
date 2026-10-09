@@ -17,7 +17,7 @@ DOM-free context packer (spec §7): deterministic slot packing into a cacheable 
   - `planItem` is appended as `<plan_item>`; `synthetic` packs a selection section that is not in the store.
 - `ContextRepo`: the read-only store view it needs; `IllusRepos` plus an optional `lexical` satisfies it.
 - `CONTEXT_VERSION`: part of the plan cache key; bump it when the packed format changes.
-- Format helpers shared with `@illus/concepts`: `renderSection`, `renderBlock`, `escapeText` (escapes only a `<` that could open a tag, so code stays quotable), `estimateTokens` (`ceil(chars / 3.6)`), `clipTokens`.
+- Format helpers shared with `@illus/concepts`: `renderSection`, `renderBlock` (a caption-less figure with empty `text` carries its `figure.alt` as an `alt` attribute, ADR 0025), `escapeText` (escapes only a `<` that could open a tag, so code stays quotable), `estimateTokens` (`ceil(chars / 3.6)`), `clipTokens`.
 
 Deliberate simplifications: a definition is its block clipped to 150 tokens around the quote (no ±1 neighbouring paragraph); the default concept-model state is the model's earlier patches, until W8 passes `conceptModelState`.
 

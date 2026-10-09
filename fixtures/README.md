@@ -45,7 +45,7 @@ Regenerate with `pnpm fixtures:epub`; the output is byte-identical for the same 
 | **Footnote** (`epub:type="noteref"` → `aside epub:type="footnote"` with a back-link) | `ch01.xhtml` §1.2 |
 | Soft hyphen (U+00AD), ligatures (U+FB01, U+FB02), smart quotes | `ch01.xhtml` intro paragraph |
 | **MathML with a TeX annotation** (block) and inline MathML without one | `ch02.xhtml` §2.1 |
-| Figures: `figure > img + figcaption` (Figure 2.1) and `img` + following `p.caption` (Figure 2.2) | `ch02.xhtml` §2.2 |
+| Figures: `figure > img + figcaption` (Figure 2.1), `img` + following `p.caption` (Figure 2.2), and a caption-less `<p><img/></p>` as the last block of §2.2, after the empty-heading paragraphs (ADR 0025 rule 3) | `ch02.xhtml` §2.2 |
 | **Internal links**: cross-file to a listing and a table, same-file to a section | `ch02.xhtml` intro and §2.2 |
 | **Textual cross-references**: Chapter 1, Section 1.2, Listing 1.1, Table 1.1, Figure 2.1, and the unresolvable Figure 9.9 | `ch02.xhtml` |
 | Back-reference phrase for the lexical fallback ("As we saw") | `ch02.xhtml` intro |

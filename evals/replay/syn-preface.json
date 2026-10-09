@@ -3,19 +3,19 @@
   "source": "handwritten",
   "blocks": [
     {
-      "blockId": "c911e05c7aff3525:0:preface:0#b0",
+      "blockId": "9604b90977df58f0:0:preface:0#b0",
       "kind": "paragraph",
       "text": "This synthetic book exists to test an EPUB indexer. It has no headings on this page, so its section title must come from the table of contents."
     },
     {
-      "blockId": "c911e05c7aff3525:0:preface:0#b1",
+      "blockId": "9604b90977df58f0:0:preface:0#b1",
       "kind": "paragraph",
       "text": "Everything in it is original text released under CC0."
     }
   ],
   "planAttempts": [
     {
-      "sectionId": "c911e05c7aff3525:0:preface:0",
+      "sectionId": "9604b90977df58f0:0:preface:0",
       "needsVisual": false,
       "reason": "Preface about the book itself; nothing to visualise.",
       "items": []

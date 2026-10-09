@@ -1,5 +1,5 @@
 {
-  "key": "7aa7d72918fcbdfb10352bfc47e0c17c681faf14c976d59b504da4209f446818",
+  "key": "6d81e94363433dde4594fbf099f776406a54aa17341d2190f833856f928aa83f",
   "source": "handwritten",
   "role": "extractor.mermaid",
   "promptVersion": "1.0.0",
@@ -17,20 +17,20 @@
           {
             "name": "Sender",
             "evidence": {
-              "blockId": "c911e05c7aff3525:1:chapter-1-basics/1-1-lists-and-tables:1#b5",
+              "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b5",
               "quote": "Message Sender Purpose RequestVote candidate"
             }
           },
           {
             "name": "Purpose",
             "evidence": {
-              "blockId": "c911e05c7aff3525:1:chapter-1-basics/1-1-lists-and-tables:1#b5",
+              "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b5",
               "quote": "Message Sender Purpose RequestVote candidate"
             }
           }
         ],
         "evidence": {
-          "blockId": "c911e05c7aff3525:1:chapter-1-basics/1-1-lists-and-tables:1#b4",
+          "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b4",
           "quote": "Table 1.1 Message types"
         }
       },
@@ -39,7 +39,7 @@
         "label": "Server",
         "attributes": [],
         "evidence": {
-          "blockId": "c911e05c7aff3525:1:chapter-1-basics/1-1-lists-and-tables:1#b0",
+          "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b0",
           "quote": "A server can be in three states:"
         }
       }
@@ -54,7 +54,7 @@
         "label": "Sender",
         "identifying": false,
         "evidence": {
-          "blockId": "c911e05c7aff3525:1:chapter-1-basics/1-1-lists-and-tables:1#b5",
+          "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b5",
           "quote": "Message Sender Purpose RequestVote candidate ask for a vote"
         }
       }

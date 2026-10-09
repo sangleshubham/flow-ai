@@ -1,5 +1,5 @@
 {
-  "key": "a2ddcf24989549bd2419d9646f9c41ca5c131811d2df95f9349ad03212f7aaa9",
+  "key": "3321c6020f53dcdcb0ba7805237b3b168c9d87f756d33c56eb1159aa42e6ad69",
   "source": "handwritten",
   "role": "extractor.mermaid",
   "promptVersion": "1.0.0",
@@ -14,7 +14,7 @@
         "id": "leader",
         "label": "Leader",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b2",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b2",
           "quote": "The leader sends heartbeats so that followers know it is still alive."
         }
       },
@@ -22,7 +22,7 @@
         "id": "follower",
         "label": "Follower",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b0",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b0",
           "quote": "Followers reject entries that do not match the previous index and term."
         }
       }
@@ -35,7 +35,7 @@
         "label": "heartbeat",
         "kind": "async",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b2",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b2",
           "quote": "The leader sends heartbeats so that followers know it is still alive."
         }
       },
@@ -46,7 +46,7 @@
         "label": "reject entries",
         "kind": "reply",
         "evidence": {
-          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b0",
+          "blockId": "9604b90977df58f0:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b0",
           "quote": "Followers reject entries that do not match the previous index and term."
         }
       }
