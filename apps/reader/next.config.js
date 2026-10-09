@@ -3,9 +3,15 @@ const path = require('path')
 const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
 })
-const { withSentryConfig } = require('@sentry/nextjs')
+const { securityHeaders, runtimeCaching } = require('./security-headers')
+
+const IS_DEV = process.env.NODE_ENV === 'development'
+const IS_DOCKER = process.env.DOCKER
+
 const withPWA = require('next-pwa')({
   dest: 'public',
+  disable: IS_DEV,
+  runtimeCaching: runtimeCaching(),
 })
 const withTM = require('next-transpile-modules')([
   '@flow/internal',
@@ -15,29 +21,18 @@ const withTM = require('next-transpile-modules')([
   '@illus/llm',
 ])
 
-const IS_DEV = process.env.NODE_ENV === 'development'
-const IS_DOCKER = process.env.DOCKER
-
-/**
- * @type {import('@sentry/nextjs').SentryWebpackPluginOptions}
- **/
-const sentryWebpackPluginOptions = {
-  // Additional config options for the Sentry Webpack plugin. Keep in mind that
-  // the following options are set automatically, and overriding them is not
-  // recommended:
-  //   release, url, org, project, authToken, configFile, stripPrefix,
-  //   urlPrefix, include, ignore
-
-  silent: true, // Suppresses all logs
-  // For all available options, see:
-  // https://github.com/getsentry/sentry-webpack-plugin#options.
-}
 
 /**
  * @type {import('next').NextConfig}
  **/
 const config = {
   pageExtensions: ['ts', 'tsx'],
+  poweredByHeader: false,
+  // Flow does not use next/image; this also keeps the image optimiser and its advisories off (ADR 0005).
+  images: { unoptimized: true },
+  async headers() {
+    return securityHeaders({ dev: IS_DEV })
+  },
   webpack(config) {
     // docs/prompts/<role>.md imported as raw text at build time (spec §9, W2).
     config.module.rules.push({
@@ -61,23 +56,12 @@ const config = {
     locales: ['en-US', 'zh-CN', 'ja-JP', 'de-DE'],
     defaultLocale: 'en-US',
   },
-  ...(IS_DOCKER && {
-    output: 'standalone',
-    experimental: {
-      outputFileTracingRoot: path.join(__dirname, '../../'),
-    },
-  }),
+  experimental: {
+    // Lets src/middleware.ts answer 401/429 with a JSON body (Next 12.3; stable from 13).
+    allowMiddlewareResponseBody: true,
+    ...(IS_DOCKER && { outputFileTracingRoot: path.join(__dirname, '../../') }),
+  },
+  ...(IS_DOCKER && { output: 'standalone' }),
 }
 
-const base = withPWA(withTM(withBundleAnalyzer(config)))
-
-const dev = base
-const docker = base
-const prod = withSentryConfig(
-  base,
-  // Make sure adding Sentry options is the last code to run before exporting, to
-  // ensure that your source maps include changes from all other Webpack plugins
-  sentryWebpackPluginOptions,
-)
-
-module.exports = IS_DEV ? dev : IS_DOCKER ? docker : prod
+module.exports = withPWA(withTM(withBundleAnalyzer(config)))
