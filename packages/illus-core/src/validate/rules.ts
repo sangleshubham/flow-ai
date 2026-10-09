@@ -172,33 +172,76 @@ const er: Rule<'er'> = (ir, c) => {
 }
 
 const template: Rule<'template'> = (ir, c) => {
-  // Template elements live inside template-specific props, so an ungrounded one cannot be removed
-  // generically: its evidence entry is removed and the grounding error keeps the report failing, which
-  // sends the IR to re-extraction or `repair` (ADR 0006).
-  const evidence = ir.evidence.flatMap((te) => {
+  // Template elements live inside template-specific props. An ungrounded one is removed through the
+  // template's `dropElement` when it can be. Otherwise (no registry, no `dropElement`, or the template
+  // throws `TemplateDropError` because removal would change other elements, ADR 0015) its evidence entry
+  // is removed and the grounding error keeps the report failing, which sends the IR to re-extraction or
+  // `repair` (ADR 0006).
+  const failed: { path: string; reason: string }[] = []
+  let evidence = ir.evidence.flatMap((te) => {
     const e = c.ground(te.path, undefined, te.evidence)
     if (typeof e !== 'string') return [{ ...te, evidence: e }]
-    c.issue('grounding', 'error', 'template-element-ungrounded', e, te.path)
+    failed.push({ path: te.path, reason: e })
     return []
   })
+  const ungrounded = (f: { path: string; reason: string }) =>
+    c.issue('grounding', 'error', 'template-element-ungrounded', f.reason, f.path)
+  const spec = c.ctx.templates?.getTemplate(ir.templateId)
+  const props = spec?.propsSchema.safeParse(ir.props)
+  let data: unknown = props?.success ? props.data : ir.props
+  if (spec?.dropElement && props?.success) {
+    // Highest list index first, so an earlier drop never shifts a path that is still to be dropped.
+    for (const f of [...failed].sort((a, b) => listIndex(b.path) - listIndex(a.path))) {
+      try {
+        data = spec.dropElement(data, f.path)
+      } catch {
+        // TemplateDropError (from @illus/render, which core cannot import) or any template bug: keep the
+        // grounding error, since validate() never throws on bad input.
+        ungrounded(f)
+        continue
+      }
+      c.drop(f.path, 'quote-not-found', `dropped: ${f.reason}`)
+      evidence = shiftEvidence(evidence, f.path)
+    }
+  } else failed.forEach(ungrounded)
   tooFew(c, evidence.length, 1, 'grounded template elements')
   const out = { ...ir, evidence }
   if (!c.ctx.templates) {
     c.warn('template-unchecked', 'no template registry given; props and invariants were not checked')
     return out
   }
-  const spec = c.ctx.templates.getTemplate(ir.templateId)
   if (!spec) {
     c.error('template-unknown', `template "${ir.templateId}" is not registered`)
     return out
   }
-  const props = spec.propsSchema.safeParse(ir.props)
-  if (!props.success) {
-    for (const i of props.error.issues) c.issue('schema', 'error', 'template-props', `props.${i.path.join('.')}: ${i.message}`)
+  if (!props?.success) {
+    for (const i of props?.error.issues ?? []) c.issue('schema', 'error', 'template-props', `props.${i.path.join('.')}: ${i.message}`)
     return out
   }
-  for (const msg of spec.checkInvariants?.(props.data) ?? []) c.error('template-invariant', msg)
-  return { ...out, props: props.data }
+  for (const msg of spec.checkInvariants?.(data) ?? []) c.error('template-invariant', msg)
+  return { ...out, props: data as typeof ir.props }
+}
+
+const LIST_PATH = /^([A-Za-z]+)\.(\d+)(?:\.|$)/
+const listIndex = (path: string) => Number(LIST_PATH.exec(path)?.[2] ?? -1)
+
+/**
+ * After `list.i` was dropped: removes evidence under `list.i` and renumbers `list.j` (j > i) to `list.(j-1)`.
+ * ponytail: only the dropped list is renumbered; evidence on dependents a template also removes (incident
+ * edges, subtrees) stays and may point past the end. Return a path map from `dropElement` if W5 needs it.
+ */
+function shiftEvidence<T extends { path: string }>(evidence: T[], dropped: string): T[] {
+  const m = LIST_PATH.exec(dropped)
+  if (!m) return evidence.filter((e) => e.path !== dropped && !e.path.startsWith(`${dropped}.`))
+  const list = m[1]
+  const i = Number(m[2])
+  return evidence.flatMap((e) => {
+    const n = LIST_PATH.exec(e.path)
+    if (!n || n[1] !== list) return [e]
+    const j = Number(n[2])
+    if (j === i) return []
+    return j < i ? [e] : [{ ...e, path: `${list}.${j - 1}${e.path.slice(`${list}.${j}`.length)}` }]
+  })
 }
 
 const chart: Rule<'chart'> = (ir, c) => {
