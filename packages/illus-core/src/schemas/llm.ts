@@ -95,8 +95,11 @@ export interface RoleSpec {
 
 const IR_SCHEMAS = ['GraphIR', 'SequenceIR', 'StateIR', 'ClassIR', 'ErIR', 'TemplateIR', 'ChartIR', 'MathIR', 'TimelineIR'] as const
 
+// Identity helper instead of `satisfies`: Next 12's SWC cannot parse `satisfies` (ADR 0009).
+const checkRoles = <T extends Record<RoleName, RoleSpec>>(roles: T): T => roles
+
 /** The §9 roles table. Owners of each prompt are listed in CLAUDE.md. */
-export const ROLES = {
+export const ROLES = checkRoles({
   indexer: { tier: 'fast', escalationTier: 'standard', effort: 'medium', schemas: ['IndexerOutput'] },
   glossary: { tier: 'fast', effort: 'low', schemas: ['GlossaryOutput'] },
   'book-summary': { tier: 'fast', effort: 'low', schemas: ['BookSummary'] },
@@ -119,7 +122,7 @@ export const ROLES = {
   critic: { tier: 'standard', effort: 'low', schemas: ['CriticReport'], image: true },
   repair: { tier: 'standard', effort: 'medium', schemas: [...IR_SCHEMAS, 'AnimationIR'] },
   'html-fallback': { tier: 'standard', effort: 'medium', schemas: ['HtmlIR'] },
-} as const satisfies Record<RoleName, RoleSpec>
+} as const)
 
 /** Effort of escalated calls: `deep` tier at `medium`, or `high` for `translator` (§9). */
 export function escalationEffort(role: RoleName): ReasoningEffort {

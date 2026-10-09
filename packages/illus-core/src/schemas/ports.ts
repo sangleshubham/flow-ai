@@ -187,6 +187,12 @@ export interface TemplateSpec<P = unknown> {
   supportedActions: readonly ActionOp[]
   /** Semantic invariants (BST order, heap order, pointers in range…); returns violation messages. */
   checkInvariants?(props: P): string[]
+  /**
+   * Removes the element at `path` (a `TemplateEvidence.path`, e.g. 'nodes.3') and returns new props, so
+   * `validate()` can drop an ungrounded template element the way it does for other IR kinds (v1.1).
+   * Must not mutate `props`. Without it, an ungrounded element fails the report instead.
+   */
+  dropElement?(props: P, path: string): P
 }
 
 export interface TemplateRegistry<T extends TemplateSpec = TemplateSpec> {

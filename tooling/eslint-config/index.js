@@ -42,7 +42,8 @@ export const ALLOWED = {
 }
 
 // Public entry points: a package is imported only through these files (no deep imports).
-const ENTRY_POINTS = '{src/index.ts,src/testing/index.ts,src/flags/index.ts}'
+// `src/server/index.ts` is `@illus/llm/server`, the Node-only half of @illus/llm (ADR 0006-w2, ADR 0008).
+const ENTRY_POINTS = '{src/index.ts,src/testing/index.ts,src/flags/index.ts,src/server/index.ts}'
 
 // DOM-free packages run under plain Node (spec §4); browser globals are banned there.
 const DOM_GLOBALS = [
@@ -61,6 +62,12 @@ const DOM_GLOBALS = [
   'requestIdleCallback',
   'getComputedStyle',
 ]
+
+// Next.js 12's SWC compiles @illus sources inside apps/reader and cannot parse `satisfies` (ADR 0009).
+const NO_SATISFIES = {
+  selector: 'TSSatisfiesExpression',
+  message: 'Next 12 (SWC) cannot parse `satisfies`; use a typed identity helper (ADR 0009).',
+}
 
 const elements = [
   ...Object.entries(PACKAGES).map(([type, path]) => ({
@@ -114,7 +121,7 @@ export default tseslint.config(
         {
           patterns: [
             {
-              regex: '^@illus/(?!core/(testing|flags)$)[^/]+/.+',
+              regex: '^@illus/(?!core/(testing|flags)$|llm/server$)[^/]+/.+',
               message: 'No deep imports: import the package entry point (spec §4).',
             },
           ],
@@ -128,12 +135,17 @@ export default tseslint.config(
     },
   },
   {
+    files: ['**/src/**/*.tsx'],
+    rules: { 'no-restricted-syntax': ['error', NO_SATISFIES] },
+  },
+  {
     // Named exports only (spec §4); React components consumed by next/dynamic may use .tsx defaults.
     files: ['**/src/**/*.ts'],
     rules: {
       'no-restricted-syntax': [
         'error',
         { selector: 'ExportDefaultDeclaration', message: 'Use named exports (spec §4).' },
+        NO_SATISFIES,
       ],
     },
   },

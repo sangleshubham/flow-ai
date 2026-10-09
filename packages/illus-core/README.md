@@ -3,7 +3,7 @@
 The contracts every workstream builds against (spec §5, §9, §11–§13, §16): Zod schemas with `z.infer` types, ids, hashing, feature flags, cache keys, repository interfaces and the interfaces other workstreams implement. DOM-free; runs under plain Node.
 
 - Owner: W0 for `src/{schemas,ids,hash,flags,cache-keys,repos,testing}`; W3 owns `src/compile`, W6 `src/anim`, W10 `src/grounding` and `src/validate` (each fills its own `index.ts`, already re-exported from `src/index.ts`).
-- Contracts version: `CONTRACTS_VERSION` (1.0.0, pending Shubham's approval). Reference: [`docs/contracts.md`](../../docs/contracts.md), regenerated with `pnpm contracts`.
+- Contracts version: `CONTRACTS_VERSION` (1.1.0, approved; v1.1 changes in the changelog of docs/contracts.md and ADR 0008). Reference: [`docs/contracts.md`](../../docs/contracts.md), regenerated with `pnpm contracts`.
 - Changing a public type after the freeze needs an ADR and a version bump (§4).
 
 ## Entry points
