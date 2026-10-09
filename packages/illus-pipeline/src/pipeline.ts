@@ -501,9 +501,27 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       try {
         const res = await llm.call('animator', { prefix: ctx.prefix, body: `${ctx.body}\n<ir>${escapeText(JSON.stringify(ir))}</ir>` }, callOpts)
         note('animator', res)
-        const issues = deps.validateAnimation?.(ir, res.data, { blocks }) ?? []
+        let candidate = res.data
+        let issues = deps.validateAnimation?.(ir, candidate, { blocks }) ?? []
+        if (issues.some((issue) => issue.severity === 'error')) {
+          // §11: exactly one repair, charged/logged through the same request limiter. Revalidation
+          // uses the same block whitelist; a repair never gains evidence from later book sections.
+          progress('retrying')
+          try {
+            const fixed = await llm.call('repair', {
+              prefix: ctx.prefix,
+              body: `${ctx.body}\n<ir>${escapeText(JSON.stringify(ir))}</ir>\n<animation>${escapeText(JSON.stringify(candidate))}</animation>\n<animation_issues>${escapeText(JSON.stringify(issues))}</animation_issues>`,
+            }, { ...callOpts, schemaName: 'AnimationIR' })
+            note('repair', fixed)
+            candidate = fixed.data
+            issues = deps.validateAnimation?.(ir, candidate, { blocks }) ?? []
+          } catch (error) {
+            if (error instanceof LlmError && (error.code === 'aborted' || error.code === 'plan-limit')) throw error
+            issues = [...issues, { layer: 'animation', severity: 'error', code: 'animation-repair-failed', message: (error as Error).message }]
+          }
+        }
         if (issues.some((i) => i.severity === 'error')) report = { ...report, issues: [...report.issues, ...issues.map((i) => ({ ...i, severity: 'warning' as const }))] }
-        else animation = res.data
+        else animation = candidate
       } catch (e) {
         if (e instanceof LlmError && (e.code === 'aborted' || e.code === 'plan-limit')) throw e
         report = { ...report, issues: [...report.issues, { layer: 'animation', severity: 'warning', code: 'animation-failed', message: (e as Error).message }] }
