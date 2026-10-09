@@ -41,8 +41,14 @@
           "templateId": "stack",
           "props": {
             "items": [
-              1,
-              2
+              {
+                "id": "i1",
+                "value": 1
+              },
+              {
+                "id": "i2",
+                "value": 2
+              }
             ]
           }
         },
@@ -51,8 +57,14 @@
           "templateId": "stack",
           "props": {
             "items": [
-              1,
-              2
+              {
+                "id": "i1",
+                "value": 1
+              },
+              {
+                "id": "i2",
+                "value": 2
+              }
             ]
           },
           "evidence": [
