@@ -1,0 +1,69 @@
+{
+  "key": "7aa7d72918fcbdfb10352bfc47e0c17c681faf14c976d59b504da4209f446818",
+  "source": "handwritten",
+  "role": "extractor.mermaid",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "ErIR",
+  "data": {
+    "type": "er",
+    "title": "Message types",
+    "entities": [
+      {
+        "id": "message",
+        "label": "Message",
+        "attributes": [
+          {
+            "name": "Sender",
+            "evidence": {
+              "blockId": "c911e05c7aff3525:1:chapter-1-basics/1-1-lists-and-tables:1#b5",
+              "quote": "Message Sender Purpose RequestVote candidate"
+            }
+          },
+          {
+            "name": "Purpose",
+            "evidence": {
+              "blockId": "c911e05c7aff3525:1:chapter-1-basics/1-1-lists-and-tables:1#b5",
+              "quote": "Message Sender Purpose RequestVote candidate"
+            }
+          }
+        ],
+        "evidence": {
+          "blockId": "c911e05c7aff3525:1:chapter-1-basics/1-1-lists-and-tables:1#b4",
+          "quote": "Table 1.1 Message types"
+        }
+      },
+      {
+        "id": "server",
+        "label": "Server",
+        "attributes": [],
+        "evidence": {
+          "blockId": "c911e05c7aff3525:1:chapter-1-basics/1-1-lists-and-tables:1#b0",
+          "quote": "A server can be in three states:"
+        }
+      }
+    ],
+    "relationships": [
+      {
+        "id": "sentBy",
+        "from": "message",
+        "to": "server",
+        "fromCardinality": "zero-or-more",
+        "toCardinality": "exactly-one",
+        "label": "Sender",
+        "identifying": false,
+        "evidence": {
+          "blockId": "c911e05c7aff3525:1:chapter-1-basics/1-1-lists-and-tables:1#b5",
+          "quote": "Message Sender Purpose RequestVote candidate ask for a vote"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input": 616,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: extractor.mermaid for 1.1 Lists and Tables id=\"p1\". Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}

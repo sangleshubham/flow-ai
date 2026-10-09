@@ -1,0 +1,22 @@
+{
+  "key": "a64d8bc16c7af1c0332a6bd52c078704a065e934acd8ad7492e72e673a63e896",
+  "source": "handwritten",
+  "role": "book-summary",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6-luna",
+  "effort": "low",
+  "schemaName": "BookSummary",
+  "data": {
+    "summary": "A synthetic test book. It introduces server states (follower, candidate, leader), the RequestVote and AppendEntries messages, a binary search in Python with its loop invariant, and a formula bounding the number of search steps.",
+    "conventions": [
+      "Listings, tables and figures are numbered by chapter, e.g. Listing 1.1.",
+      "Code listings are in Python."
+    ]
+  },
+  "usage": {
+    "input": 341,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: book-summary for . Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}

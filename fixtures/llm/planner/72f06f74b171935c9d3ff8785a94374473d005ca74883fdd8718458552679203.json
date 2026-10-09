@@ -1,0 +1,30 @@
+{
+  "key": "72f06f74b171935c9d3ff8785a94374473d005ca74883fdd8718458552679203",
+  "source": "handwritten",
+  "role": "planner",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "VisualPlan",
+  "data": {
+    "sectionId": "c911e05c7aff3525:1:chapter-1-basics/1-1-lists-and-tables:1",
+    "needsVisual": true,
+    "reason": "Table 1.1 is a small data model of message types.",
+    "items": [
+      {
+        "planItemId": "p1",
+        "kind": "er",
+        "intent": "The message types of Table 1.1 with their sender and purpose",
+        "conceptIds": [],
+        "priority": 1,
+        "animate": false
+      }
+    ]
+  },
+  "usage": {
+    "input": 587,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: planner for 1.1 Lists and Tables. Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}

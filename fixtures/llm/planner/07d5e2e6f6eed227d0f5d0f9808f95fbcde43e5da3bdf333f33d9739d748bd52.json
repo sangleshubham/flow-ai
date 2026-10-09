@@ -1,0 +1,38 @@
+{
+  "key": "07d5e2e6f6eed227d0f5d0f9808f95fbcde43e5da3bdf333f33d9739d748bd52",
+  "source": "handwritten",
+  "role": "planner",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "VisualPlan",
+  "data": {
+    "sectionId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2",
+    "needsVisual": true,
+    "reason": "Heartbeats and rejected entries are messages between leader and followers over time.",
+    "items": [
+      {
+        "planItemId": "p1",
+        "kind": "sequence",
+        "intent": "Leader heartbeats to followers and followers rejecting mismatched entries",
+        "conceptIds": [],
+        "priority": 1,
+        "animate": true
+      },
+      {
+        "planItemId": "p2",
+        "kind": "timeline",
+        "intent": "Leader and follower activity when heartbeats stop",
+        "conceptIds": [],
+        "priority": 2,
+        "animate": true
+      }
+    ]
+  },
+  "usage": {
+    "input": 3894,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: planner for 3.1 An Oversized Section Without Subheadings (part 2). Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}

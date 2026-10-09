@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Section orchestrator: cache \u2192 context \u2192 plan \u2192 extract \u2192 validate \u2192 compile \u2192 critic \u2192 store, with queues and cancellation.",
+  "description": "Section orchestrator: cache → context → plan → extract → validate → compile → critic → store, with queues and cancellation.",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -12,7 +12,8 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run",
+    "fixtures:llm": "ILLUS_WRITE_FIXTURES=1 vitest run test/synthetic.e2e.test.ts"
   },
   "dependencies": {
     "@illus/concepts": "workspace:*",

@@ -1,0 +1,37 @@
+{
+  "key": "f731aee3417c4ab3dc84e58b54c7db76a66eafabe907693cc433b5f0808d04bc",
+  "source": "handwritten",
+  "role": "extractor.math",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "low",
+  "schemaName": "MathIR",
+  "data": {
+    "type": "math",
+    "sourceBlockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b1",
+    "terms": [
+      {
+        "symbol": "steps",
+        "meaning": "the number of steps of the search",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b0",
+          "quote": "The number of steps of the search in Listing 1.1 is bounded by the formula below."
+        }
+      },
+      {
+        "symbol": "n",
+        "meaning": "the number of items",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-1-formulas:1#b2",
+          "quote": "Here n is the number of items."
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input": 712,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: extractor.math for 2.1 Formulas id=\"p1\". Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}
