@@ -5,6 +5,11 @@
     "target": "es2022",
     "allowImportingTsExtensions": true
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "../../packages/illus-render/src/templates/d3-hierarchy.d.ts"
+  ],
   "exclude": ["node_modules"]
 }
