@@ -1,5 +1,5 @@
 {
-  "key": "ddf8f75e5fb93d5c10e18180c98f8eb4690d3205263b87ce6ebb2c7878cc6b91",
+  "key": "cd500ff751a9b980645a36c709b9424673da33356cf7f69234440de2c8293ae2",
   "source": "handwritten",
   "role": "planner",
   "promptVersion": "1.0.0",
@@ -32,7 +32,7 @@
     ]
   },
   "usage": {
-    "input": 847,
+    "input": 867,
     "output": 200,
     "cachedInput": 0
   },
