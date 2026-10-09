@@ -19,7 +19,7 @@ import type { Book } from '@flow/epubjs'
 import { db } from '../db'
 
 import { PROMPT_FILES } from './prompt-files'
-import { bindJob, DEFAULT_PREFERENCES, pane } from './state'
+import { bindJob, DEFAULT_PREFERENCES, evidenceAction, pane } from './state'
 import type { Preferences } from './state'
 
 // Zod's compiled fast path uses new Function; the strict production CSP forbids it.
@@ -33,7 +33,9 @@ let active: { bridge: ManagedReaderBridge; pipeline: Pipeline; concepts: Concept
 let currentJob: SectionJob | null = null
 let unbind: (() => void) | undefined
 let generation = 0
-let evidenceGeneration = 0
+// Per kind, so a step clearing its mark never cancels an in-flight evidence click.
+const evidenceGeneration = { evidence: 0, step: 0 }
+const pinnedEvidence = { evidence: false, step: false }
 let locationId: string | null = null
 let lastBook: { book: Book; bookId: string } | null = null
 let traceWorker: ReturnType<typeof createBrowserTraceWorker> | undefined
@@ -69,16 +71,22 @@ export function togglePane() {
 }
 export async function refreshUsage() {
   try {
-    const [usage, account] = await Promise.all([fetch('/api/llm/usage', { cache: 'no-store' }), fetch('/auth/chatgpt/status', { cache: 'no-store' })])
-    if (usage.ok) pane.usage = await usage.json()
+    const usage = await fetch('/api/llm/usage', { cache: 'no-store' })
+    if (!usage.ok) return
+    const body = await usage.json()
+    pane.usage = body
+    // Replay and record-free modes never talk to ChatGPT, so sign-in may be unconfigured there; asking
+    // /auth/chatgpt/status would only produce a 500 "Sign-in is not configured" page.
+    if (body.mode === 'replay') { pane.account = 'Replay mode: no ChatGPT account needed'; return }
+    const account = await fetch('/auth/chatgpt/status', { cache: 'no-store' })
     if (account.ok) {
       const status = await account.json()
       pane.account = status.email ?? status.sub ?? (status.signedIn ? 'ChatGPT account connected' : 'Reader session active; connect ChatGPT for plan usage')
-    }
+    } else pane.account = 'ChatGPT sign-in is unavailable on this server'
   } catch { /* Offline cached reading remains available. */ }
 }
 export function deactivate() {
-  generation++; evidenceGeneration++; currentJob?.cancel(); unbind?.(); unbind = undefined
+  generation++; evidenceGeneration.evidence++; evidenceGeneration.step++; pinnedEvidence.evidence = pinnedEvidence.step = false; currentJob?.cancel(); unbind?.(); unbind = undefined
   disposers.forEach((fn) => fn()); disposers = []
   active?.concepts.pause(); active?.bridge.dispose(); active = null; currentJob = null; locationId = null
 }
@@ -190,16 +198,18 @@ export function networkChanged() {
 }
 export function currentBridge() { return active?.bridge }
 export async function highlightEvidence(event: EvidenceEvent | null, click = false, kind: 'evidence' | 'step' = 'evidence') {
-  const seq = ++evidenceGeneration
+  if (evidenceAction({ hasEvent: !!event, click, autoHighlight: pane.preferences.autoHighlight, pinned: pinnedEvidence[kind] }) === 'ignore') return
+  const seq = ++evidenceGeneration[kind]
   const runtime = active
   if (!runtime) return
   runtime.bridge.clearHighlights(kind)
-  if (!event || (!click && !pane.preferences.autoHighlight)) return
+  pinnedEvidence[kind] = click && !!event
+  if (!event) return
   const block = runtime.blocks.find((b) => b.blockId === event.evidence.blockId)
   if (!block) { pane.announcement = 'Open the book for this pinned visual to show its evidence.'; return }
   let cfi = await runtime.bridge.quoteToCfi(block.blockId, event.evidence.quote)
   if (!cfi && click) { await runtime.bridge.scrollTo(block.cfiRange); cfi = await runtime.bridge.quoteToCfi(block.blockId, event.evidence.quote) }
-  if (seq !== evidenceGeneration || active !== runtime) return
+  if (seq !== evidenceGeneration[kind] || active !== runtime) return
   if (cfi) runtime.bridge.highlight(cfi, kind)
   pane.announcement = `${event.label}. Evidence: ${event.evidence.quote}${cfi ? '' : ' (passage unavailable in this view)'}`
 }

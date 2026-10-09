@@ -2,7 +2,7 @@ import { make } from '@illus/core/testing'
 import type { SectionJob, SectionJobEvent, SectionJobEvents } from '@illus/pipeline'
 import { describe, expect, it, vi } from 'vitest'
 
-import { bindJob, createPaneState } from './state'
+import { bindJob, createPaneState, evidenceAction } from './state'
 
 function jobFake() {
   const listeners = new Map<string, (value: never) => void>()
@@ -24,5 +24,15 @@ describe('pipeline subscription', () => {
     const s = createPaneState(); const fake = jobFake(); bindJob(s, fake.job, () => true, vi.fn())
     fake.emit('error', { code, message: 'Failure reason' }); expect(s.status).toBe(code === 'upstream' ? 'error' : code)
     expect(s.message).toBe('Failure reason')
+  })
+})
+describe('evidence highlight policy', () => {
+  it('keeps a clicked mark through hover and focus loss, and ignores hover when auto-highlight is off', () => {
+    expect(evidenceAction({ hasEvent: true, click: true, autoHighlight: false, pinned: false })).toBe('show')
+    expect(evidenceAction({ hasEvent: false, click: false, autoHighlight: true, pinned: true })).toBe('ignore')
+    expect(evidenceAction({ hasEvent: false, click: false, autoHighlight: true, pinned: false })).toBe('clear')
+    expect(evidenceAction({ hasEvent: true, click: false, autoHighlight: true, pinned: true })).toBe('show')
+    expect(evidenceAction({ hasEvent: true, click: false, autoHighlight: false, pinned: false })).toBe('ignore')
+    expect(evidenceAction({ hasEvent: false, click: false, autoHighlight: false, pinned: false })).toBe('ignore')
   })
 })
