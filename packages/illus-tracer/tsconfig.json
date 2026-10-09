@@ -6,6 +6,7 @@
   "include": [
     "src",
     "test",
-    "*.ts"
+    "*.ts",
+    "../illus-render/src/templates/d3-hierarchy.d.ts"
   ]
 }
