@@ -7,6 +7,7 @@ export type { LexicalHit, LexicalIndex, LexicalSearchOptions } from './lexical.t
 export {
   INDEX_VERSION,
   normalizeText,
+  normalizeCodeText,
   foldForMatch,
   estimateTokens,
   parseHeadingNumber,
