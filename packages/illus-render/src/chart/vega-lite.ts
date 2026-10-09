@@ -53,7 +53,7 @@ export function toVegaLite(ir: ChartIR, t: ThemeTokens): Record<string, unknown>
     x: { field: 'x', type: 'quantitative', title: ir.xLabel, scale: { domain: [...ir.domain], nice: false } },
     y: { field: 'y', type: 'quantitative', title: ir.yLabel, ...(ir.logY ? { scale: { type: 'log' } } : {}) },
     color: { field: 'series', type: 'nominal', title: null, scale: { domain: names, range: palette.slice(0, names.length) } },
-    strokeDash: { field: 'series', type: 'nominal', legend: null, scale: { domain: names, range: DASHES.slice(0, names.length) } },
+    strokeDash: { field: 'series', type: 'nominal', title: null, scale: { domain: names, range: DASHES.slice(0, names.length) } },
     description: { field: 'sid', type: 'nominal' },
   }
   return {
