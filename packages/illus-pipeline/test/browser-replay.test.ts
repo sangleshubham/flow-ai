@@ -16,9 +16,10 @@ const directory = join(ROOT, 'fixtures/llm')
 const promptFiles = Object.fromEntries(readdirSync(join(ROOT, 'docs/prompts')).filter((file) => file.endsWith('.md')).map((file) => [file, readFileSync(join(ROOT, 'docs/prompts', file), 'utf8')]))
 const prompts = createPromptRegistry(promptFiles)
 
-function loadBrowserFixtures(): Fixture[] {
-  return BROWSER_ROLES.flatMap((role) => readdirSync(join(directory, role)).filter((file) => file.endsWith('.json')).map((file) => Fixture.parse(JSON.parse(readFileSync(join(directory, role, file), 'utf8'))))).filter(isBrowserFixture)
+function loadFixtures(): Fixture[] {
+  return BROWSER_ROLES.flatMap((role) => readdirSync(join(directory, role)).filter((file) => file.endsWith('.json')).map((file) => Fixture.parse(JSON.parse(readFileSync(join(directory, role, file), 'utf8')))))
 }
+const loadBrowserFixtures = () => loadFixtures().filter(isBrowserFixture)
 
 test('captured browser contexts replay by their exact hashes and ground only in their supplied synthetic blocks', async () => {
   const book = await indexSyntheticBook()
@@ -29,16 +30,27 @@ test('captured browser contexts replay by their exact hashes and ground only in 
     const captured = raw.map((request: unknown) => LlmRequest.parse(request)).filter((request) => (BROWSER_ROLES as readonly RoleName[]).includes(request.role))
     expect(captured.length).toBeGreaterThan(0)
     const fixtures: Fixture[] = []
+    const existing = new Map(loadFixtures().map((fixture) => [fixture.key, fixture]))
     for (const request of captured) {
       const route = resolveRoute(DEFAULT_MODELS, request.role, request.escalate).chain[0]!
-      fixtures.push({
+      const authored: Fixture = {
         key: await fixtureKey({ ...request, model: route.model }), source: 'handwritten',
         role: request.role, promptVersion: request.promptVersion, model: route.model, effort: route.effort,
         schemaName: request.schemaName, ...(request.templateId && { templateId: request.templateId }),
         prefix: request.prefix, body: request.body, data: SCHEMAS[request.schemaName].parse(browserAnswer(book, request)),
         usage: { input: Math.ceil((request.prefix.length + request.body.length) / 4), output: 200, cachedInput: 0 },
         note: `synthetic.epub browser: ${request.role}; exact captured context, handwritten answer from browser-calls.ts.`,
-      })
+      }
+      const shared = existing.get(authored.key)
+      if (shared && !isBrowserFixture(shared)) {
+        // A captured context can share the completed-pass profile's exact key. Reuse that artifact
+        // only after validating its schema/data and replaying the actual captured request.
+        expect(shared).toMatchObject({ role: authored.role, promptVersion: authored.promptVersion, model: authored.model, effort: authored.effort, schemaName: authored.schemaName })
+        expect(SCHEMAS[shared.schemaName].parse(shared.data)).toEqual(authored.data)
+        const store = await memoryFixtures([shared])
+        const client = createLlmClient({ transport: replayTransport({ fixtures: store, models: DEFAULT_MODELS }), prompts })
+        expect((await client.call(request.role, { prefix: request.prefix, body: request.body }, { schemaName: request.schemaName as never, ...(request.templateId && { templateId: request.templateId }), ...(request.escalate && { escalate: true }) })).data).toEqual(authored.data)
+      } else fixtures.push(authored)
     }
     // Extend the profile across capture stages; only explicitly regenerated keys are replaced.
     const merged = new Map(loadBrowserFixtures().map((fixture) => [fixture.key, fixture]))
