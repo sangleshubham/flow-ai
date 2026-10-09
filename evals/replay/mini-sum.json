@@ -1,0 +1,119 @@
+{
+  "caseId": "mini-sum",
+  "source": "handwritten",
+  "blocks": [
+    {
+      "blockId": "e7a1e7a1e7a1e7a1:2:3-summing-a-list:0#b0",
+      "kind": "paragraph",
+      "text": "The function in Listing 3.1 adds up the numbers in a list with a running total."
+    },
+    {
+      "blockId": "e7a1e7a1e7a1e7a1:2:3-summing-a-list:0#b1",
+      "kind": "code",
+      "text": "def total(xs):\n    s = 0\n    for x in xs:\n        s += x\n    return s"
+    },
+    {
+      "blockId": "e7a1e7a1e7a1e7a1:2:3-summing-a-list:0#b2",
+      "kind": "paragraph",
+      "text": "Calling total([2, 4, 6]) returns 12."
+    }
+  ],
+  "planAttempts": [
+    {
+      "sectionId": "e7a1e7a1e7a1e7a1:2:3-summing-a-list:0",
+      "needsVisual": true,
+      "reason": "The section explains a structure or process.",
+      "items": [
+        {
+          "planItemId": "p1",
+          "conceptIds": [],
+          "priority": 1,
+          "animate": true,
+          "kind": "trace",
+          "codeBlockId": "e7a1e7a1e7a1e7a1:2:3-summing-a-list:0#b1",
+          "intent": "Trace the running total over a list"
+        }
+      ]
+    }
+  ],
+  "visuals": [
+    {
+      "planItemId": "p1",
+      "kind": "trace",
+      "attempts": [
+        {
+          "traceable": true,
+          "python": "def total(xs):\n    s = 0\n    for x in xs:\n        s += x\n    return s",
+          "scenarios": [
+            {
+              "label": "example",
+              "entry": "total([2, 4, 6])"
+            }
+          ],
+          "inputRationale": "Small input that exercises the loop.",
+          "lineMap": [
+            {
+              "py": 1,
+              "orig": [
+                1
+              ]
+            },
+            {
+              "py": 2,
+              "orig": [
+                2
+              ]
+            },
+            {
+              "py": 3,
+              "orig": [
+                3
+              ]
+            },
+            {
+              "py": 4,
+              "orig": [
+                4
+              ]
+            },
+            {
+              "py": 5,
+              "orig": [
+                5
+              ]
+            }
+          ],
+          "focusFunctions": [
+            "total"
+          ],
+          "vizHints": [],
+          "assumptions": []
+        }
+      ],
+      "trace": {
+        "mode": "executed",
+        "returnValue": "12"
+      }
+    }
+  ],
+  "calls": [
+    {
+      "role": "planner",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 1500,
+      "outputTokens": 130,
+      "latencyMs": 2500
+    },
+    {
+      "role": "translator",
+      "model": "gpt-6.1-sol",
+      "effort": "high",
+      "inputTokens": 2100,
+      "outputTokens": 600,
+      "latencyMs": 8200
+    }
+  ],
+  "path": "trace",
+  "latencyMs": 13300
+}

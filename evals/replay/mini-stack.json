@@ -1,0 +1,123 @@
+{
+  "caseId": "mini-stack",
+  "source": "handwritten",
+  "blocks": [
+    {
+      "blockId": "e7a1e7a1e7a1e7a1:0:1-stacks:0#b0",
+      "kind": "paragraph",
+      "text": "A stack keeps its items in last-in, first-out order. The push operation places an item on top of the stack, and the pop operation removes the item that is currently on top."
+    },
+    {
+      "blockId": "e7a1e7a1e7a1e7a1:0:1-stacks:0#b1",
+      "kind": "paragraph",
+      "text": "Start with an empty stack and push 1, then 2, then 3. One pop removes 3, so the stack now holds 1 and 2, with 2 on top."
+    }
+  ],
+  "planAttempts": [
+    {
+      "sectionId": "e7a1e7a1e7a1e7a1:0:1-stacks:0",
+      "needsVisual": true,
+      "reason": "The section explains a structure or process.",
+      "items": [
+        {
+          "planItemId": "p1",
+          "conceptIds": [],
+          "priority": 1,
+          "animate": true,
+          "kind": "template",
+          "templateId": "stack",
+          "intent": "Show the stack after three pushes and one pop"
+        }
+      ]
+    }
+  ],
+  "visuals": [
+    {
+      "planItemId": "p1",
+      "kind": "template",
+      "attempts": [
+        {
+          "type": "template",
+          "templateId": "stack",
+          "props": {
+            "items": [
+              1,
+              2
+            ]
+          }
+        },
+        {
+          "type": "template",
+          "templateId": "stack",
+          "props": {
+            "items": [
+              1,
+              2
+            ]
+          },
+          "evidence": [
+            {
+              "path": "items",
+              "evidence": {
+                "blockId": "e7a1e7a1e7a1e7a1:0:1-stacks:0#b1",
+                "quote": "the stack now holds 1 and 2, with 2 on top"
+              }
+            },
+            {
+              "path": "items.1",
+              "evidence": {
+                "blockId": "e7a1e7a1e7a1e7a1:0:1-stacks:0#b1",
+                "quote": "with 2 on top"
+              }
+            }
+          ]
+        }
+      ],
+      "critic": {
+        "pass": true,
+        "scores": {
+          "legibility": 4,
+          "intentMatch": 4,
+          "clutter": 4
+        },
+        "issues": []
+      }
+    }
+  ],
+  "calls": [
+    {
+      "role": "planner",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 1500,
+      "outputTokens": 140,
+      "latencyMs": 2600
+    },
+    {
+      "role": "extractor.template",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 2900,
+      "outputTokens": 400,
+      "latencyMs": 4100
+    },
+    {
+      "role": "extractor.template",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 3300,
+      "outputTokens": 420,
+      "latencyMs": 4300
+    },
+    {
+      "role": "critic",
+      "model": "gpt-6.1-sol",
+      "effort": "low",
+      "inputTokens": 1800,
+      "outputTokens": 120,
+      "latencyMs": 2400
+    }
+  ],
+  "path": "animated",
+  "latencyMs": 15800
+}

@@ -1,0 +1,19 @@
+{
+  "id": "sb-5-2-commit",
+  "category": "algorithmic",
+  "bookRef": "small-book",
+  "sectionId": "0123456789abcdef:2:5-log-replication/5-2-committing-entries:2",
+  "title": "5.2 Committing Entries",
+  "expected": {
+    "needsVisual": true,
+    "acceptableKinds": [
+      "trace",
+      "template",
+      "math"
+    ],
+    "mustInclude": [],
+    "mustNotInclude": []
+  },
+  "notes": "Go method with no return value; trace checks execution only.",
+  "source": "golden"
+}
