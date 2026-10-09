@@ -17,7 +17,7 @@ Findings about the Flow fork that every later workstream needs before touching `
 | Docker build | Three-stage `node:18-alpine` build with `turbo prune`. **Expected to fail today** (unpinned `turbo` 2.x versus `--scope` and the `pipeline` key) and it never copies `public/`. |
 | CSP (§17) | Flow and epub.js render under the §17 policy, but four exceptions are needed (`blob:` for EPUB stylesheets and for cover extraction, fonts, media), plus moving two inline scripts. Tested in Chrome; see [ADR 0001](adr/0001-csp-exceptions.md). |
 
-Other blocking findings: `main` did not build (fixed by W0, below); Flow sets `allowScriptedContent: true`; Next.js 12.3.4 has critical advisories that affect a middleware-based auth gate ([ADR 0005](adr/0005-nextjs-12-security.md)); Flow's production Sentry config sends errors to the upstream author's Sentry project.
+Other blocking findings: `main` did not build (fixed by W0, below); Flow sets `allowScriptedContent: true`; Next.js 12.3.4 has critical advisories that affect a middleware-based auth gate ([ADR 0005](adr/0005-nextjs-12-security.md), accepted: 12.3.7 by W11, Tailscale-only); Flow's production Sentry config sends errors to the upstream author's Sentry project (Sentry, Dropbox sync and remote-URL import are removed by W11 in wave 2, §12).
 
 ## 1. Pane and grid system
 
@@ -132,6 +132,19 @@ With those exceptions (the "amended" policy in [ADR 0001](adr/0001-csp-exception
 
 - Flow's own toolchain is old: TypeScript 4.6.3, ESLint 8.13 with `eslint-config-next` 12, Prettier 2.6, turbo 1.11.3, React 18.0.0 with `@types/react` 17. `apps/reader` has no `typecheck` script; `next build` type-checks it. `tsc` on `apps/reader` is clean with TS 4.6 and reports 3 new errors with TS 5.9 (`Layout.tsx:19`, `Theme.tsx:4` type-only imports under `isolatedModules`; `ImageView.tsx:10` deep instantiation).
 - `@illus/*` packages use their own pinned TypeScript 5.9.3, ESLint 10 and Vitest 4 (`tsconfig.illus.json`, `tooling/eslint-config`); Flow keeps its versions ([ADR 0002](adr/0002-package-boundaries-and-toolchain.md)).
-- **When W9 wires `@illus/*` into `apps/reader`**, Next's type check runs Flow's root TypeScript 4.6 over `@illus` source, and Zod 4 needs TS ≥ 5.5. W9 must raise the root `typescript` to 5.9.3, fix the 3 errors above, add `"allowImportingTsExtensions": true` to `apps/reader/tsconfig.json` (the `@illus` sources import with `.ts` extensions; `noEmit` is already set), and add the packages to `next-transpile-modules`. Packages declare `main`/`types` as `./src/index.ts`, so Flow's `moduleResolution: node` resolves them without `exports` support. React components in `@illus/render` and `@illus/anim` need `@types/react` 18 in `apps/reader`.
+- **Done by W0 after wave 1** ([ADR 0009](adr/0009-reader-build-on-typescript-5.md), was planned for W9): root and `apps/reader` TypeScript are 5.9.3; `apps/reader/tsconfig.json` sets `allowImportingTsExtensions` and `target: es2022`; `apps/reader` uses `@types/react` 18.3.31, `@types/react-dom` 18.3.7 and `@types/node` 24.13.6; Flow's type errors under TS 5.9 and React 18 types are fixed; `apps/reader` has a `typecheck` script in the turbo gate and CI runs `next build`. Packages still have to be added to `next-transpile-modules` when the app imports them. Next 12's SWC cannot parse `satisfies` (or other TS ≥ 4.9 syntax) in `@illus` sources; lint bans `satisfies`. Packages declare `main`/`types` as `./src/index.ts`, so Flow's `moduleResolution: node` resolves them without `exports` support. React components in `@illus/render` and `@illus/anim` need `@types/react` 18 in `apps/reader`.
 - The husky pre-commit hook (`.husky/pre-commit`, lint-staged) is not executable in this checkout, so it does not run. lint-staged's ESLint 8 step is scoped to Flow paths so it never lints `@illus` code with the wrong config.
 - `@flow/epubjs`'s Karma suite (needs Chrome) is now `pnpm --filter @flow/epubjs test:karma`; it was renamed so `turbo run test` does not try to start Karma.
+
+## 12. Flow features to remove (decided after wave 1)
+
+Shubham's decision (2026-10-09): the deployment is single-user and Tailscale-only, so Flow's cloud features go. **W11 removes them in wave 2**; W0 only records the decision. Removing them shrinks the CSP `connect-src` (no Dropbox or Sentry origins, no arbitrary remote fetch) and stops third-party data flows.
+
+| Feature | Code to remove (paths at `main` after wave 1) | Why |
+| --- | --- | --- |
+| Dropbox sync | `apps/reader/src/sync.ts`, `apps/reader/src/hooks/remote/` (`useRemote.ts`, `useSync.ts`), `apps/reader/src/dropbox.d.ts`, `apps/reader/src/pages/api/callback/[provider].ts`, `apps/reader/src/pages/api/refresh.ts`, `apps/reader/src/pages/api/utils.ts`, the sync part of `apps/reader/src/components/pages/settings.tsx`, the `dropbox` dependency, `NEXT_PUBLIC_DROPBOX_CLIENT_ID` / `DROPBOX_CLIENT_SECRET` in `apps/reader/.env.local.example` | Sends reading data to Dropbox; needs `api.dropboxapi.com` / `content.dropboxapi.com` in `connect-src` (§10 above) |
+| Remote-URL import | `fetchBook` in `apps/reader/src/file.ts:89` and its callers in `apps/reader/src/pages/index.tsx` (`?url=` query on load and the "import from URL" field) | Fetches arbitrary origins (needs a wide `connect-src`) and lets a crafted link load a book |
+| Sentry | `apps/reader/sentry.client.config.js`, `apps/reader/sentry.server.config.js`, `apps/reader/sentry.properties`, `withSentryConfig` in `apps/reader/next.config.js`, `ErrorBoundary` from `@sentry/nextjs` in `apps/reader/src/pages/_app.tsx`, `apps/reader/src/pages/_error.js`, the `@sentry/nextjs` dependency | Falls back to the upstream author's DSN (`o955619.ingest.sentry.io`, §8 above); errors would leave the machine |
+
+Until W11 lands, the strict CSP blocks the Dropbox calls (harmless) and production builds still include the Sentry plugin.
+
