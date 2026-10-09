@@ -220,3 +220,31 @@ describe('schema limits from the spec', () => {
     expect(criticPasses(make.criticReport({ issues: [{ kind: 'mislabel', note: 'x' }] }))).toBe(false)
   })
 })
+
+describe('contracts v1.1 amendments (ADR 0008)', () => {
+  it('reports version 1.1.0', () => {
+    expect(core.CONTRACTS_VERSION).toBe('1.1.0')
+  })
+
+  it('stores null or the IR as VisualRecord.spec, with the layout beside it', () => {
+    const ir = make.graphIR()
+    expect(core.VisualRecord.parse(make.visualRecord({ spec: null })).spec).toBeNull()
+    expect(core.VisualRecord.parse(make.visualRecord({ spec: ir, layout: { nodes: {} } })).spec).toEqual(ir)
+  })
+
+  it('lets a template drop one element by evidence path without mutating its props', () => {
+    const props = z.object({ items: z.array(z.number()) })
+    const spec: core.TemplateSpec<z.infer<typeof props>> = {
+      id: 'array',
+      description: 'array',
+      whenToUse: 'arrays',
+      propsSchema: props,
+      example: { items: [1, 2, 3] },
+      supportedActions: ['highlight'],
+      dropElement: (p, path) => ({ items: p.items.filter((_, i) => `items.${i}` !== path) }),
+    }
+    const before = { items: [1, 2, 3] }
+    expect(spec.dropElement?.(before, 'items.1')).toEqual({ items: [1, 3] })
+    expect(before.items).toEqual([1, 2, 3])
+  })
+})

@@ -550,7 +550,7 @@ export const make = {
       planItemId: 'p1',
       kind: 'graph',
       ir: make.graphIR(),
-      spec: { compiled: 'elk' },
+      spec: null,
       animation: make.animationIR(),
       validation: make.validationReport(),
       critic: make.criticReport(),

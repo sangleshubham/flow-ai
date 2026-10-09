@@ -6,7 +6,8 @@ Test inputs for every workstream (spec §18). CI never calls a live model; every
 | --- | --- | --- |
 | `books/synthetic.epub` | W0 | Generated EPUB 3 covering the §18 edge cases (below) |
 | `books/private/` | Shubham | Your own books for local evals. **Git-ignored; never commit.** |
-| `scripts/make-synthetic-epub.ts` | W0 | Builds `books/synthetic.epub` (`pnpm fixtures:epub`) |
+| `books/eval/eval-mini.epub` | W0 | EPUB of the `eval-mini` sections W10 wrote for the eval harness (`evals/src/books/eval-mini.ts`) |
+| `scripts/` | W0 | Workspace package `@illus/fixture-scripts`: `make-synthetic-epub.ts`, `make-eval-mini-epub.ts` (both run by `pnpm fixtures:epub`), the shared `zip-epub.ts`, and `test/eval-mini.test.ts` (in the gate) |
 | `llm/<role>/` | the role's owner (CLAUDE.md) | Recorded or hand-written LLM responses (hand-written ones carry `"source": "handwritten"`) |
 | `traces/` | W7 | Raw and compressed traces |
 
@@ -16,6 +17,7 @@ Test inputs for every workstream (spec §18). CI never calls a live model; every
 | --- | --- | --- | --- |
 | `books/synthetic.epub` | Written for this repo by `scripts/make-synthetic-epub.ts` | CC0 1.0 | 2026-10-09 |
 | `@illus/core/testing` small book (`SMALL_BOOK_BLOCKS`) | Written for this repo | CC0 1.0 | 2026-10-09 |
+| `books/eval/eval-mini.epub` | Built from `evals/src/books/eval-mini.ts`, original text written for this repo by W10 (no book text) | CC0 1.0 | 2026-10-09 |
 
 Third-party books suggested by spec §18 are **not committed yet**; whoever adds one records it here after checking its licence:
 
@@ -54,3 +56,10 @@ Regenerate with `pnpm fixtures:epub`; the output is byte-identical for the same 
 | **Scripted content** (manifest `properties="scripted"`; must never run, §17) | `ch04.xhtml` |
 | Linked stylesheet and an image resource (epub.js turns them into `blob:` URLs; CSP check) | `style.css`, `images/pixel.png` |
 | EPUB 3 nav document plus an EPUB 2 NCX | `nav.xhtml`, `toc.ncx` |
+
+## `eval/eval-mini.epub`
+
+Four short sections (stack, binary search tree, a Python listing, a job state machine) for golden-case categories the synthetic book lacks. One spine item per section, a single `h1` each, paragraphs and one `pre > code.language-python`. It sits in `books/eval/` so `@illus/book-index`'s per-book snapshot test, which reads only `books/*.epub`, does not pick it up.
+
+`test/eval-mini.test.ts` checks that the committed file matches its builder and that `@illus/book-index`, given `EVAL_MINI_BOOK_ID`, yields exactly the section ids, titles, block ids, kinds and texts of `evals/src/books/eval-mini.ts`. One known difference: the indexer collapses whitespace in code blocks (§5, §6 step 9), so the listing loses its line breaks; see the open question in [ADR 0008](../docs/adr/0008-contracts-v1-1.md).
+

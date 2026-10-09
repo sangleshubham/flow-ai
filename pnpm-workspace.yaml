@@ -3,9 +3,15 @@ packages:
   - "packages/*"
   - "tooling/*"
   - "evals"
+  - "fixtures/scripts"
 
 # Supply chain (spec §2, §17): never resolve a version published less than 14 days ago.
 minimumReleaseAge: 20160
+
+# Flow's ESLint 8 stack: eslint-config-next 12 pins @typescript-eslint/parser 5.10.1, which drops decorators
+# parsed by TypeScript 5 (false no-unused-vars). 5.62.0 is the last v5 release (ADR 0009).
+overrides:
+  "@typescript-eslint/parser@<6": 5.62.0
 
 # Inherited Flow advisories (high/critical) accepted as a baseline on 2026-10-09 so that CI fails only on NEW
 # ones (ADR 0004). None comes from an @illus package. Shrink this list as Flow dependencies are upgraded.

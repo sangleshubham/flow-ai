@@ -29,6 +29,11 @@ const cases = [
   ['illus-core', 'export const w = document.title\n', 'no-restricted-globals'],
   ['illus-context', 'export const w = window.innerWidth\n', 'no-restricted-globals'],
   ['illus-core', 'export default 1\n', 'no-restricted-syntax'],
+  ['illus-core', 'export const x = { a: 1 } satisfies object\n', 'no-restricted-syntax'],
+  ['illus-pipeline', "import { createIllusServer } from '@illus/llm/server'\nexport const x = createIllusServer\n", null],
+  ['illus-pipeline', "import * as s from '../../illus-llm/src/server/index.ts'\nexport const x = s\n", null],
+  ['illus-pipeline', "import * as s from '@illus/llm/src/server/gateway.ts'\nexport const x = s\n", 'no-restricted-imports'],
+  ['illus-pipeline', "import * as s from '../../illus-llm/src/server/gateway.ts'\nexport const x = s\n", 'boundaries/dependencies'],
 ]
 
 for (const [pkg, code, rule] of cases) {

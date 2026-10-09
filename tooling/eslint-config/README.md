@@ -7,9 +7,10 @@ Shared ESLint 10 flat config for every `@illus/*` package (owner: W0). Flow's ow
 - `typescript-eslint` recommended rules, `consistent-type-imports`.
 - **Package boundaries** (spec §4, ADR 0002) with `eslint-plugin-boundaries`:
   - the dependency matrix `ALLOWED` in `index.js` (`core` imports nothing; `render` only `core`; nothing imports `apps/*`; …);
-  - cross-package imports must land on a public entry point (`src/index.ts`, plus `src/testing/index.ts` and `src/flags/index.ts` of core);
+  - cross-package imports must land on a public entry point (`src/index.ts`, plus `src/testing/index.ts` and `src/flags/index.ts` of core, and `src/server/index.ts` of llm = `@illus/llm/server`, ADR 0008);
   - `no-restricted-imports` bans package-specifier deep imports such as `@illus/core/src/ids`.
 - Named exports only in `src/**/*.ts`.
+- No `satisfies` in `src/**/*.{ts,tsx}`: Next 12's SWC compiles these sources inside `apps/reader` and cannot parse it (ADR 0009).
 - `domFree`: bans browser globals (`window`, `document`, `indexedDB`, …) in `@illus/core` and `@illus/context`.
 
 ## Use

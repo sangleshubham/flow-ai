@@ -9,6 +9,9 @@ import { RecoilRoot } from 'recoil'
 
 import { Layout, Theme } from '../components'
 
+// @literal-ui/core types predate @types/react 18, which dropped implicit `children` from React.FC.
+const Provider = LiteralProvider as React.FC<React.PropsWithChildren>
+
 export default function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter()
 
@@ -16,14 +19,14 @@ export default function MyApp({ Component, pageProps }: AppProps) {
 
   return (
     <ErrorBoundary fallback={<Fallback />}>
-      <LiteralProvider>
+      <Provider>
         <RecoilRoot>
           <Theme />
           <Layout>
             <Component {...pageProps} />
           </Layout>
         </RecoilRoot>
-      </LiteralProvider>
+      </Provider>
     </ErrorBoundary>
   )
 }
