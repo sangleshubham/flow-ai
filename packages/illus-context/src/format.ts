@@ -35,9 +35,14 @@ export function attrs(pairs: [string, string | number | boolean | undefined][]):
     .join('')
 }
 
-/** `<block id="…" kind="…" label="…" lang="…">text</block>`. `extra` attributes come after `id`. */
+/**
+ * `<block id="…" kind="…" label="…" lang="…" alt="…">text</block>`. `extra` attributes come after `id`.
+ * A caption-less figure has empty `text` (ADR 0025); its `figure.alt` goes in an attribute so the model sees it
+ * but cannot quote it as evidence (alt text is not in the CFI range, so it would never ground).
+ */
 export function renderBlock(block: Block, extra: [string, string | undefined][] = [], text: string = block.text): string {
-  return `<block${attrs([['id', block.blockId], ...extra, ['kind', block.kind], ['label', block.label], ['lang', block.code?.langHint]])}>${escapeText(text)}</block>`
+  const alt = block.text ? undefined : block.figure?.alt
+  return `<block${attrs([['id', block.blockId], ...extra, ['kind', block.kind], ['label', block.label], ['lang', block.code?.langHint], ['alt', alt]])}>${escapeText(text)}</block>`
 }
 
 /** Heading path as shown in the `path` attribute: 'Ch 5 › 5.3 Log Replication'. */
