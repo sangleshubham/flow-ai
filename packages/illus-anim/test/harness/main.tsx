@@ -12,7 +12,8 @@ import {
   graphAnimation,
 } from '../golden.ts'
 
-const kind = new URLSearchParams(location.search).get('kind')
+const params = new URLSearchParams(location.search)
+const kind = params.get('kind')
 const ir =
     kind === 'graph' ? graphIR : kind === 'sequence' ? sequenceIR : arrayIR,
   animation =
@@ -25,6 +26,13 @@ const frames = buildFrames(ir, animation, { templates: templateRegistry })
 createRoot(document.getElementById('root')!).render(
   <Player
     frames={frames}
+    reducedMotion={
+      params.get('motion') === 'on'
+        ? true
+        : params.get('motion') === 'off'
+        ? false
+        : undefined
+    }
     renderFrame={(frame) => (
       <VisualView
         spec={{ ir }}

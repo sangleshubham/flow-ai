@@ -12,7 +12,8 @@ The reader is single-user and self-hosted (spec D6). It runs on your laptop, or 
 | `ILLUS_PUBLIC_URL` | always | Laptop: `http://127.0.0.1:<port>` (OpenAI accepts only this form). VPS: its HTTPS tailnet URL, for example `https://reader.<tailnet>.ts.net`. |
 | `ILLUS_DATA_DIR` | always | Token store and usage log. `/data` in Docker (a volume). |
 | `ILLUS_LOGIN_PASSWORD` | VPS | Password for the login page, at least 16 characters: `openssl rand -base64 24`. Never reuse a password. Empty disables password login. |
-| `ILLUS_LLM_MODE` | always | `live` to call the model; `replay` (the default) only serves recorded fixtures. |
+| `ILLUS_LLM_MODE` | always | `replay` (the default) serves fixtures; `live` calls the model; `record` calls the model and saves responses. |
+| `ILLUS_FIXTURES_DIR` | replay/record containers | Absolute container path. Compose defaults to `/fixtures/llm`, mounted read-only from `./fixtures/llm`. Recording needs a writable path, for example `/data/fixtures/llm`. |
 | `ILLUS_MAX_REQUESTS_5H`, `ILLUS_MAX_REQUESTS_DAY` | optional | Local soft caps, default 100 and 300. |
 | `ILLUS_MODELS_JSON`, `ILLUS_CHATGPT_CLIENT_ID`, `ILLUS_LLM_PROVIDER`, `ILLUS_OPENAI_API_KEY` | optional | See spec §9 and ADR 0007. |
 | `ILLUS_AUTH_GATE` | dev only | `off` skips the login gate under `pnpm dev`. Production builds ignore it. |
@@ -47,7 +48,15 @@ cp apps/reader/.env.local.example .env       # fill in; set ILLUS_LLM_MODE=live 
 docker compose up -d --build
 ```
 
-The container listens on `127.0.0.1:3000` only. Its data lives in the `illus-data` volume.
+The container listens on `127.0.0.1:3000` only. Its data lives in the `illus-data` volume. Compose mounts the repository's `fixtures/llm` directory read-only at `/fixtures/llm` and sets `ILLUS_FIXTURES_DIR` explicitly. The standalone server has no workspace manifest to discover fixtures from ([ADR 0031](adr/0031-w2-replay-fixture-resolution.md)); a direct `docker run` in replay mode must supply the same mount and environment variable. Live mode does not read fixtures.
+
+Recording is an explicit choice that makes live model calls. To use it, set `ILLUS_LLM_MODE=record` and `ILLUS_FIXTURES_DIR=/data/fixtures/llm` in `.env`, then recreate the container with `docker compose up -d`. The server creates the directory as the unprivileged `node` user on the first recorded response. Keep the original read-only fixture mount for reference; it is never written. To replay recordings later, keep `/data/fixtures/llm` and change only `ILLUS_LLM_MODE` to `replay`. Treat recordings as private book data and include them in the data-volume backup, rather than committing them.
+
+## Self-hosted tracing assets
+
+The reader's `prebuild` and `predev` hooks invoke `@illus/tracer`'s `build:assets`. This creates `/pyodide/` plus `/illus-trace-worker.mjs`, `/illus-comlink.mjs` and `/illus-tracer.py` in `apps/reader/public`; generated files stay out of git. Docker installs the reader's workspace dependency graph, runs the same build, checks the worker and required Pyodide files exist, then copies the complete public directory into the standalone image. No CDN is used at runtime.
+
+The worker response has a separate CSP: only same-origin script and asset loads plus WebAssembly compilation are allowed, with child workers disabled. Trusted bootstrap loads Pyodide and the trace runtime before W7 disables networking and Python bridge access. The CSP permits same-origin bootstrap reads; the runtime lockdown is what prevents executed code from making those reads afterward. App and HTML sandbox policies stay separate ([ADR 0038](adr/0038-w11-tracer-assets.md)). After upgrading, reload the reader so its PWA installs the matching worker and Pyodide assets.
 
 ## VPS over Tailscale only
 

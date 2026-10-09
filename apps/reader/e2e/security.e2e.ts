@@ -102,6 +102,19 @@ test.describe('headers', () => {
     const h = (await request.get('/illus-sandbox.html')).headers()
     expect(h['content-security-policy']).toBe("default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:")
   })
+
+  test('self-hosted trace assets are served with a separate worker bootstrap CSP', async ({ request }) => {
+    const worker = await request.get('/illus-trace-worker.mjs')
+    expect(worker.status()).toBe(200)
+    expect(worker.headers()['content-security-policy']).toBe("default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
+    expect(worker.headers()['content-type']).toMatch(/javascript/)
+    expect(worker.headers()['x-content-type-options']).toBe('nosniff')
+    for (const path of ['/illus-comlink.mjs', '/illus-tracer.py', '/pyodide/pyodide.mjs', '/pyodide/pyodide.asm.wasm', '/pyodide/python_stdlib.zip']) {
+      const asset = await request.get(path)
+      expect(asset.status(), path).toBe(200)
+      expect(asset.headers()['content-security-policy'], path).toContain("script-src 'self' 'wasm-unsafe-eval';")
+    }
+  })
 })
 
 test('epub.js renders a chapter under the CSP with no unexpected violations', async ({ context, page }) => {
@@ -121,6 +134,29 @@ test('epub.js renders a chapter under the CSP with no unexpected violations', as
 
   await page.evaluate(() => (window as any).reader.focusedBookTab.rendition.display('ch01.xhtml'))
   await expect(book.locator('h1')).toHaveText('Chapter 1 Basics')
+  expect(violations).toEqual([])
+})
+
+test('the trace worker boots local Pyodide and runs Python under production CSP', async ({ page }) => {
+  test.setTimeout(90_000)
+  const violations: string[] = []
+  page.on('console', (message) => {
+    if (message.type() === 'error' && /Content Security Policy/i.test(message.text())) violations.push(message.text())
+  })
+  await page.goto('/login')
+  const raw = await page.evaluate(async (comlinkUrl) => {
+    const { wrap } = await import(comlinkUrl)
+    const worker = new Worker('/illus-trace-worker.mjs', { type: 'module' })
+    try {
+      const api = wrap(worker)
+      await api.ready()
+      return await api.run('def f():\n  return 42', 'f()', ['f'])
+    } finally {
+      worker.terminate()
+    }
+  }, '/illus-comlink.mjs')
+  expect(raw.error).toBeUndefined()
+  expect(raw.steps.length).toBeGreaterThan(0)
   expect(violations).toEqual([])
 })
 

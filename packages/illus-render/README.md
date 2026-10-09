@@ -8,7 +8,26 @@ React renderers for every visual kind (spec §10), the shared chrome and theme t
 
 ## Public API
 
-Everything public is exported from `src/index.ts`.
+The renderer API is exported from `src/index.ts`. The public `@illus/render/templates` subpath
+exports the existing W5 template registry, docs, examples and types without loading the visual
+dispatcher, Vega, Mermaid or the layout worker. Its physical `templates.ts` shim also supports
+Flow's `moduleResolution: node`.
+
+Server validation can register the schema capability statically:
+
+```ts
+import { templateRegistry } from '@illus/render/templates'
+
+const templates = templateRegistry
+const template = templates.getTemplate('array')!
+const props = template.propsSchema.parse(modelOutput.props)
+const violations = template.checkInvariants?.(props) ?? []
+```
+
+The entry uses the original W5 schemas and invariants, including ordinary React component
+definitions and inert layout helpers. Importing it and validating props does not access browser
+globals or initialise layout/render engines. Server callers must not call components or layout;
+the browser `templates` flag still gates template generation and rendering.
 
 | Export | What it does |
 | --- | --- |
@@ -81,6 +100,8 @@ function Pane({ record, frame, bridge }) {
 ## Tests
 
 - `pnpm test`: Vitest, unit (pure compilers, layout under Node, theme, elements) and jsdom component tests.
+- `test/templates-entry.test.ts`: imports the public subpath under Node, validates all 16 examples,
+  rejects malformed props and semantic graph errors, and rejects renderer/worker engine imports.
 - `pnpm e2e`: runs both `e2e:core` and `e2e:templates` sequentially, failing if either suite fails.
 - `pnpm e2e:core`: Playwright in Chromium against a Vite harness (`test/harness`) served under the ADR 0001 CSP. Visual baselines for every renderer in light and dark (`test/e2e/__screenshots__`, platform-suffixed; only `darwin` baselines exist so far), evidence ids and callbacks, frames, export, the layout worker, XSS and sandbox tests.
 - `pnpm e2e:templates`: all 16 templates in light and dark plus frame fixtures, using W5's existing harness and configuration. See the [template library documentation](src/templates/README.md#tests).
