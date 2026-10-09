@@ -87,9 +87,9 @@ describe('validate: grounding (L2)', () => {
   })
 
   it('reports ungrounded template elements as errors (they cannot be removed generically)', () => {
-    const ir = make.templateIR({ evidence: [{ path: 'values', evidence: BAD }, { path: 'pointers.majority', evidence: Q.majorityLine }] })
+    const ir = make.templateIR({ evidence: [{ path: 'values', evidence: BAD }, { path: 'pointers.0', evidence: Q.majorityLine }] })
     const r = validate('template', ir, ctx())
-    expect(r.ir.evidence.map((e) => e.path)).toEqual(['pointers.majority'])
+    expect(r.ir.evidence.map((e) => e.path)).toEqual(['pointers.0'])
     expect(codes(r.report, 'error')).toEqual(['template-element-ungrounded'])
   })
 })
@@ -215,16 +215,19 @@ describe('validate: chart, math, timeline rules', () => {
 })
 
 describe('validate: template hook (W5 invariants)', () => {
-  const props = z.object({ values: z.array(z.number()), pointers: z.record(z.string(), z.number()) })
+  const props = z.object({
+    values: z.array(z.number()),
+    pointers: z.array(z.object({ name: z.string().regex(/^[A-Za-z_][A-Za-z0-9_']{0,11}$/), index: z.number().int() })).max(6).optional(),
+  })
   const spec: TemplateSpec<z.infer<typeof props>> = {
     id: 'array',
     description: 'array',
     whenToUse: 'arrays',
     propsSchema: props,
-    example: { values: [], pointers: {} },
+    example: { values: [], pointers: [] },
     supportedActions: ['highlight'],
     checkInvariants: (p) =>
-      Object.entries(p.pointers).flatMap(([k, i]) => (i < p.values.length ? [] : [`pointer ${k} out of range`])),
+      (p.pointers ?? []).flatMap(({ name, index }) => (index >= -1 && index <= p.values.length ? [] : [`pointer ${name} out of range`])),
   }
   const templates: TemplateRegistry = {
     getTemplate: (id) => (id === 'array' ? (spec as TemplateSpec) : undefined),
@@ -233,7 +236,7 @@ describe('validate: template hook (W5 invariants)', () => {
 
   it('checks props with the template schema and runs its invariants', () => {
     expect(validate('template', make.templateIR(), ctx({ templates })).report.ok).toBe(true)
-    const outOfRange = make.templateIR({ props: { values: [1], pointers: { majority: 4 } } })
+    const outOfRange = make.templateIR({ props: { values: [1], pointers: [{ name: 'majority', index: 4 }] } })
     expect(codes(validate('template', outOfRange, ctx({ templates })).report, 'error')).toEqual(['template-invariant'])
     const badProps = make.templateIR({ props: { values: 'no' } })
     expect(codes(validate('template', badProps, ctx({ templates })).report, 'error')).toContain('template-props')
