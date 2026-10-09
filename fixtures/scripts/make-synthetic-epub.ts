@@ -6,7 +6,7 @@
 // Edge cases (see fixtures/README.md for where each one lives):
 //   no headings · MathML with TeX annotations · tables · captioned listings · internal links ·
 //   textual cross-references (resolvable and not) · footnotes · oversized sections (with and without h5) ·
-//   empty headings · tiny section · epub:type sections · figures (figcaption and p.caption) · lists · asides ·
+//   empty headings · tiny section · epub:type sections · figures (figcaption, p.caption and caption-less) · lists · asides ·
 //   soft hyphens, ligatures and smart quotes · language-* code classes · scripted content · a linked stylesheet
 import assert from 'node:assert/strict'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -157,6 +157,8 @@ files['OEBPS/ch02.xhtml'] = xhtml(
 
 <h2> <a id="anchor-only"></a> </h2>
 <p>This paragraph follows a heading that contains only an anchor.</p>
+<!-- Caption-less image: the last block of section 2.2 (ADR 0025 rule 3), so earlier block ids do not shift. -->
+<p><img src="images/pixel.png" alt="A follower catching up on missing entries"/></p>
 
 <h2 id="s2-3">2.3 A Tiny Section</h2>
 <h3 id="s2-3-1">2.3.1 Straight Into a Subheading</h3>
