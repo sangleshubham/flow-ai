@@ -1,5 +1,7 @@
 # @illus/context
 
+Browser compatibility: cross-reference arrays are awaited into locals before `Map.set`, preserving empty and multiple references under Next 12's async compiler (ADR 0037).
+
 DOM-free context packer (spec §7): deterministic slot packing into a cacheable `prefix` and a per-call `body`.
 
 - Owner: W3
