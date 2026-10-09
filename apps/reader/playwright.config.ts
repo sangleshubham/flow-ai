@@ -18,7 +18,7 @@ export default defineConfig({
   projects: [{ name: 'chromium' }],
   // E2E_EXTERNAL_SERVER=1: test a server already listening on E2E_PORT with E2E_ENV (e.g. the Docker image).
   webServer: process.env.E2E_EXTERNAL_SERVER ? undefined : {
-    command: `${process.env.E2E_SKIP_BUILD ? '' : 'pnpm exec next build && '}pnpm exec next start -p ${E2E_PORT}`,
+    command: `${process.env.E2E_SKIP_BUILD ? '' : 'pnpm build && '}pnpm exec next start -p ${E2E_PORT}`,
     url: `http://127.0.0.1:${E2E_PORT}/login`,
     reuseExistingServer: false,
     timeout: 300_000,

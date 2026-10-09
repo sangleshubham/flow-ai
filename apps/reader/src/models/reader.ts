@@ -363,7 +363,7 @@ export class BookTab extends BaseTab {
       this.epub.renderTo(el, {
         width: '100%',
         height: '100%',
-        allowScriptedContent: true,
+        allowScriptedContent: false,
       }),
     )
     console.log(this.rendition)

@@ -19,6 +19,13 @@ const withTM = require('next-transpile-modules')([
   '@material/material-color-utilities',
   '@illus/core',
   '@illus/llm',
+  '@illus/book-index',
+  '@illus/concepts',
+  '@illus/context',
+  '@illus/pipeline',
+  '@illus/reader-bridge',
+  '@illus/render',
+  '@illus/store',
 ])
 
 
@@ -26,6 +33,8 @@ const withTM = require('next-transpile-modules')([
  * @type {import('next').NextConfig}
  **/
 const config = {
+  // Modern renderer dependencies use class static blocks unsupported by Next 12's legacy Terser.
+  swcMinify: true,
   pageExtensions: ['ts', 'tsx'],
   poweredByHeader: false,
   // Flow does not use next/image; this also keeps the image optimiser and its advisories off (ADR 0005).

@@ -1,5 +1,7 @@
 import './styles.css'
 import 'react-photo-view/dist/react-photo-view.css'
+import 'katex/dist/katex.min.css'
+import '../illustrate/styles.css'
 
 import { LiteralProvider } from '@literal-ui/core'
 import type { AppProps } from 'next/app'
