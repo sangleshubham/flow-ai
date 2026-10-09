@@ -12,7 +12,7 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
   },
   "dependencies": {
     "@illus/core": "workspace:*",
