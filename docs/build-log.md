@@ -148,3 +148,11 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
   - W5: add `/// <reference path="./d3-hierarchy.d.ts" />` in hierarchy.ts so the reader tsconfig include can go.
   - W3: regenerate browser fixtures with `ILLUS_BROWSER_REQUESTS=<capture> pnpm --filter @illus/pipeline fixtures:browser` (W9's e2e writes captures via `ILLUS_CAPTURE_PATH`).
   - Subagents with worktree isolation cannot run git in `.worktrees/*`; resume them in their own worktree.
+
+## W0 port + synthetic.epub re-key (between waves 3 and 4) — 2026-10-09
+- Agents: w0-foundation (port of the old W0 branch, per Shubham), then w1-book-index and w10-quality (phase A) in parallel, then w3-pipeline.
+- Branches merged: W0 up to 9cd59cc (54bc4a5); then one merge carrying W0 41ec261 (epub), W1 98a2916 (snapshot + browser check for the caption-less figure), W10 2d517b2 (evals bookId) and W3 0e43080 (alt attribute in packed context, 20 synthetic + 1 browser fixture re-keyed).
+- Gate: lint ✓ typecheck ✓ test ✓ (43/43 forced; apps/website removed) · e2e ✓ (reader 14/14, render 63 + 45, anim 7, tracer 2, book-index 1) · reader build ✓.
+- Decisions (Shubham, recorded in ADRs 0010/0015/0020/0025, now accepted; ADR 0042 records the port): W1 split titles from TOC on the first part, caption-less alt only in `figure.alt`; W5 stack top = last item with a visible "top" marker, resize/rotate tried as one animation first, darwin-only baselines; W3 ADR 0010 as built, concept models only with the flag, `indexConfirmThresholdTokens` 200,000; W11 password gate, cookie `Secure` follows `ILLUS_PUBLIC_URL`; apps/website removed, @types/react pins aligned. All wave-2 open questions are closed.
+- synthetic.epub bookId is now 9604b90977df58f0.
+- Follow-ups: W5 visible stack "top" marker; W6 try resize/rotate as one animation; W9 threshold default 200,000; W10 phase B critic/repair/animator prompts treat a block's `alt` as info, never quotable evidence; `fixtures:browser` never removes stale keys (delete the old browser fixture after a bookId change); W0: `.husky/pre-commit` is not executable.
