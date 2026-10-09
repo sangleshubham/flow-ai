@@ -3,22 +3,27 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Typed LLM client for `/api/llm`: prompt registry, role configs, retries, abort, record/replay.",
+  "description": "Typed LLM client for `/api/llm` (prompt registry, model config, record/replay); `@illus/llm/server` holds the Node-only gateway and Sign in with ChatGPT.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./server": "./src/server/index.ts"
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@illus/core": "workspace:*"
+    "@illus/core": "workspace:*",
+    "openai": "7.23.0",
+    "openid-client": "6.8.8",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@illus/eslint-config": "workspace:*",
+    "@types/node": "24.13.6",
     "eslint": "10.11.0",
     "typescript": "5.9.3",
     "vitest": "4.1.11"
