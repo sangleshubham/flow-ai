@@ -56,8 +56,8 @@ describe('packContext', () => {
       <title>Replicated Logs, A Small Example</title>
       <summary>A short example book about how servers keep a replicated log consistent.</summary>
       <conventions><convention>Code listings are in Go.</convention></conventions>
-      <concept name="leader" aliases="leader server"/>
-      <concept name="majority"/>
+      <concept id="0123456789abcdef:c:leader" name="leader" aliases="leader server"/>
+      <concept id="x:c:majority" name="majority"/>
       </book_context>"
     `)
     expect(out.body).toContain(`<section id="${C}" path="5 Log Replication › 5.2 Committing Entries" ordinal="2">`)

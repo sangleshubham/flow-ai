@@ -307,9 +307,14 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     const fromCache = !!record
     if (!record) {
       const packed = await packContext({ role: 'planner', sectionId: section.sectionId, budgetTokens: deps.prompts.get('planner').budgetTokens, repo, ...(synthetic && { synthetic }) })
-      const body = opts.force
-        ? `${packed.body}\n<force>The reader asked for a visual of this section. Set needsVisual to true unless nothing in it can be drawn from the text.</force>`
-        : packed.body
+      const parts = [packed.body]
+      // Existing concept models the planner may extend (§13), only when the flag is on.
+      const models = flags.conceptModels ? (await repos.conceptModels.listByBook(section.bookId)).sort((a, b) => (a.conceptModelId < b.conceptModelId ? -1 : 1)) : []
+      if (models.length)
+        parts.push(['<concept_models>', ...models.map((m) => `  <concept_model${attrs([['id', m.conceptModelId], ['concept', m.conceptId], ['kind', m.kind]])}/>`), '</concept_models>'].join('\n'))
+      if (opts.force)
+        parts.push('<force>The reader asked for a visual of this section. Set needsVisual to true unless nothing in it can be drawn from the text.</force>')
+      const body = parts.join('\n')
       const res = await llm.call('planner', { prefix: packed.prefix, body }, { signal, bookId: section.bookId, sectionId: section.sectionId })
       const plan: VisualPlan = { ...res.data, sectionId: section.sectionId }
       record = {

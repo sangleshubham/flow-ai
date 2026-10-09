@@ -156,7 +156,7 @@ export async function packContext(input: PackInput): Promise<PackedContext> {
     items: [
       { text: header, blockIds: [] },
       ...glossaryOrder.map((c) => ({
-        text: `<concept${attrs([['name', c.canonical], ['aliases', c.aliases.length ? c.aliases.join('; ') : undefined]])}/>`,
+        text: `<concept${attrs([['id', c.conceptId], ['name', c.canonical], ['aliases', c.aliases.length ? c.aliases.join('; ') : undefined], ['spanning', c.spanning || undefined]])}/>`,
         blockIds: [],
       })),
     ],
