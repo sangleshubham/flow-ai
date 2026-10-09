@@ -1,7 +1,9 @@
-import type { Block, ThemeTokens, VisualKind, VisualRecord } from '@illus/core'
+import { Player } from '@illus/anim'
+import { buildFrames, IR } from '@illus/core'
+import type { Block, FrameState, ThemeTokens, VisualKind, VisualRecord } from '@illus/core'
 import { VisualView, irElements, readFlowTheme, templateRegistry, watchFlowTheme } from '@illus/render'
 import type { EvidenceEvent } from '@illus/render'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 
 import { enabledKinds, getRepos, highlightEvidence, parsedVisual, requestVisual, updateRecord } from './runtime'
 import { pane } from './state'
@@ -15,6 +17,12 @@ export function RecordView({ record }: { record: VisualRecord }) {
   const [wrong, setWrong] = useState<{ irId: string; evidence?: EvidenceEvent['evidence'] } | null>(null)
   const [mathBlock, setMathBlock] = useState<Block | undefined>()
   const parsed = parsedVisual(record)
+  const animationJson = record.animation ? JSON.stringify(record.animation) : ''
+  const irJson = JSON.stringify(record.ir)
+  const frames = useMemo(() => {
+    if (!animationJson) return []
+    try { return buildFrames(IR.parse(JSON.parse(irJson)), JSON.parse(animationJson), { templates: templateRegistry }) } catch { return [] }
+  }, [irJson, animationJson])
   const sourceBlockId = parsed.success && parsed.data.type === 'math' ? parsed.data.sourceBlockId : undefined
   useEffect(() => watchFlowTheme(setTheme, document.documentElement), [])
   useEffect(() => {
@@ -31,6 +39,11 @@ export function RecordView({ record }: { record: VisualRecord }) {
     pane.announcement = 'Feedback saved.'
   }
   const simulated = record.validation.issues.find((issue) => issue.code === 'trace-simulated')
+  const renderFrame = (frame?: FrameState) => <VisualView spec={{ ir, groundingScore: record.validation.groundingScore, layout: record.layout as any, mathBlock }}
+    frame={frame} theme={theme} flags={pane.preferences.flags} templates={pane.preferences.flags.templates ? templateRegistry : undefined}
+    onEvidenceHover={(event) => { void highlightEvidence(event) }} onEvidenceClick={(event) => { void highlightEvidence(event, true) }}
+    onLayout={(layout) => { if (!record.layout) void updateRecord({ ...record, layout }) }}
+    actions={{ onRegenerate: () => setRegenerate(true), onKindOverride: (kind: VisualKind) => requestVisual({ kindOverride: kind, planItemId: record.planItemId }), kinds: enabledKinds(), onVote: (value) => { void vote(value) }, vote: record.feedback?.vote }} />
   return <div className="illus-record" onContextMenu={(e) => {
     const element = (e.target as Element).closest('[data-ir-id]')
     if (!element) return
@@ -40,12 +53,10 @@ export function RecordView({ record }: { record: VisualRecord }) {
   }}>
     {record.stale && <p role="status">This saved illustration is from an earlier version. Regenerate to update it.</p>}
     {simulated && <p role="status">Simulated illustration: {simulated.message}</p>}
-    <VisualView spec={{ ir, groundingScore: record.validation.groundingScore, layout: record.layout as any, mathBlock }}
-      theme={theme} flags={pane.preferences.flags} templates={templateRegistry}
-      onEvidenceHover={(event) => { void highlightEvidence(event) }} onEvidenceClick={(event) => { void highlightEvidence(event, true) }}
-      onLayout={(layout) => { if (!record.layout) void updateRecord({ ...record, layout }) }}
-      actions={{ onRegenerate: () => setRegenerate(true), onKindOverride: (kind: VisualKind) => requestVisual({ kindOverride: kind, planItemId: record.planItemId }),
-        kinds: enabledKinds(), onVote: (value) => { void vote(value) }, vote: record.feedback?.vote }} />
+    {pane.preferences.flags.animations && frames.length ? <Player frames={frames} renderFrame={renderFrame}
+      onStepChange={(index) => { pane.announcement = frames[index]?.narration ?? '' }}
+      onEvidenceClick={(evidence) => { void highlightEvidence({ irId: 'step', target: 'step', label: 'Step', evidence }, true, 'step') }}
+      onEvidenceHighlight={(evidence) => { void highlightEvidence(evidence ? { irId: 'step', target: 'step', label: 'Step', evidence } : null, false, 'step') }} /> : renderFrame()}
     <p className="illus-token-usage" title="Input and output tokens for this illustration">{record.usageTokens.toLocaleString()} tokens</p>
     {regenerate && <form className="illus-inline-form" onSubmit={(e) => { e.preventDefault(); requestVisual({ instruction, planItemId: record.planItemId }); setRegenerate(false) }}>
       <label>Instruction <textarea maxLength={300} value={instruction} onChange={(e) => setInstruction(e.target.value)} /></label><small>{instruction.length}/300</small>

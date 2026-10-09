@@ -91,6 +91,9 @@ importers:
       '@github/mini-throttle':
         specifier: 2.1.0
         version: 2.1.0
+      '@illus/anim':
+        specifier: workspace:*
+        version: link:../../packages/illus-anim
       '@illus/book-index':
         specifier: workspace:*
         version: link:../../packages/illus-book-index
@@ -263,6 +266,12 @@ importers:
       tailwindcss:
         specifier: 3.2.0
         version: 3.2.0(postcss@8.4.12)
+      terser:
+        specifier: 5.37.0
+        version: 5.37.0
+      terser-webpack-plugin:
+        specifier: 5.3.11
+        version: 5.3.11(esbuild@0.14.54)(webpack@4.47.0)
       type-fest:
         specifier: 2.12.2
         version: 2.12.2
