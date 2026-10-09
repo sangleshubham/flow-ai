@@ -122,9 +122,14 @@ export const PLANS: Partial<Record<SectionKey, { needsVisual: boolean; reason: s
     needsVisual: true,
     reason: 'Listing 1.1 is an executable binary search over a sorted range.',
     items: [
-      item('p1', 'template', 'The search range between lo and hi inside the items', 1, true, { templateId: 'array' }),
+      item('p1', 'graph', 'How lo, hi and mid define the binary search range', 1, false),
       item('p2', 'trace', 'Run the binary search of Listing 1.1 step by step', 2, false, { codeBlockId: '@b2' }),
     ],
+  },
+  '2.2': {
+    needsVisual: true,
+    reason: 'Figure 2.2 explicitly describes a log with five entries.',
+    items: [item('p1', 'template', 'The five entries of the log in Figure 2.2', 1, false, { templateId: 'array' })],
   },
   '2.1': {
     needsVisual: true,
@@ -185,13 +190,25 @@ export const EXTRACTS: Record<string, unknown> = {
     ],
   },
   '1.2|p1': {
+    type: 'graph',
+    title: 'Binary search range',
+    direction: 'LR',
+    nodes: [
+      { id: 'lo', label: 'lo', shape: 'box', evidence: ev(2, 'mid = (lo + hi) // 2') },
+      { id: 'hi', label: 'hi', shape: 'box', evidence: ev(2, 'mid = (lo + hi) // 2') },
+      { id: 'mid', label: 'mid', shape: 'box', evidence: ev(2, 'mid = (lo + hi) // 2') },
+    ],
+    edges: [
+      { id: 'lo-mid', from: 'lo', to: 'mid', style: 'solid', evidence: ev(2, 'mid = (lo + hi) // 2') },
+      { id: 'hi-mid', from: 'hi', to: 'mid', style: 'solid', evidence: ev(2, 'mid = (lo + hi) // 2') },
+    ],
+    groups: [],
+  },
+  '2.2|p1': {
     type: 'template',
     templateId: 'array',
-    props: { name: 'items', cells: [], pointers: [{ name: 'lo', index: 0 }, { name: 'hi', index: 0 }] },
-    evidence: [
-      { path: 'pointers.0', evidence: ev(6, 'the target, if present, lies between lo and hi.') },
-      { path: 'pointers.1', evidence: ev(6, 'the target, if present, lies between lo and hi.') },
-    ],
+    props: { label: 'Log', values: ['entry', 'entry', 'entry', 'entry', 'entry'] },
+    evidence: [{ path: 'values', evidence: ev(1, 'Figure 2.2 A log with five entries') }],
   },
   '2.1|p1': {
     type: 'math',

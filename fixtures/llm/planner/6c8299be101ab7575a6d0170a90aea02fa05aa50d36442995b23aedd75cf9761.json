@@ -1,0 +1,31 @@
+{
+  "key": "6c8299be101ab7575a6d0170a90aea02fa05aa50d36442995b23aedd75cf9761",
+  "source": "handwritten",
+  "role": "planner",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "VisualPlan",
+  "data": {
+    "sectionId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-2-figures:2",
+    "needsVisual": true,
+    "reason": "Figure 2.2 explicitly describes a log with five entries.",
+    "items": [
+      {
+        "planItemId": "p1",
+        "kind": "template",
+        "intent": "The five entries of the log in Figure 2.2",
+        "conceptIds": [],
+        "priority": 1,
+        "animate": false,
+        "templateId": "array"
+      }
+    ]
+  },
+  "usage": {
+    "input": 948,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: planner for 2.2 Figures. Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}
