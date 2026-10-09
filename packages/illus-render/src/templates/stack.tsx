@@ -37,6 +37,7 @@ function StackView({ ir, props: p, layout: base, frame, onReady }: TemplateViewP
   const L = n === base.slots.length ? base : place(n, Math.max(0, ...items.map((i) => textW(i.value, 13, true))), !!p.label)
   const first = L.slots[0]!
   const top = L.slots[n - 1]!
+  const topBox = items.length > 0 ? L.slots[items.length - 1] : undefined
   const pathOf = (id: string) => {
     const i = p.items.findIndex((x) => x.id === id)
     return i >= 0 ? `items.${i}` : `pushed.${id}`
@@ -61,10 +62,14 @@ function StackView({ ir, props: p, layout: base, frame, onReady }: TemplateViewP
           </g>
         )
       })}
-      {items.length > 0 && (
-        <T x={L.slots[items.length - 1]!.x + L.slots[0]!.w + 14} y={L.slots[items.length - 1]!.y + H / 2} cls="t-ptr" anchor="start">
-          ◂ top
-        </T>
+      {/* The top marker tracks the current contents, so it follows push/pop frames. */}
+      {topBox && (
+        <g data-top={items[items.length - 1]!.id}>
+          <rect x={topBox.x - 3} y={topBox.y - 3} width={topBox.w + 6} height={topBox.h + 6} rx={5} className="t-top" />
+          <T x={topBox.x + topBox.w + 14} y={topBox.y + H / 2} cls="t-ptr" anchor="start">
+            ◂ top
+          </T>
+        </g>
       )}
       <Decor kit={kit} />
     </TemplateSvg>

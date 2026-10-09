@@ -52,3 +52,21 @@ describe.each(listTemplates().map((t) => [t.id, t] as const))('%s', (_, t) => {
     if (t.supportedActions.includes('set')) expect(svg.textContent).toContain('42')
   })
 })
+
+describe('stack top marker', () => {
+  const t = listTemplates().find((x) => x.id === 'stack')!
+  const topOf = async (frame?: FrameState) => {
+    const c = await draw(exampleIR(t), frame)
+    const top = c.querySelector('[data-top]')?.getAttribute('data-top')
+    cleanup()
+    return top
+  }
+  const withItems = (ids: string[]): FrameState => ({ ...emptyFrame([]), step: 1, containers: { stack: ids.map((id) => ({ id, value: id })) } })
+
+  it('marks the last item and follows push and pop frames', async () => {
+    expect(await topOf()).toBe('b3')
+    expect(await topOf(withItems(['b1', 'b2', 'b3', 'b4']))).toBe('b4')
+    expect(await topOf(withItems(['b1']))).toBe('b1')
+    expect(await topOf(withItems([]))).toBeUndefined()
+  })
+})
