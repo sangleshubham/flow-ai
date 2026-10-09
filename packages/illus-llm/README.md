@@ -34,6 +34,8 @@ The typed model client (`llm.call(role, ctx, opts)`), and in `@illus/llm/server`
 | `createOpenAiProvider({ id })`, `classify` | Responses API over the `openai` SDK: `store: false`, `stream: true`, `reasoning.effort` always set, `text.format` strict, or the namespaced tool fallback. |
 | `fileFixtures(dir)` | `fixtures/llm/<role>/<key>.json` store. |
 
+The reusable server defaults to `<cwd>/fixtures/llm` when `ILLUS_FIXTURES_DIR` and an injected store are absent. The reader app resolves that default from its nearest workspace root in replay/record mode (including launches from `apps/reader`); it preserves explicit overrides. See [reader server README](../../apps/reader/src/server/llm/README.md) and [ADR 0031](../../docs/adr/0031-w2-replay-fixture-resolution.md). Every on-disk fixture is validated on load; invalid envelopes still fail initialization.
+
 ## Example
 
 ```ts
