@@ -111,3 +111,16 @@ Written by the `/build-reader` orchestrator. One entry per wave: agents spawned,
   - W4: property tests over random IR and a Vega-Lite schema check for compilers.
   - After any INDEX_VERSION, context-packer or W3 prompt version change: `pnpm --filter @illus/pipeline fixtures:llm`.
   - Flow's unused sync/remote-import i18n strings remain in locale files.
+
+## Wave 3 prerequisites — 2026-10-09
+- Approved by Shubham: commit the existing Codex agent setup, fix replay prerequisites and shared template contracts, then resume the build from wave 3.
+- Setup: `4f845ee`; Node 24.20.0 selected from the existing local installation; pnpm 10.34.5. Added `.worktrees/` and generated `.pnpm-store/` ignores; existing Claude worktrees remain untouched.
+- Agents: w0_foundation (amend contracts), w2_llm_store, w4_renderers, w10_quality (phase A test compatibility).
+- Branches merged: W4 (`d1fde61`, then `04d12a8`), W10 (`33efa2e`, integrated into W0), W0 (`d4a28fa`), W2 (`eea5485`). Main integration head: `e25628d`.
+- Contracts: v1.3; approved optional `TemplateSpec.targets` and `initialFrame` hooks; corrected array pointers and evidence paths in `make.templateIR()`. Validator and renderer test fixtures updated by their respective owners.
+- Replay: both HTML fallback fixtures now conform to the established envelope; all 23 repository fixtures load. Reader launch resolves fixtures from the nearest workspace root; explicit `ILLUS_FIXTURES_DIR` overrides remain supported. Added full-directory server replay and fake-provider record-to-disk-to-replay regression coverage.
+- Gate on merged main: lint ✓ typecheck ✓ test ✓ (44/44, forced uncached under Node 24); reader production build ✓. Owner browser checks: renderer 63/63, templates 45/45, production reader 11/11. No live model calls.
+- CI: production reader Chromium tests added after the build; template browser suite included in the renderer e2e command. Linux renderer screenshot baselines remain deferred.
+- ADRs opened: 0030-w0-wave3-contracts (accepted), 0031-w2-replay-fixture-resolution.
+- Contract-change requests: none outstanding for these prerequisites.
+- Follow-ups: standalone Docker replay/record requires mounted fixtures and `ILLUS_FIXTURES_DIR` (image excludes workspace manifests/fixtures). Vendored epub.js still masks its inherited lint errors; no lint rules or assertions were weakened.
