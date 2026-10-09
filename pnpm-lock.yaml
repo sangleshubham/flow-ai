@@ -287,9 +287,24 @@ importers:
 
   evals:
     dependencies:
+      '@flow/epubjs':
+        specifier: workspace:*
+        version: link:../packages/epubjs
+      '@illus/book-index':
+        specifier: workspace:*
+        version: link:../packages/illus-book-index
       '@illus/core':
         specifier: workspace:*
         version: link:../packages/illus-core
+      '@illus/render':
+        specifier: workspace:*
+        version: link:../packages/illus-render
+      jsdom:
+        specifier: 30.1.1
+        version: 30.1.1
+      vite:
+        specifier: 8.3.1
+        version: 8.3.1(@types/node@24.13.6)(esbuild@0.14.54)(terser@5.37.0)(yaml@2.9.1)
       zod:
         specifier: 4.6.5
         version: 4.6.5
