@@ -28,7 +28,7 @@ The typed model client (`llm.call(role, ctx, opts)`), and in `@illus/llm/server`
 | `createIllusServer(env, { prompts, templates?, fixtures? })` | Builds everything from the §9 environment variables and fails fast on bad config. Returns `{ gateway, auth, sessions, usage, mode, provider, models }`. |
 | `createGateway(deps).handle(body, { session, signal })` | §9 steps 1–8 → `{ status, body: LlmResponse }`. |
 | `createChatGptAuth(...)` | `start()`, `callback(params, pending)`, `getPlanToken()` (refreshes within 5 minutes, serialized), `logout()` (revokes), `status()`. |
-| `createSessions({ secret, secure }).issueSession(idClaims)` / `.verify(cookieHeader)` | Minimal signed session cookie, for W11. |
+| `createSessions({ secret, secure, allowedSub? }).issueSession(idClaims)` / `.verify(cookieHeader)` | Signed session cookie (HMAC-SHA256, HttpOnly, SameSite=Lax, 30 days). With `allowedSub` (`ILLUS_ALLOWED_ACCOUNT_ID`, passed by `createIllusServer`) it never issues or accepts a session for another account (ADR 0020). The reader middleware verifies the same format. |
 | `createTokenStore`, `seal`/`unseal`, `parseEncKey` | AES-256-GCM token file in `ILLUS_DATA_DIR`. |
 | `createUsageTracker`, `DEFAULT_CAPS` | `usage.jsonl`, rolling 5-hour and 24-hour caps, the pause after a plan limit. |
 | `createOpenAiProvider({ id })`, `classify` | Responses API over the `openai` SDK: `store: false`, `stream: true`, `reasoning.effort` always set, `text.format` strict, or the namespaced tool fallback. |
