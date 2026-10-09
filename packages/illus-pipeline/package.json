@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
-    "fixtures:llm": "ILLUS_WRITE_FIXTURES=1 vitest run test/synthetic.e2e.test.ts"
+    "fixtures:llm": "ILLUS_WRITE_FIXTURES=1 vitest run test/synthetic.e2e.test.ts",
+    "fixtures:browser": "ILLUS_WRITE_BROWSER_FIXTURES=1 vitest run test/browser-replay.test.ts"
   },
   "dependencies": {
     "@illus/concepts": "workspace:*",
