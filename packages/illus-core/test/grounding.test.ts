@@ -25,8 +25,10 @@ describe('normalizeText', () => {
     expect(src.slice(n.start[j]!, n.end[j + 6]!)).toBe('hy­phens')
   })
 
-  it('composes base characters with combining marks', () => {
-    expect(normalizeText('café').text).toBe('café')
+  it('composes base characters with combining marks, even across a soft hyphen', () => {
+    expect(normalizeText('cafe\u0301').text).toBe('caf\u00e9')
+    expect(normalizeText('cafe\u00AD\u0301').text).toBe('caf\u00e9')
+    expect(normalizeText('\u00AD\u0301').text).toBe('\u0301')
   })
 
   it('is idempotent and keeps a monotonic, in-bounds offset map (property)', () => {
@@ -47,6 +49,7 @@ describe('normalizeText', () => {
         expect(n.text).toBe(n.text.trim())
         expect(n.text).not.toMatch(/\s{2}|[­“”‘’—]/)
       }),
+      { numRuns: 1000 },
     )
   })
 
