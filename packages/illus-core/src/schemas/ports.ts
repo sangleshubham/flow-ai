@@ -2,7 +2,7 @@
 // on these types and inject implementations, so nobody imports another workstream's unfinished code.
 import { z } from 'zod'
 
-import type { ActionOp } from './animation.ts'
+import type { ActionOp, FrameState } from './animation.ts'
 import type { Block } from './book.ts'
 import type { Evidence, ReasoningEffort } from './common.ts'
 import type { LlmImage, LlmUsage, RoleName, RoleSchemaName, SchemaOutput } from './llm.ts'
@@ -185,6 +185,17 @@ export interface TemplateSpec<P = unknown> {
   propsSchema: z.ZodType<P>
   example: P
   supportedActions: readonly ActionOp[]
+  /**
+   * Every valid animation target for these props (§11, v1.3). Each string must parse as `Target`.
+   * Positions stay addressable while `swap` exchanges their contents. Pure and DOM-free.
+   */
+  targets?(props: P): string[]
+  /**
+   * Seeds frame 0 with named pointers and full container contents (§11, v1.3). Container names used
+   * by W5 are `stack`, `queue`, `frames` and `order`. Must not mutate or retain mutable aliases of
+   * `props`; the reducer must also clone the seed before updating frames. Pure and DOM-free.
+   */
+  initialFrame?(props: P): Partial<Pick<FrameState, 'pointers' | 'containers'>>
   /** Semantic invariants (BST order, heap order, pointers in range…); returns violation messages. */
   checkInvariants?(props: P): string[]
   /**
