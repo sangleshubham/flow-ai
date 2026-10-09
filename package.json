@@ -13,7 +13,7 @@
     "e2e": "turbo run e2e",
     "eval": "pnpm --filter @illus/evals eval",
     "contracts": "pnpm --filter @illus/core contracts",
-    "fixtures:epub": "node fixtures/scripts/make-synthetic-epub.ts"
+    "fixtures:epub": "node fixtures/scripts/make-synthetic-epub.ts && node fixtures/scripts/make-eval-mini-epub.ts"
   },
   "lint-staged": {
     "*.{js,json,css,ts,tsx,md,mdx}": "prettier --write",
