@@ -27,6 +27,10 @@ function appCsp(dev) {
  */
 const SANDBOX_CSP = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:"
 
+// Trusted bootstrap loads only same-origin Pyodide assets. W7 removes all network APIs before
+// untrusted Python runs; this static CSP alone cannot express that transition (ADR 0038).
+const TRACE_WORKER_CSP = "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+
 const COMMON = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'same-origin' },
@@ -38,11 +42,11 @@ const COMMON = [
 function securityHeaders({ dev }) {
   return [
     {
-      // Every path except the sandbox page, which gets its own policy below (with overlapping rules Next
-      // keeps the first value of a header key, so the two must not overlap). No `locale: false`: with i18n,
+      // The sandbox and trace worker get separate policies below; rules do not overlap.
+      // No `locale: false`: with i18n,
       // Next 12.3 matches headers against the locale-prefixed path, like rewrites (ADR 0007 item 11).
-      // Covers pages, /api/*, /_next/static (worker scripts) and /pyodide/* (W7's worker gets its CSP here).
-      source: '/:path((?!illus-sandbox\\.html$).*)',
+      // Covers pages, /api/*, other worker scripts and /pyodide/* asset responses.
+      source: '/:path((?!(?:illus-sandbox\\.html|illus-trace-worker\\.mjs)$).*)',
       headers: [
         ...COMMON,
         { key: 'Content-Security-Policy', value: appCsp(dev) },
@@ -56,6 +60,13 @@ function securityHeaders({ dev }) {
         { key: 'X-Content-Type-Options', value: 'nosniff' },
         { key: 'Content-Security-Policy', value: SANDBOX_CSP },
         { key: 'Referrer-Policy', value: 'no-referrer' },
+      ],
+    },
+    {
+      source: '/illus-trace-worker.mjs',
+      headers: [
+        ...COMMON,
+        { key: 'Content-Security-Policy', value: TRACE_WORKER_CSP },
       ],
     },
   ]
@@ -78,4 +89,4 @@ function runtimeCaching() {
   ]
 }
 
-module.exports = { appCsp, SANDBOX_CSP, securityHeaders, runtimeCaching }
+module.exports = { appCsp, SANDBOX_CSP, TRACE_WORKER_CSP, securityHeaders, runtimeCaching }
