@@ -12,15 +12,21 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run",
+    "e2e": "vitest run --config vitest.browser.config.ts"
   },
   "dependencies": {
-    "@illus/core": "workspace:*"
+    "@flow/epubjs": "workspace:*",
+    "@illus/core": "workspace:*",
+    "minisearch": "7.2.0"
   },
   "devDependencies": {
     "@illus/eslint-config": "workspace:*",
     "eslint": "10.11.0",
     "typescript": "5.9.3",
-    "vitest": "4.1.11"
+    "vitest": "4.1.11",
+    "@vitest/browser-playwright": "4.1.11",
+    "jsdom": "30.1.1",
+    "playwright": "1.63.0"
   }
 }
