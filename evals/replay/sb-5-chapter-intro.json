@@ -1,0 +1,95 @@
+{
+  "caseId": "sb-5-chapter-intro",
+  "source": "handwritten",
+  "blocks": [
+    {
+      "blockId": "0123456789abcdef:2:5-log-replication:0#b0",
+      "kind": "paragraph",
+      "text": "This chapter shows how a cluster of servers keeps one replicated log in agreement."
+    }
+  ],
+  "planAttempts": [
+    {
+      "sectionId": "0123456789abcdef:2:5-log-replication:0",
+      "needsVisual": true,
+      "reason": "The section explains a structure or process.",
+      "items": [
+        {
+          "planItemId": "p1",
+          "conceptIds": [],
+          "priority": 1,
+          "animate": false,
+          "kind": "graph",
+          "intent": "Show servers keeping a replicated log"
+        }
+      ]
+    }
+  ],
+  "visuals": [
+    {
+      "planItemId": "p1",
+      "kind": "graph",
+      "attempts": [
+        {
+          "type": "graph",
+          "title": "Cluster",
+          "direction": "LR",
+          "groups": [],
+          "nodes": [
+            {
+              "id": "cluster",
+              "label": "Cluster of servers",
+              "shape": "box",
+              "evidence": {
+                "blockId": "0123456789abcdef:2:5-log-replication:0#b0",
+                "quote": "a cluster of servers keeps one replicated log"
+              }
+            },
+            {
+              "id": "log",
+              "label": "Replicated log",
+              "shape": "store",
+              "evidence": {
+                "blockId": "0123456789abcdef:2:5-log-replication:0#b0",
+                "quote": "keeps one replicated log in agreement"
+              }
+            }
+          ],
+          "edges": [
+            {
+              "id": "e1",
+              "from": "cluster",
+              "to": "log",
+              "label": "keeps",
+              "style": "solid",
+              "evidence": {
+                "blockId": "0123456789abcdef:2:5-log-replication:0#b0",
+                "quote": "a cluster of servers keeps one replicated log"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "calls": [
+    {
+      "role": "planner",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 1800,
+      "outputTokens": 130,
+      "latencyMs": 2400
+    },
+    {
+      "role": "extractor.graph",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 2200,
+      "outputTokens": 500,
+      "latencyMs": 4200
+    }
+  ],
+  "path": "static",
+  "latencyMs": 6900
+}

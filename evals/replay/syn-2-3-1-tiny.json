@@ -1,0 +1,32 @@
+{
+  "caseId": "syn-2-3-1-tiny",
+  "source": "handwritten",
+  "blocks": [
+    {
+      "blockId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-3-a-tiny-section/2-3-1-straight-into-a-subheading:6#b0",
+      "kind": "paragraph",
+      "text": "The parent heading above has no text of its own, so it should be merged into this subsection for generation."
+    }
+  ],
+  "planAttempts": [
+    {
+      "sectionId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-3-a-tiny-section/2-3-1-straight-into-a-subheading:6",
+      "needsVisual": false,
+      "reason": "Editorial note with no technical concept.",
+      "items": []
+    }
+  ],
+  "visuals": [],
+  "calls": [
+    {
+      "role": "planner",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 2100,
+      "outputTokens": 80,
+      "latencyMs": 2300
+    }
+  ],
+  "path": "no-visual",
+  "latencyMs": 2400
+}

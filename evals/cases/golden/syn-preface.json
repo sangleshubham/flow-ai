@@ -1,0 +1,14 @@
+{
+  "id": "syn-preface",
+  "category": "narrative",
+  "bookRef": "synthetic",
+  "sectionId": "c911e05c7aff3525:0:preface:0",
+  "title": "Preface",
+  "expected": {
+    "needsVisual": false,
+    "acceptableKinds": [],
+    "mustInclude": [],
+    "mustNotInclude": []
+  },
+  "source": "golden"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "sb-5-chapter-intro",
+  "category": "narrative",
+  "bookRef": "small-book",
+  "sectionId": "0123456789abcdef:2:5-log-replication:0",
+  "title": "5 Log Replication",
+  "expected": {
+    "needsVisual": false,
+    "acceptableKinds": [],
+    "mustInclude": [],
+    "mustNotInclude": []
+  },
+  "notes": "Replay fixture: the planner wrongly asks for a visual (exercises the needsVisual metric).",
+  "source": "golden"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "syn-2-3-1-tiny",
+  "category": "narrative",
+  "bookRef": "synthetic",
+  "sectionId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-3-a-tiny-section/2-3-1-straight-into-a-subheading:6",
+  "title": "2.3.1 Straight Into a Subheading",
+  "expected": {
+    "needsVisual": false,
+    "acceptableKinds": [],
+    "mustInclude": [],
+    "mustNotInclude": []
+  },
+  "notes": "Tiny merged section; sectionId is provisional until W1 fixes ordinals.",
+  "source": "golden"
+}
