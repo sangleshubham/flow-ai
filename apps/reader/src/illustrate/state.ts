@@ -73,3 +73,14 @@ export function bindJob(state: PaneState, job: SectionJob, current: () => boolea
   ]
   return () => cleanups.forEach((fn) => fn())
 }
+
+/**
+ * What a highlight request does to the book. A clicked mark stays until another evidence is shown;
+ * hover and focus marks are transient and only happen when auto-highlight is on.
+ */
+export function evidenceAction(o: { hasEvent: boolean; click: boolean; autoHighlight: boolean; pinned: boolean }): 'show' | 'clear' | 'ignore' {
+  if (o.click) return o.hasEvent ? 'show' : 'clear'
+  if (!o.autoHighlight) return 'ignore'
+  if (!o.hasEvent) return o.pinned ? 'ignore' : 'clear'
+  return 'show'
+}

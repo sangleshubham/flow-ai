@@ -112,6 +112,8 @@ export function createReaderBridge(o: BridgeOptions): ManagedReaderBridge {
     onLocationChange(cb) { locations.add(cb); refreshLocation(); return () => void locations.delete(cb) },
     async scrollTo(cfi) { await o.rendition.display(cfi) },
     highlight(cfi, kind) {
+      // epub.js keys marks by CFI, so one passage holds one mark: an explicit evidence click wins over a step.
+      if (kind === 'step' && highlights.get(cfi) === 'evidence') return { remove() {} }
       if (highlights.has(cfi)) o.rendition.annotations.remove(cfi, 'highlight')
       o.rendition.annotations.highlight(cfi, {}, undefined, `illus-${kind}`, {
         fill: theme().accent, 'fill-opacity': kind === 'step' ? '0.3' : '0.2', 'mix-blend-mode': 'multiply',

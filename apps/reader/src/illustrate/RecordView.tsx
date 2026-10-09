@@ -45,6 +45,12 @@ function ExecutedTraceView({ record }: { record: VisualRecord }) {
   </div>
 }
 
+// Module-level so its identity is stable: the Player re-runs (and first clears) its highlight effect
+// whenever this callback changes, which would otherwise happen on every pane re-render.
+const highlightStepEvidence = (evidence: EvidenceEvent['evidence'] | null) => {
+  void highlightEvidence(evidence ? { irId: 'step', target: 'step', label: 'Step', evidence } : null, false, 'step')
+}
+
 function StaticRecordView({ record }: { record: VisualRecord }) {
   const [theme, setTheme] = useState<ThemeTokens>(() => readFlowTheme())
   const [instruction, setInstruction] = useState('')
@@ -53,9 +59,12 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [wrong, setWrong] = useState<{ irId: string; evidence?: EvidenceEvent['evidence'] } | null>(null)
   const [mathBlock, setMathBlock] = useState<Block | undefined>()
-  const parsed = parsedVisual(record)
   const animationJson = record.animation ? JSON.stringify(record.animation) : ''
   const irJson = JSON.stringify(record.ir)
+  // Renderers redraw when the IR identity changes; a fresh parse on every pane re-render would
+  // replace the diagram DOM and drop keyboard focus from the element the reader is on.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const parsed = useMemo(() => parsedVisual(record), [irJson])
   const frames = useMemo(() => {
     if (!animationJson) return []
     try { return buildFrames(IR.parse(JSON.parse(irJson)), JSON.parse(animationJson), { templates: templateRegistry }) } catch { return [] }
@@ -94,7 +103,7 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
       defaultSpeed={pane.preferences.speed} reducedMotion={pane.preferences.reducedMotion === 'system' ? undefined : pane.preferences.reducedMotion === 'on'}
       onStepChange={(index) => { pane.announcement = frames[index]?.narration ?? '' }}
       onEvidenceClick={(evidence) => { void highlightEvidence({ irId: 'step', target: 'step', label: 'Step', evidence }, true, 'step') }}
-      onEvidenceHighlight={(evidence) => { void highlightEvidence(evidence ? { irId: 'step', target: 'step', label: 'Step', evidence } : null, false, 'step') }} /> : renderFrame()}
+      onEvidenceHighlight={highlightStepEvidence} /> : renderFrame()}
     <p className="illus-token-usage" title="Input and output tokens for this illustration">{record.usageTokens.toLocaleString()} tokens</p>
     {regenerate && <form className="illus-inline-form" onSubmit={(e) => { e.preventDefault(); requestVisual({ instruction, planItemId: record.planItemId }); setRegenerate(false) }}>
       <label>Instruction <textarea maxLength={300} value={instruction} onChange={(e) => setInstruction(e.target.value)} /></label><small>{instruction.length}/300</small>
