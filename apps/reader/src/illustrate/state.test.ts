@@ -153,6 +153,10 @@ describe('critic gating', () => {
   })
 })
 describe('evidence highlight policy', () => {
+  it('enables step highlights by default', () => {
+    expect(DEFAULT_PREFERENCES.highlightSteps).toBe(true)
+    expect(createPaneState().preferences.highlightSteps).toBe(true)
+  })
   it('keeps a clicked mark through hover and focus loss, and ignores hover when auto-highlight is off', () => {
     expect(
       evidenceAction({

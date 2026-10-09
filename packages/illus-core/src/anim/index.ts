@@ -11,6 +11,8 @@ import type { ValidationIssue } from '../schemas/quality.ts'
 import { ground } from '../grounding/index.ts'
 import { projectTemplateFrame } from './project.ts'
 
+export { defaultStoryboard } from './storyboard.ts'
+
 export interface AnimationOptions {
   templates?: TemplateRegistry
   /** Mandatory for validateAnimation; only permitted section blocks may be supplied. */
@@ -433,3 +435,9 @@ export async function validateAnimationWithRepair(
   }
   return { ...result, repaired: true, staticFallback: !result.ok }
 }
+
+export { withDerivedVisibility } from './visibility.ts'
+export { sceneOf, cameraBox } from './scene.ts'
+export type { Scene, SceneBox } from './scene.ts'
+export { compileSceneTimeline } from './scene-timeline.ts'
+export type { SceneTween, SceneStep, SceneTimeline } from './scene-timeline.ts'

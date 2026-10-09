@@ -5,6 +5,14 @@ export default defineConfig({
   server: { port: 5206, strictPort: true },
   worker: { format: 'es' },
   optimizeDeps: {
-    include: ['react', 'react-dom/client', 'motion', 'motion/react'],
+    include: [
+      'react',
+      'react-dom/client',
+      'motion',
+      'motion/react',
+      'gsap',
+      'gsap/DrawSVGPlugin',
+      'gsap/MotionPathPlugin',
+    ],
   },
 })

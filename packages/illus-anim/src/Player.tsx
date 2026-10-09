@@ -9,6 +9,12 @@ import type { ReactNode } from 'react'
 import { animate } from 'motion'
 import { useReducedMotion } from 'motion/react'
 import type { Evidence, FrameState } from '@illus/core'
+import {
+  HighlightToggle,
+  Narration,
+  useHighlightOption,
+  useStepHighlight,
+} from './highlight.tsx'
 import { PlaybackControls, playbackKey, usePlayback } from './transport.tsx'
 
 export interface PlayerProps {
@@ -23,8 +29,31 @@ export interface PlayerProps {
   reducedMotion?: boolean
   /** Play through once when the frames arrive (never with reduced motion), ending on the full picture. */
   autoPlay?: boolean
-  /** Initial value of "Highlight passage while playing". */
+  /** Initial passage-highlight value, or current value when controlled by the host. */
   highlightWhilePlaying?: boolean
+  /** When given, the host controls highlightWhilePlaying. */
+  onHighlightWhilePlayingChange?: (on: boolean) => void
+}
+
+/** A screen-pixel offset in the element's own coordinates (SVG viewBox scaling, pane zoom). */
+function localDelta(element: Element, dx: number, dy: number) {
+  if (!dx && !dy) return { x: 0, y: 0 }
+  const parent = element.parentElement
+  const matrix =
+    element instanceof SVGElement && parent instanceof SVGGraphicsElement
+      ? parent.getScreenCTM()
+      : null
+  if (matrix) {
+    const inverse = matrix.inverse()
+    return {
+      x: inverse.a * dx + inverse.c * dy,
+      y: inverse.b * dx + inverse.d * dy,
+    }
+  }
+  const scale = Number(
+    element.closest('[data-zoom]')?.getAttribute('data-zoom') ?? 1,
+  )
+  return { x: dx / scale, y: dy / scale }
 }
 
 /** Precomputed frame player. The caller gates mounting with featureFlags.animation. */
@@ -38,9 +67,13 @@ export function Player({
   reducedMotion,
   autoPlay = false,
   highlightWhilePlaying = true,
+  onHighlightWhilePlayingChange,
 }: PlayerProps) {
   const [index, setIndex] = useState(0)
-  const [autoHighlight, setAutoHighlight] = useState(highlightWhilePlaying)
+  const highlight = useHighlightOption({
+    value: highlightWhilePlaying,
+    onChange: onHighlightWhilePlayingChange,
+  })
   const root = useRef<HTMLDivElement>(null)
   const [surfaceVersion, setSurfaceVersion] = useState(0)
   const systemReduced = useReducedMotion()
@@ -87,12 +120,11 @@ export function Player({
   useEffect(() => {
     onStepChange?.(safeIndex)
   }, [safeIndex, onStepChange])
-  useEffect(() => {
-    onEvidenceHighlight?.(
-      playback.playing && autoHighlight ? frame?.evidence ?? null : null,
-    )
-    return () => onEvidenceHighlight?.(null)
-  }, [playback.playing, autoHighlight, frame?.evidence, onEvidenceHighlight])
+  useStepHighlight({
+    evidence: frame?.evidence,
+    enabled: highlight.checked,
+    onEvidenceHighlight,
+  })
   const previous = useRef(
     new Map<string, { x: number; y: number; opacity: number; fill: string }>(),
   )
@@ -136,27 +168,30 @@ export function Player({
       }
       const before = previous.current.get(target)
       next.set(target, now)
-      if (!reduced && before) {
-        const dx = before.x - now.x,
-          dy = before.y - now.y
+      if (!reduced && before && typeof element.animate === 'function') {
+        const offset = localDelta(element, before.x - now.x, before.y - now.y)
         if (
-          dx ||
-          dy ||
+          offset.x ||
+          offset.y ||
           before.opacity !== now.opacity ||
           before.fill !== now.fill
-        )
-          stops.push(
-            animate(
-              element,
+        ) {
+          // The CSS `translate` property composes with an SVG `transform` attribute (graph nodes are
+          // positioned by one); a CSS `transform` would replace it and send the node to the origin.
+          // No fill mode: once done, nothing stays inline to mask the next frame's classes.
+          const animation = element.animate(
+            [
               {
-                x: [dx, 0],
-                y: [dy, 0],
-                opacity: [before.opacity, now.opacity],
-                fill: [before.fill, now.fill],
+                translate: `${offset.x}px ${offset.y}px`,
+                opacity: before.opacity,
+                fill: before.fill,
               },
-              { duration: 0.3 / playback.speed },
-            ),
+              { translate: '0px 0px', opacity: now.opacity, fill: now.fill },
+            ],
+            { duration: 300 / playback.speed, easing: 'ease-out' },
           )
+          stops.push({ stop: () => animation.cancel() })
+        }
       }
     }
     previous.current = next
@@ -249,26 +284,11 @@ export function Player({
     >
       {renderFrame(frame)}
       <PlaybackControls {...controls} />
-      <div className="illus-narration" aria-live="polite" aria-atomic="true">
-        {frame.narration ? (
-          <button
-            type="button"
-            onClick={() => frame.evidence && onEvidenceClick?.(frame.evidence)}
-          >
-            {frame.narration}
-          </button>
-        ) : (
-          <span>Initial state</span>
-        )}
-      </div>
-      <label className="illus-player-option">
-        <input
-          type="checkbox"
-          checked={autoHighlight}
-          onChange={(e) => setAutoHighlight(e.target.checked)}
-        />
-        Highlight passage while playing
-      </label>
+      <Narration frame={frame} onEvidenceClick={onEvidenceClick} />
+      <HighlightToggle
+        checked={highlight.checked}
+        onChange={highlight.onChange}
+      />
     </div>
   )
 }
