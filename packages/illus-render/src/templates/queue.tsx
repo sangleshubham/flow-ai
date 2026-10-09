@@ -33,7 +33,7 @@ function layout(p: Props): Layout {
   const top = TOP + (p.label ? 18 : 0)
   if (p.variant === 'ring') {
     const n = p.capacity ?? Math.max(p.items.length, 1)
-    const r = Math.max(56, (n * (w + 10)) / (2 * Math.PI))
+    const r = Math.max(80, (n * (w + 20)) / (2 * Math.PI))
     const cx = PAD + r + w / 2 + 14
     const cy = top + r + H / 2 + 6
     const slots = Array.from({ length: n }, (_, i) => {
@@ -75,7 +75,8 @@ function QueueView({ ir, props: p, layout: L, frame, onReady }: TemplateViewProp
         return L.ring ? (
           <g key={t} {...kit.el(`slots.${i}`, t)}>
             <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={3} className="t-soft" />
-            <T x={b.x + b.w / 2} y={b.y + b.h + 9} cls="t-small">
+            {/* Index labels sit inside the ring; pointers go above the slot. */}
+            <T x={L.centre![0] + (b.x + b.w / 2 - L.centre![0]) * 0.62} y={L.centre![1] + (b.y + b.h / 2 - L.centre![1]) * 0.62} cls="t-small">
               {i}
             </T>
           </g>
