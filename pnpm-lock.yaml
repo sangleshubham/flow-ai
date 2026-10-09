@@ -554,6 +554,9 @@ importers:
 
   packages/illus-concepts:
     dependencies:
+      '@illus/context':
+        specifier: workspace:*
+        version: link:../illus-context
       '@illus/core':
         specifier: workspace:*
         version: link:../illus-core
