@@ -1,0 +1,61 @@
+{
+  "key": "a2ddcf24989549bd2419d9646f9c41ca5c131811d2df95f9349ad03212f7aaa9",
+  "source": "handwritten",
+  "role": "extractor.mermaid",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "SequenceIR",
+  "data": {
+    "type": "sequence",
+    "title": "Heartbeats and rejected entries",
+    "participants": [
+      {
+        "id": "leader",
+        "label": "Leader",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b2",
+          "quote": "The leader sends heartbeats so that followers know it is still alive."
+        }
+      },
+      {
+        "id": "follower",
+        "label": "Follower",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b0",
+          "quote": "Followers reject entries that do not match the previous index and term."
+        }
+      }
+    ],
+    "messages": [
+      {
+        "id": "m1",
+        "from": "leader",
+        "to": "follower",
+        "label": "heartbeat",
+        "kind": "async",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b2",
+          "quote": "The leader sends heartbeats so that followers know it is still alive."
+        }
+      },
+      {
+        "id": "m2",
+        "from": "follower",
+        "to": "leader",
+        "label": "reject entries",
+        "kind": "reply",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2#b0",
+          "quote": "Followers reject entries that do not match the previous index and term."
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input": 3928,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: extractor.mermaid for 3.1 An Oversized Section Without Subheadings (part 2) id=\"p1\". Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}

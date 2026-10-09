@@ -1,0 +1,189 @@
+{
+  "key": "dcad1b004927d8e6ca82cadcd875147d3e30fb5a039ef38856377861cc05e9a5",
+  "source": "handwritten",
+  "role": "indexer",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6-luna",
+  "effort": "medium",
+  "schemaName": "IndexerOutput",
+  "data": {
+    "sections": [
+      {
+        "sectionId": "c911e05c7aff3525:2:chapter-2-math-and-figures/2-3-a-tiny-section/2-3-1-straight-into-a-subheading:4",
+        "summary": "A test section: its empty parent heading is merged into it for generation.",
+        "defines": [],
+        "uses": [],
+        "flags": {
+          "algorithm": false,
+          "protocol": false,
+          "architecture": false,
+          "dataStructure": false,
+          "stateMachine": false,
+          "math": false,
+          "codeHeavy": false,
+          "narrative": true
+        }
+      },
+      {
+        "sectionId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1",
+        "summary": "A replicated log keeps servers in agreement about command order. The leader sends heartbeats; a follower that misses them starts an election for a new term. Terms order leaders, followers reject mismatched entries, and snapshots compact the log.",
+        "defines": [
+          {
+            "name": "replicated log",
+            "evidence": {
+              "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+              "quote": "A replicated log keeps every server in agreement about the order of commands."
+            }
+          },
+          {
+            "name": "heartbeat",
+            "evidence": {
+              "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+              "quote": "The leader sends heartbeats so that followers know it is still alive."
+            }
+          },
+          {
+            "name": "snapshot",
+            "evidence": {
+              "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b1",
+              "quote": "Snapshots compact the log once its prefix has been applied everywhere."
+            }
+          }
+        ],
+        "uses": [
+          {
+            "name": "replicated log"
+          },
+          {
+            "name": "leader"
+          },
+          {
+            "name": "follower"
+          },
+          {
+            "name": "heartbeat"
+          },
+          {
+            "name": "election"
+          },
+          {
+            "name": "term"
+          },
+          {
+            "name": "snapshot"
+          },
+          {
+            "name": "state machine"
+          },
+          {
+            "name": "log"
+          }
+        ],
+        "flags": {
+          "algorithm": false,
+          "protocol": true,
+          "architecture": true,
+          "dataStructure": false,
+          "stateMachine": true,
+          "math": false,
+          "codeHeavy": false,
+          "narrative": false
+        }
+      },
+      {
+        "sectionId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:2",
+        "summary": "A replicated log keeps servers in agreement about command order. The leader sends heartbeats; a follower that misses them starts an election for a new term. Terms order leaders, followers reject mismatched entries, and snapshots compact the log.",
+        "defines": [],
+        "uses": [
+          {
+            "name": "replicated log"
+          },
+          {
+            "name": "leader"
+          },
+          {
+            "name": "follower"
+          },
+          {
+            "name": "heartbeat"
+          },
+          {
+            "name": "election"
+          },
+          {
+            "name": "term"
+          },
+          {
+            "name": "snapshot"
+          },
+          {
+            "name": "state machine"
+          },
+          {
+            "name": "log"
+          }
+        ],
+        "flags": {
+          "algorithm": false,
+          "protocol": true,
+          "architecture": true,
+          "dataStructure": false,
+          "stateMachine": true,
+          "math": false,
+          "codeHeavy": false,
+          "narrative": false
+        }
+      },
+      {
+        "sectionId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:3",
+        "summary": "A replicated log keeps servers in agreement about command order. The leader sends heartbeats; a follower that misses them starts an election for a new term. Terms order leaders, followers reject mismatched entries, and snapshots compact the log.",
+        "defines": [],
+        "uses": [
+          {
+            "name": "replicated log"
+          },
+          {
+            "name": "leader"
+          },
+          {
+            "name": "follower"
+          },
+          {
+            "name": "heartbeat"
+          },
+          {
+            "name": "election"
+          },
+          {
+            "name": "term"
+          },
+          {
+            "name": "snapshot"
+          },
+          {
+            "name": "state machine"
+          },
+          {
+            "name": "log"
+          }
+        ],
+        "flags": {
+          "algorithm": false,
+          "protocol": true,
+          "architecture": true,
+          "dataStructure": false,
+          "stateMachine": false,
+          "math": false,
+          "codeHeavy": false,
+          "narrative": false
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input": 9168,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: indexer for 2.3.1 Straight Into a Subheading, 3.1 An Oversized Section Without Subheadings (part 1), 3.1 An Oversized Section Without Subheadings (part 2), 3.1 An Oversized Section Without Subheadings (part 3). Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}

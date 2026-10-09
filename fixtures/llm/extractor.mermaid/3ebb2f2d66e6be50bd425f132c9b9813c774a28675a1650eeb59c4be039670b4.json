@@ -1,0 +1,51 @@
+{
+  "key": "3ebb2f2d66e6be50bd425f132c9b9813c774a28675a1650eeb59c4be039670b4",
+  "source": "handwritten",
+  "role": "extractor.mermaid",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "StateIR",
+  "data": {
+    "type": "state",
+    "title": "Follower and election",
+    "initial": "follower",
+    "final": [],
+    "states": [
+      {
+        "id": "follower",
+        "label": "Follower",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "quote": "When a follower misses heartbeats it starts an election for a new term."
+        }
+      },
+      {
+        "id": "election",
+        "label": "Election",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "quote": "it starts an election for a new term."
+        }
+      }
+    ],
+    "transitions": [
+      {
+        "id": "t1",
+        "from": "follower",
+        "to": "election",
+        "event": "misses heartbeats",
+        "evidence": {
+          "blockId": "c911e05c7aff3525:3:chapter-3-long-sections/3-1-an-oversized-section-without-subheadings-par:1#b0",
+          "quote": "When a follower misses heartbeats it starts an election for a new term."
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input": 3527,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: extractor.mermaid for 3.1 An Oversized Section Without Subheadings (part 1) id=\"p2\". Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}

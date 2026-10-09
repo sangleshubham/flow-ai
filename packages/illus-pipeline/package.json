@@ -12,14 +12,22 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run",
+    "fixtures:llm": "ILLUS_WRITE_FIXTURES=1 vitest run test/synthetic.e2e.test.ts"
   },
   "dependencies": {
-    "@illus/core": "workspace:*"
+    "@illus/concepts": "workspace:*",
+    "@illus/context": "workspace:*",
+    "@illus/core": "workspace:*",
+    "@illus/llm": "workspace:*"
   },
   "devDependencies": {
+    "@flow/epubjs": "workspace:*",
+    "@illus/book-index": "workspace:*",
     "@illus/eslint-config": "workspace:*",
+    "@types/node": "24.13.6",
     "eslint": "10.11.0",
+    "jsdom": "30.1.1",
     "typescript": "5.9.3",
     "vitest": "4.1.11"
   }
