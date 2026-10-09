@@ -5,10 +5,20 @@ import { z } from 'zod'
 import type { TemplateId, TemplateIR, TemplateRegistry } from '@illus/core'
 
 import { arrayTemplate } from './array.tsx'
+import { bitsTemplate } from './bits.tsx'
+import { cacheTemplate } from './cache.tsx'
+import { callTreeTemplate } from './call-tree.tsx'
+import { comparisonTemplate } from './comparison.tsx'
+import { graphDsTemplate } from './graph-ds.tsx'
+import { gridTemplate } from './grid.tsx'
 import { hashTableTemplate } from './hash-table.tsx'
 import type { W5Template } from './kit.tsx'
+import { layersTemplate } from './layers.tsx'
 import { linkedListTemplate } from './linked-list.tsx'
+import { memoryTemplate } from './memory.tsx'
+import { pipelineTemplate } from './pipeline.tsx'
 import { queueTemplate } from './queue.tsx'
+import { setOpsTemplate } from './set-ops.tsx'
 import { stackTemplate } from './stack.tsx'
 import { treeTemplate } from './tree.tsx'
 
@@ -18,7 +28,25 @@ export { TemplateDropError } from './kit.tsx'
 /** A template with its props type erased, as the registry holds it. */
 export type AnyTemplate = W5Template<unknown, unknown>
 
-const ALL = [arrayTemplate, linkedListTemplate, stackTemplate, queueTemplate, hashTableTemplate, treeTemplate] as unknown as AnyTemplate[]
+// In §10 table order.
+const ALL = [
+  arrayTemplate,
+  linkedListTemplate,
+  stackTemplate,
+  queueTemplate,
+  hashTableTemplate,
+  treeTemplate,
+  graphDsTemplate,
+  gridTemplate,
+  memoryTemplate,
+  bitsTemplate,
+  callTreeTemplate,
+  pipelineTemplate,
+  layersTemplate,
+  cacheTemplate,
+  comparisonTemplate,
+  setOpsTemplate,
+] as unknown as AnyTemplate[]
 
 const BY_ID = new Map<TemplateId, AnyTemplate>(ALL.map((t) => [t.id, t]))
 
