@@ -1,4 +1,4 @@
-import { LlmError } from '@illus/core'
+import { LlmError, animationTargets } from '@illus/core'
 import type {
   GraphIR,
   LlmCall,
@@ -655,6 +655,33 @@ describe('requestSection', () => {
     )
     expect(llm.calls[0]!.ctx.body).not.toContain(`${L}#b2`)
     expect(r.of('plan')[0]!.record.sectionId).toBe(job.sectionId)
+  })
+
+  test('the animator gets the IR targets and supported actions', async () => {
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphIR(),
+        animator: () => make.animationIR(),
+      }),
+    )
+    await collect(
+      pipelineWith(await seededRepos(), llm, {
+        flags: flagsOff({ animations: true }),
+        validateAnimation: () => [],
+      }).requestSection(L),
+    )
+    const { targets, supportedActions } = animationTargets(make.graphIR())
+    expect(targets.length).toBeGreaterThan(0)
+    expect(supportedActions).toContain('token')
+    const body = llm.calls.find((c) => c.role === 'animator')!.ctx.body
+    expect(body).toContain(
+      `</ir><targets>${targets.join(
+        ', ',
+      )}</targets><supported_actions>${supportedActions.join(
+        ',',
+      )}</supported_actions>`,
+    )
   })
 
   test('animation validation receives only packed evidence blocks, excluding later sections', async () => {
