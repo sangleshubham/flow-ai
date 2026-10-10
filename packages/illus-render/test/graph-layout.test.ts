@@ -106,7 +106,7 @@ describe('runElkLayout (the worker body, run under Node)', () => {
     expect(moved.reduce((a, b) => a + b, 0) / moved.length).toBeLessThanOrEqual(40)
   })
 
-  it('lays out a grouped graph with position hints and keeps hinted nodes stable (ADR 0043)', async () => {
+  it('lays out a grouped graph with position hints and keeps hinted nodes stable (ADR 0044)', async () => {
     const ir = make.graphIR({
       nodes: make.graphIR().nodes.map((n) => (n.id === 'leader' || n.id === 'log' ? { ...n, group: 'srv' } : n)),
       groups: [{ id: 'srv', label: 'Server', evidence: Q.request }],

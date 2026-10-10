@@ -30,7 +30,7 @@ export const ELK_STRESS_OPTIONS = {
  * With position hints, ELK keeps the previous order so unchanged nodes stay put (§11, §13).
  * Semi-interactive LAYER_SWEEP (ordered by each node's `elk.position`) instead of the INTERACTIVE crossing
  * minimiser: it is hierarchy-aware, so compound graphs work, and it still places edge-label dummies sensibly.
- * Model order is off so it cannot override the hinted order. Applied to the root and every group (ADR 0043).
+ * Model order is off so it cannot override the hinted order. Applied to the root and every group (ADR 0044).
  */
 const INTERACTIVE_LAYERED = {
   'elk.interactiveLayout': 'true',
