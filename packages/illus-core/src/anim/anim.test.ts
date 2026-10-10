@@ -3,7 +3,12 @@ import fc from 'fast-check'
 import { z } from 'zod'
 import { emptyFrame } from '../schemas/animation.ts'
 import type { Action, AnimationIR } from '../schemas/animation.ts'
-import { apply, buildFrames, validateAnimation } from './index.ts'
+import {
+  animationTargets,
+  apply,
+  buildFrames,
+  validateAnimation,
+} from './index.ts'
 
 const evidence = { blockId: 'b', quote: 'The client sends a request' }
 const ir = {
@@ -222,5 +227,45 @@ describe('animation frames', () => {
       ),
       { numRuns: 200 },
     )
+  })
+})
+
+describe('animationTargets', () => {
+  it('lists graph targets sorted with token support', () => {
+    const g = {
+      type: 'graph' as const,
+      nodes: [
+        { id: 'b', label: 'B', evidence },
+        { id: 'a', label: 'A', evidence },
+      ],
+      edges: [{ id: 'e', from: 'a', to: 'b', evidence }],
+      groups: [],
+    } as never
+    const r = animationTargets(g)
+    expect(r.targets).toEqual(['edge:e', 'node:a', 'node:b'])
+    expect(r.supportedActions).toContain('token')
+  })
+  it('lists sequence targets without token', () => {
+    const r = animationTargets(ir)
+    expect(r.targets).toEqual(['msg:m', 'node:c', 'node:s'])
+    expect(r.supportedActions).not.toContain('token')
+  })
+  it('uses the template registry, sorted and deduplicated', () => {
+    const templates = {
+      getTemplate: () => ({
+        id: 'stub',
+        propsSchema: z.any(),
+        targets: () => ['node:z', 'node:a', 'node:z'],
+        supportedActions: ['highlight', 'set'],
+      }),
+    } as never
+    const r = animationTargets(
+      { type: 'template', templateId: 'stub', props: {} } as never,
+      { templates },
+    )
+    expect(r).toEqual({
+      targets: ['node:a', 'node:z'],
+      supportedActions: ['highlight', 'set'],
+    })
   })
 })
