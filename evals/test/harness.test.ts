@@ -65,7 +65,8 @@ describe('scoreCase', () => {
 describe('summarize and thresholds', () => {
   it('computes the §18 metrics over the golden replay set', async () => {
     const { summary, sources } = await runEval(cases, replayRunner(join(ROOT, 'replay')))
-    expect(sources).toEqual({ handwritten: cases.length })
+    expect(sources).toEqual({ handwritten: cases.filter((c) => !c.bookRef.startsWith('private:')).length })
+    expect(summary.cases.skipped).toBe(24)
     expect(summary.metrics.displacementPx).toBeNull()
     expect(summary.metrics.meanGrounding).toBeGreaterThan(0.9)
     expect(summary.latency['no-visual']?.n).toBe(3)
@@ -97,13 +98,14 @@ describe('reports', () => {
 
   it('pnpm eval (replay) writes a dated report from the CLI', () => {
     const out = tmp()
-    const log = execFileSync(process.execPath, [join(ROOT, 'src/cli.ts'), '--out', out, '--date', '2026-10-09'], { encoding: 'utf8' })
+    const log = execFileSync(process.execPath, [join(ROOT, 'bin/run.mjs'), join(ROOT, 'src/cli.ts'), '--out', out, '--date', '2026-10-09'], { encoding: 'utf8' })
     expect(log).toMatch(/cases passed/)
     expect(readFileSync(join(out, '2026-10-09.md'), 'utf8')).toMatch(/^# Eval report 2026-10-09/)
   })
 
-  it('refuses --live until the pipeline exists', () => {
-    expect(() => execFileSync(process.execPath, [join(ROOT, 'src/cli.ts'), '--live'], { stdio: 'pipe' })).toThrow()
+  it('--live refuses to start without the reader’s server settings', () => {
+    const args = [join(ROOT, 'bin/run.mjs'), join(ROOT, 'src/cli.ts'), '--live', '--env', join(tmp(), 'missing.env')]
+    expect(() => execFileSync(process.execPath, args, { stdio: 'pipe' })).toThrow()
   })
 })
 

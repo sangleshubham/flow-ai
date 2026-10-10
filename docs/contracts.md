@@ -2928,6 +2928,24 @@ type TraceRecord = {
 }
 ```
 
+### `src/validate/repair.ts`
+
+```ts
+/** A finding to fix: a validation/render issue or a critic issue. */
+type RepairFinding = {
+    layer: "schema" | "grounding" | "structure" | "render" | "animation";
+    severity: "error" | "warning";
+    code: string;
+    message: string;
+    elementId?: string | undefined;
+    autoFixed?: boolean | undefined;
+} | {
+    kind: "clutter" | "overlap" | "unreadable" | "missing-step" | "wrong-direction" | "mislabel" | "other";
+    note: string;
+    elementId?: string | undefined;
+}
+```
+
 ## 2. Model output schemas
 
 Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` are optional.
@@ -7753,6 +7771,19 @@ put(value): Promise<void>;
 
 ***
 
+#### CritiqueInput
+
+##### Properties
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-intent"></a> `intent` | `string` | The plan item's intent (≤ 25 words, model-written). |
+| <a id="property-ir"></a> `ir` | `unknown` | - |
+| <a id="property-kind"></a> `kind` | \| `"math"` \| `"html"` \| `"graph"` \| `"sequence"` \| `"state"` \| `"class"` \| `"er"` \| `"template"` \| `"chart"` \| `"trace"` \| `"timeline"` | - |
+| <a id="property-pngbase64"></a> `pngBase64` | `string` | PNG of the rendered visual (900 px wide at 2×), base64 without the data: prefix. |
+
+***
+
 #### CrossRefsRepo
 
 Stores whose records carry `bookId` can drop a whole book (re-index, clear visuals, §14 settings).
@@ -8788,6 +8819,23 @@ scrollTo(cfi): Promise<void>;
 
 ***
 
+#### RepairInput
+
+##### Properties
+
+| Property | Type | Description |
+| ------ | ------ | ------ |
+| <a id="property-bookid-4"></a> `bookId?` | `string` | - |
+| <a id="property-context"></a> `context` | [`LlmContext`](#llmcontext) | The same packed context the extractor saw: the repair may re-quote only these blocks. |
+| <a id="property-findings"></a> `findings` | readonly [`RepairFinding`](#repairfinding)[] | - |
+| <a id="property-ir-1"></a> `ir` | `unknown` | The IR to fix (the validated one, or the last attempt). |
+| <a id="property-kind-1"></a> `kind` | \| `"math"` \| `"graph"` \| `"sequence"` \| `"state"` \| `"class"` \| `"er"` \| `"template"` \| `"chart"` \| `"timeline"` | - |
+| <a id="property-sectionid-3"></a> `sectionId?` | `string` | - |
+| <a id="property-signal-1"></a> `signal?` | `AbortSignal` | - |
+| <a id="property-validation"></a> `validation` | [`ValidationContext`](#validationcontext) | - |
+
+***
+
 #### RoleRun
 
 The prompt version, model and effort that produced a result; all three are key parts (§9).
@@ -8822,7 +8870,7 @@ The prompt version, model and effort that produced a result; all three are key p
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="property-bookid-4"></a> `bookId` | `string` | - |
+| <a id="property-bookid-5"></a> `bookId` | `string` | - |
 | <a id="property-headingpath"></a> `headingPath` | readonly `string`[] | Heading texts from the chapter down to this section. |
 | <a id="property-ordinalinspine-1"></a> `ordinalInSpine` | `number` | 0-based position of the section within its spine item. |
 | <a id="property-spineindex-1"></a> `spineIndex` | `number` | - |
@@ -9963,7 +10011,7 @@ put(value): Promise<void>;
 
 | Property | Type | Description |
 | ------ | ------ | ------ |
-| <a id="property-ir"></a> `ir` | `T` | The IR after dropping ungrounded/dangling elements and safe auto-fixes. |
+| <a id="property-ir-2"></a> `ir` | `T` | The IR after dropping ungrounded/dangling elements and safe auto-fixes. |
 | <a id="property-report"></a> `report` | `object` | - |
 | `report.counts` | `object` | - |
 | `report.counts.dropped` | `number` | - |
@@ -11170,6 +11218,18 @@ type ReasoningEffort = z.infer<typeof ReasoningEffort>;
 ```
 
 Reasoning effort sent on every model call. v1 allows only these three (§9).
+
+***
+
+#### RepairFinding
+
+```ts
+type RepairFinding =
+  | ValidationIssue
+  | CriticReport["issues"][number];
+```
+
+A finding to fix: a validation/render issue or a critic issue.
 
 ***
 
@@ -14384,6 +14444,16 @@ A trace with the label of the scenario it ran (scenario tabs in the trace view).
 
 ***
 
+#### SCHEMA\_OF
+
+```ts
+const SCHEMA_OF: Record<IrKind, keyof typeof SCHEMAS>;
+```
+
+Output schema of each IR kind.
+
+***
+
 #### SchemaName
 
 ```ts
@@ -16739,6 +16809,26 @@ Builds validated frame states, including frame zero; never mutates the IR or tem
 
 ***
 
+#### criticBody()
+
+```ts
+function criticBody(i): string;
+```
+
+The request body the critic sees; exported so fixtures can be keyed by it.
+
+##### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `i` | `Pick`\<[`CritiqueInput`](#critiqueinput), `"kind"` \| `"ir"` \| `"intent"`\> |
+
+##### Returns
+
+`string`
+
+***
+
 #### criticPasses()
 
 ```ts
@@ -16756,6 +16846,74 @@ function criticPasses(report): boolean;
 ##### Returns
 
 `boolean`
+
+***
+
+#### critique()
+
+```ts
+function critique(
+   llm,
+   input,
+   opts?
+): Promise<{
+  report: {
+     issues: object[];
+     pass: boolean;
+     scores: {
+        clutter: 1 | 2 | 3 | 4 | 5;
+        intentMatch: 1 | 2 | 3 | 4 | 5;
+        legibility: 1 | 2 | 3 | 4 | 5;
+     };
+  };
+  result: LlmResult<{
+     issues: object[];
+     pass: boolean;
+     scores: {
+        clutter: 1 | 2 | 3 | 4 | 5;
+        intentMatch: 1 | 2 | 3 | 4 | 5;
+        legibility: 1 | 2 | 3 | 4 | 5;
+     };
+  }>;
+}>;
+```
+
+Calls the `critic` role once. `pass` is recomputed with the §16 rule (every score ≥ 3, no
+`wrong-direction` or `mislabel` issue) rather than trusted from the model.
+
+##### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `llm` | [`LlmCall`](#llmcall) |
+| `input` | [`CritiqueInput`](#critiqueinput) |
+| `opts` | \{ `bookId?`: `string`; `sectionId?`: `string`; `signal?`: `AbortSignal`; \} |
+| `opts.bookId?` | `string` |
+| `opts.sectionId?` | `string` |
+| `opts.signal?` | `AbortSignal` |
+
+##### Returns
+
+`Promise`\<\{
+  `report`: \{
+     `issues`: `object`[];
+     `pass`: `boolean`;
+     `scores`: \{
+        `clutter`: `1` \| `2` \| `3` \| `4` \| `5`;
+        `intentMatch`: `1` \| `2` \| `3` \| `4` \| `5`;
+        `legibility`: `1` \| `2` \| `3` \| `4` \| `5`;
+     \};
+  \};
+  `result`: [`LlmResult`](#llmresult)\<\{
+     `issues`: `object`[];
+     `pass`: `boolean`;
+     `scores`: \{
+        `clutter`: `1` \| `2` \| `3` \| `4` \| `5`;
+        `intentMatch`: `1` \| `2` \| `3` \| `4` \| `5`;
+        `legibility`: `1` \| `2` \| `3` \| `4` \| `5`;
+     \};
+  \}\>;
+\}\>
 
 ***
 
@@ -16978,6 +17136,26 @@ Effort of escalated calls: `deep` tier at `medium`, or `high` for `translator` (
 ##### Returns
 
 `"low"` \| `"medium"` \| `"high"`
+
+***
+
+#### escapeXml()
+
+```ts
+function escapeXml(s): string;
+```
+
+`<`, `>` and `&` escaped, so model-written labels cannot open or close a prompt tag.
+
+##### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `s` | `string` |
+
+##### Returns
+
+`string`
 
 ***
 
@@ -17344,6 +17522,48 @@ function planKey(i): Promise<string>;
 
 ***
 
+#### repairBody()
+
+```ts
+function repairBody(i): string;
+```
+
+The request body of a repair call; exported so fixtures can be keyed by it.
+
+##### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `i` | `Pick`\<[`RepairInput`](#repairinput), `"kind"` \| `"ir"` \| `"findings"` \| `"context"`\> |
+
+##### Returns
+
+`string`
+
+***
+
+#### repairIr()
+
+```ts
+function repairIr(llm, input): Promise<ValidationResult<unknown> & object>;
+```
+
+Calls `repair` once and re-validates its output. Model errors (`LlmError`) propagate: the caller keeps
+the unrepaired visual. The caller adopts the result only when `report.ok`.
+
+##### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `llm` | [`LlmCall`](#llmcall) |
+| `input` | [`RepairInput`](#repairinput) |
+
+##### Returns
+
+`Promise`\<[`ValidationResult`](#validationresult)\<`unknown`\> & `object`\>
+
+***
+
 #### resolveFlags()
 
 ```ts
@@ -17438,6 +17658,26 @@ URL-safe slug of one heading: NFKD, diacritics stripped, lowercase, runs of othe
 | Parameter | Type |
 | ------ | ------ |
 | `text` | `string` |
+
+##### Returns
+
+`string`
+
+***
+
+#### summarizeIr()
+
+```ts
+function summarizeIr(ir): string;
+```
+
+Text summary of an IR for the critic: its JSON without evidence.
+
+##### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `ir` | `unknown` |
 
 ##### Returns
 

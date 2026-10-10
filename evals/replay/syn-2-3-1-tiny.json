@@ -3,14 +3,14 @@
   "source": "handwritten",
   "blocks": [
     {
-      "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-3-a-tiny-section/2-3-1-straight-into-a-subheading:6#b0",
+      "blockId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-3-a-tiny-section/2-3-1-straight-into-a-subheading:4#b0",
       "kind": "paragraph",
       "text": "The parent heading above has no text of its own, so it should be merged into this subsection for generation."
     }
   ],
   "planAttempts": [
     {
-      "sectionId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-3-a-tiny-section/2-3-1-straight-into-a-subheading:6",
+      "sectionId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-3-a-tiny-section/2-3-1-straight-into-a-subheading:4",
       "needsVisual": false,
       "reason": "Editorial note with no technical concept.",
       "items": []

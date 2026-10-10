@@ -1,0 +1,172 @@
+{
+  "caseId": "syn-1-1-tables",
+  "source": "handwritten",
+  "blocks": [
+    {
+      "blockId": "9604b90977df58f0:0:preface:0#b0",
+      "kind": "paragraph",
+      "text": "This synthetic book exists to test an EPUB indexer. It has no headings on this page, so its section title must come from the table of contents."
+    },
+    {
+      "blockId": "9604b90977df58f0:0:preface:0#b1",
+      "kind": "paragraph",
+      "text": "Everything in it is original text released under CC0."
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics:0#b0",
+      "kind": "paragraph",
+      "text": "This chapter introduces the “basic” building blocks. It uses soft hyphens, the ﬁrst ligature and the ﬂow ligature on purpose."
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b0",
+      "kind": "paragraph",
+      "text": "A server can be in three states:"
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b1",
+      "kind": "list",
+      "text": "follower candidate leader"
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b2",
+      "kind": "list",
+      "text": "Receive a request. Append it to the log. Replicate it."
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b3",
+      "kind": "list",
+      "text": "Term A monotonically increasing election number."
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b4",
+      "kind": "paragraph",
+      "text": "Table 1.1 Message types"
+    },
+    {
+      "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b5",
+      "kind": "table",
+      "text": "Message Sender Purpose RequestVote candidate ask for a vote AppendEntries leader replicate entries and send heartbeats"
+    }
+  ],
+  "aliases": {
+    "EPUB indexer": [],
+    "AppendEntries": [],
+    "candidate": [],
+    "follower": [],
+    "leader": [],
+    "replicated log": [
+      "log"
+    ],
+    "RequestVote": [],
+    "server": [],
+    "term": [],
+    "binary search": [],
+    "loop invariant": [],
+    "search": [],
+    "quorum": [],
+    "cluster": [],
+    "election": [],
+    "heartbeat": [],
+    "snapshot": [],
+    "state machine": []
+  },
+  "planAttempts": [
+    {
+      "sectionId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1",
+      "needsVisual": true,
+      "reason": "Table 1.1 is a small data model of message types.",
+      "items": [
+        {
+          "planItemId": "p1",
+          "kind": "er",
+          "intent": "The message types of Table 1.1 with their sender and purpose",
+          "conceptIds": [],
+          "priority": 1,
+          "animate": false
+        }
+      ]
+    }
+  ],
+  "visuals": [
+    {
+      "planItemId": "p1",
+      "kind": "er",
+      "attempts": [
+        {
+          "type": "er",
+          "title": "Message types",
+          "entities": [
+            {
+              "id": "message",
+              "label": "Message",
+              "attributes": [
+                {
+                  "name": "Sender",
+                  "evidence": {
+                    "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b5",
+                    "quote": "Message Sender Purpose RequestVote candidate"
+                  }
+                },
+                {
+                  "name": "Purpose",
+                  "evidence": {
+                    "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b5",
+                    "quote": "Message Sender Purpose RequestVote candidate"
+                  }
+                }
+              ],
+              "evidence": {
+                "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b4",
+                "quote": "Table 1.1 Message types"
+              }
+            },
+            {
+              "id": "server",
+              "label": "Server",
+              "attributes": [],
+              "evidence": {
+                "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b0",
+                "quote": "A server can be in three states:"
+              }
+            }
+          ],
+          "relationships": [
+            {
+              "id": "sentBy",
+              "from": "message",
+              "to": "server",
+              "fromCardinality": "zero-or-more",
+              "toCardinality": "exactly-one",
+              "label": "Sender",
+              "identifying": false,
+              "evidence": {
+                "blockId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1#b5",
+                "quote": "Message Sender Purpose RequestVote candidate ask for a vote"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "calls": [
+    {
+      "role": "planner",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 587,
+      "outputTokens": 200,
+      "latencyMs": 0
+    },
+    {
+      "role": "extractor.mermaid",
+      "model": "gpt-6.1-sol",
+      "effort": "medium",
+      "inputTokens": 616,
+      "outputTokens": 200,
+      "latencyMs": 1
+    }
+  ],
+  "path": "static",
+  "latencyMs": 6
+}

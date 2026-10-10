@@ -1,0 +1,18 @@
+{
+  "id": "private-protocol-1",
+  "category": "protocol",
+  "bookRef": "private:your-book.epub",
+  "sectionId": "fill-in",
+  "title": "A client-server handshake (for example TLS)",
+  "expected": {
+    "needsVisual": true,
+    "acceptableKinds": [
+      "sequence",
+      "timeline"
+    ],
+    "mustInclude": [],
+    "mustNotInclude": []
+  },
+  "source": "golden",
+  "notes": "Placeholder for Shubham: pick a section of one of your own books in fixtures/books/private/ that matches the title, set bookRef to private:<file name> and sectionId to its id (shown in the reader's debug panel or by the live runner's error), then fill mustInclude. Skipped until then."
+}

@@ -1,0 +1,23 @@
+{
+  "id": "syn-1-1-tables",
+  "category": "architecture",
+  "bookRef": "synthetic",
+  "sectionId": "9604b90977df58f0:1:chapter-1-basics/1-1-lists-and-tables:1",
+  "title": "1.1 Lists and Tables",
+  "expected": {
+    "needsVisual": true,
+    "acceptableKinds": [
+      "er",
+      "class",
+      "graph"
+    ],
+    "mustInclude": [
+      "Message",
+      "Sender",
+      "Purpose"
+    ],
+    "mustNotInclude": []
+  },
+  "source": "golden",
+  "notes": "Replay recorded by the live runner in replay mode over W3's hand-written synthetic fixtures."
+}

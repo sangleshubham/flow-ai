@@ -37,3 +37,6 @@ export { SANDBOX_MESSAGE, SANDBOX_URL } from './html/HtmlFallbackView.tsx'
 
 // Template library (§10). Owner: W5 (ADR 0015).
 export * from './templates/index.ts'
+
+// Render checks, critic and repair review loop (§16 L4/L5). Owner: W10.
+export * from './check/index.ts'
