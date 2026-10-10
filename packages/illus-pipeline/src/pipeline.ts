@@ -99,7 +99,7 @@ export interface SectionJob {
     event: E,
     cb: (payload: SectionJobEvents[E]) => void,
   ): () => void
-  /** Cancels the planner call and queued items; extractor calls in flight complete and are cached (§15). */
+  /** Aborts every call of the job (planner, extractor, animator, repair, review) and starts no new step. */
   cancel(): void
   readonly cancelled: boolean
   /** Settles after `done` was emitted. */
@@ -516,11 +516,13 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
         ),
       ),
     ]
-    if (!items.length && off.length) {
+    if (!items.length) {
       job.emit('no-visual', {
-        reason: `The planned visuals need features that are turned off: ${off.join(
-          ', ',
-        )}. Turn them on in Illustrate settings.`,
+        reason: off.length
+          ? `The planned visuals need features that are turned off: ${off.join(
+              ', ',
+            )}. Turn them on in Illustrate settings.`
+          : 'The plan has no visual to draw for this section.',
       })
       return
     }
@@ -566,6 +568,10 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
   ) {
     const progress = (stage: ItemStage) =>
       job.emit('item-progress', { planItemId: item.planItemId, stage })
+    /** Called before every further step: a cancelled job starts no new call. */
+    const stopIfCancelled = () => {
+      if (job.cancelled) throw new LlmError('aborted', 'job cancelled')
+    }
     if (item.kind === 'template' && !item.templateId)
       throw new ItemFailure(
         'needs-template',
@@ -620,7 +626,11 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       prefix: packed.prefix,
       body: [packed.body, ...extra].join('\n'),
     }
-    const callOpts = { bookId: section.bookId, sectionId: section.sectionId }
+    const callOpts = {
+      bookId: section.bookId,
+      sectionId: section.sectionId,
+      signal: job.controller.signal,
+    }
     const validationContext = async (): Promise<ValidationContext> => ({
       blocks,
       ground,
@@ -774,6 +784,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       let retried = false
       let escalated = false
       if (unusable(v.report, v.ir)) {
+        stopIfCancelled()
         progress('retrying')
         retried = true
         v = await attempt(reportBlock(v.report), false)
@@ -781,6 +792,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
           unusable(v.report, v.ir) &&
           (ROLES[exRole] as RoleSpec).escalationTier
         ) {
+          stopIfCancelled()
           progress('escalating')
           escalated = true
           v = await attempt(reportBlock(v.report), true)
@@ -812,6 +824,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     // §15 step 7: animate when asked and enabled.
     let animation: AnimationIR | undefined
     if (routeItem.animate && flags.animations && kind !== 'trace') {
+      stopIfCancelled()
       progress('animating')
       try {
         const res = await llm.call(
@@ -828,6 +841,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
         if (issues.some((issue) => issue.severity === 'error')) {
           // §11: exactly one repair, charged/logged through the same request limiter. Revalidation
           // uses the same block whitelist; a repair never gains evidence from later book sections.
+          stopIfCancelled()
           progress('retrying')
           try {
             const fixed = await llm.call(
@@ -942,7 +956,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
   async function traceRoute(
     item: PlanItem,
     packed: PackedContext,
-    callOpts: { bookId: string; sectionId: string },
+    callOpts: { bookId: string; sectionId: string; signal: AbortSignal },
     note: (r: RoleName, res: LlmResult<unknown>) => void,
     signal: AbortSignal,
     flags: Flags,

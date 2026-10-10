@@ -1,10 +1,10 @@
 import { LlmError } from '@illus/core'
-import type { GraphIR, VisualPlan } from '@illus/core'
+import type { GraphIR, LlmCall, VisualPlan } from '@illus/core'
 import { make } from '@illus/core/testing'
 import { describe, expect, test } from 'vitest'
 
 import { createLimiter } from '../src/index.ts'
-import type { ReviewHook } from '../src/index.ts'
+import type { ReviewHook, SectionJob } from '../src/index.ts'
 import {
   SECTION_COMMIT_ID as C,
   SECTION_LEADERS_ID as L,
@@ -127,6 +127,71 @@ describe('requestSection', () => {
     expect(llm.calls).toHaveLength(1)
   })
 
+  test('a needsVisual plan with nothing left to run emits no-visual', async () => {
+    const llm = fakeLlm(byRole({ planner: () => plan() }))
+    const pipeline = pipelineWith(await seededRepos(), llm)
+    for (const opts of [
+      { planItemId: 'nope' },
+      { kindOverride: 'html' as const }, // htmlFallback is off
+    ]) {
+      const r = await collect(pipeline.requestSection(L, opts))
+      expect(r.of('no-visual')).toHaveLength(1)
+      expect(r.of('item-progress')).toEqual([])
+      expect(r.of('done')).toEqual([{ cancelled: false }])
+    }
+    expect(llm.calls.map((c) => c.role)).toEqual(['planner'])
+  })
+
+  test('a call that returns after cancel starts no retry, animation or repair', async () => {
+    const cases: [string, Partial<Record<Call['role'], unknown>>][] = [
+      ['extractor.graph', { 'extractor.graph': badGraph() }],
+      ['extractor.graph', { 'extractor.graph': make.graphIR() }],
+      [
+        'animator',
+        { 'extractor.graph': make.graphIR(), animator: make.animationIR() },
+      ],
+    ]
+    for (const [cancelIn, answers] of cases) {
+      const ref = {} as { job: SectionJob }
+      const base = fakeLlm(
+        byRole({
+          planner: () => plan(),
+          ...Object.fromEntries(
+            Object.entries(answers).map(([role, data]) => [
+              role,
+              () => {
+                if (role === cancelIn) ref.job.cancel()
+                return data
+              },
+            ]),
+          ),
+        }),
+      )
+      // A provider that finishes its answer even though the signal fired meanwhile.
+      const deaf: LlmCall = {
+        call: (role, ctx, { signal: _signal, ...opts } = {}) =>
+          base.call(role, ctx, opts),
+      }
+      ref.job = pipelineWith(await seededRepos(), deaf, {
+        flags: flagsOff({ animations: true }),
+        validateAnimation: () => [
+          {
+            layer: 'animation',
+            severity: 'error',
+            code: 'animation-grounding',
+            message: 'bad',
+          },
+        ],
+      }).requestSection(L)
+      const r = await collect(ref.job)
+      expect(base.calls.map((c) => c.role)).toEqual([
+        'planner',
+        ...Object.keys(answers),
+      ])
+      expect(r.of('done')).toEqual([{ cancelled: true }])
+    }
+  })
+
   test('over 30% dropped: retry with the validator report, then escalate once', async () => {
     const repos = await seededRepos()
     const llm = fakeLlm(
@@ -210,18 +275,23 @@ describe('requestSection', () => {
     expect(r.of('item-ready')[0]!.record.validation.retried).toBe(true)
   })
 
-  test('navigating away cancels the planner; in-flight extractor calls still complete and are cached', async () => {
+  test('navigating away cancels the planner and aborts in-flight extractor calls; the job emits done', async () => {
     const repos = await seededRepos()
     let releasePlanner!: () => void
     const plannerGate = new Promise<void>((r) => (releasePlanner = r))
     let releaseExtractor!: () => void
     const extractorGate = new Promise<void>((r) => (releaseExtractor = r))
+    let plannerStarted!: () => void
+    const bPlanning = new Promise<void>((r) => (plannerStarted = r))
     let extractorStarted!: () => void
     const started = new Promise<void>((r) => (extractorStarted = r))
     const llm = fakeLlm(
       byRole({
         planner: async (c) => {
-          if (c.ctx.body.includes(`<section id="${C}"`)) await plannerGate
+          if (c.ctx.body.includes(`<section id="${C}"`)) {
+            plannerStarted()
+            await plannerGate
+          }
           return plan({
             sectionId: L,
             items: [
@@ -248,16 +318,14 @@ describe('requestSection', () => {
     const ra = await a
     expect(ra.of('done')).toEqual([{ cancelled: true }])
     expect(ra.of('item-ready')).toEqual([]) // cancelled jobs emit nothing more…
-    expect(
-      (await repos.visuals.listBySection('0123456789abcdef', L)).map(
-        (v) => v.planItemId,
-      ),
-    ).toEqual(['p1']) // …but the paid result is cached, p2 never started
-    expect(llm.calls.filter((c) => c.role === 'extractor.graph')).toHaveLength(
-      1,
-    )
+    // …the extractor call got the job's signal and was aborted; nothing retried, p2 never started.
+    const extractions = llm.calls.filter((c) => c.role === 'extractor.graph')
+    expect(extractions).toHaveLength(1)
+    expect(extractions[0]!.opts.signal!.aborted).toBe(true)
+    expect(await repos.visuals.listBySection('0123456789abcdef', L)).toEqual([])
 
     // Moving on again cancels B's planner call.
+    await bPlanning
     pipeline.requestSection(L)
     releasePlanner()
     const rb = await b
@@ -601,6 +669,10 @@ describe('requestSection', () => {
     expect(whitelists[0]).toBe(whitelists[1])
     const repair = llm.calls.find((call) => call.role === 'repair')!
     expect(repair.opts.schemaName).toBe('AnimationIR')
+    for (const role of ['extractor.graph', 'animator', 'repair'] as const)
+      expect(
+        llm.calls.find((call) => call.role === role)!.opts.signal,
+      ).toBeInstanceOf(AbortSignal)
     expect(repair.ctx.body).toContain('animation-grounding')
     expect(record).toMatchObject({
       usageTokens: 330,
