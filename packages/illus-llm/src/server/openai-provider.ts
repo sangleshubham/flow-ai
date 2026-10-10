@@ -1,9 +1,18 @@
 // Responses API provider on the official `openai` SDK (§9 step 5). The same code serves both providers:
 // only the bearer credential differs (ChatGPT plan access token or API key).
-import OpenAI, { APIConnectionError, APIConnectionTimeoutError, APIError } from 'openai'
+import OpenAI, {
+  APIConnectionError,
+  APIConnectionTimeoutError,
+  APIError,
+} from 'openai'
 
 import { ProviderError } from '../provider.ts'
-import type { LlmProvider, ProviderErrorKind, ProviderId, ProviderRequest } from '../provider.ts'
+import type {
+  LlmProvider,
+  ProviderErrorKind,
+  ProviderId,
+  ProviderRequest,
+} from '../provider.ts'
 
 export const OPENAI_BASE_URL = 'https://api.openai.com/v1'
 /** Namespace of the structured-output fallback tool. */
@@ -30,18 +39,50 @@ export function createOpenAiProvider(o: OpenAiProviderOptions): LlmProvider {
         ...(o.fetch && { fetch: o.fetch }),
       })
       try {
-        const stream = await client.responses.create(buildRequest(req), { signal: req.signal })
+        const stream = await client.responses.create(buildRequest(req), {
+          signal: req.signal,
+        })
         let final: OpenAI.Responses.Response | undefined
+        // With store:false the plan route can send response.completed with an empty `output`;
+        // the items only arrive as output_item.done events.
+        const items: OpenAI.Responses.ResponseOutputItem[] = []
         for await (const event of stream) {
-          if (event.type === 'response.completed') final = event.response
+          if (event.type === 'response.output_item.done')
+            items[event.output_index] = event.item
+          else if (event.type === 'response.completed') final = event.response
           else if (event.type === 'response.failed') {
-            const err = event.response.error as { code?: string; message?: string } | null
-            throw classify(undefined, err?.code ?? undefined, undefined, err?.message ?? 'response failed')
+            const err = event.response.error as {
+              code?: string
+              message?: string
+            } | null
+            throw classify(
+              undefined,
+              err?.code ?? undefined,
+              undefined,
+              err?.message ?? 'response failed',
+            )
           } else if (event.type === 'response.incomplete')
-            throw new ProviderError('fatal', `response incomplete: ${event.response.incomplete_details?.reason ?? 'unknown reason'}`)
-          else if (event.type === 'error') throw classify(undefined, event.code ?? undefined, event.param ?? undefined, event.message)
+            throw new ProviderError(
+              'fatal',
+              `response incomplete: ${
+                event.response.incomplete_details?.reason ?? 'unknown reason'
+              }`,
+            )
+          else if (event.type === 'error')
+            throw classify(
+              undefined,
+              event.code ?? undefined,
+              event.param ?? undefined,
+              event.message,
+            )
         }
-        if (!final) throw new ProviderError('transient', 'stream ended before response.completed')
+        if (!final)
+          throw new ProviderError(
+            'transient',
+            'stream ended before response.completed',
+          )
+        if (!final.output?.length)
+          final = { ...final, output: items.filter(Boolean) }
         return { text: extractText(final, req), usage: usageOf(final) }
       } catch (e) {
         throw toProviderError(e)
@@ -51,9 +92,18 @@ export function createOpenAiProvider(o: OpenAiProviderOptions): LlmProvider {
 }
 
 /** Plan-route request rules (§9): store false, stream true, instructions not system items, no forbidden fields. */
-export function buildRequest(req: ProviderRequest): OpenAI.Responses.ResponseCreateParamsStreaming {
-  const content: OpenAI.Responses.ResponseInputContent[] = [{ type: 'input_text', text: req.body }]
-  if (req.image) content.push({ type: 'input_image', image_url: `data:${req.image.mediaType};base64,${req.image.base64}`, detail: 'auto' })
+export function buildRequest(
+  req: ProviderRequest,
+): OpenAI.Responses.ResponseCreateParamsStreaming {
+  const content: OpenAI.Responses.ResponseInputContent[] = [
+    { type: 'input_text', text: req.body },
+  ]
+  if (req.image)
+    content.push({
+      type: 'input_image',
+      image_url: `data:${req.image.mediaType};base64,${req.image.base64}`,
+      detail: 'auto',
+    })
   const base = {
     model: req.model,
     instructions: req.instructions,
@@ -63,7 +113,17 @@ export function buildRequest(req: ProviderRequest): OpenAI.Responses.ResponseCre
     stream: true as const,
   }
   if (req.structured === 'json_schema')
-    return { ...base, text: { format: { type: 'json_schema', name: req.schemaName, schema: req.schema, strict: req.strict } } }
+    return {
+      ...base,
+      text: {
+        format: {
+          type: 'json_schema',
+          name: req.schemaName,
+          schema: req.schema,
+          strict: req.strict,
+        },
+      },
+    }
   return {
     ...base,
     tools: [
@@ -89,10 +149,16 @@ export function buildRequest(req: ProviderRequest): OpenAI.Responses.ResponseCre
 
 export const toolName = (schemaName: string) => `emit_${schemaName}`
 
-function extractText(res: OpenAI.Responses.Response, req: ProviderRequest): string {
+function extractText(
+  res: OpenAI.Responses.Response,
+  req: ProviderRequest,
+): string {
   if (req.structured === 'tool') {
-    const callItem = res.output.find((i) => i.type === 'function_call' && i.name === toolName(req.schemaName))
-    if (!callItem || callItem.type !== 'function_call') throw new ProviderError('fatal', 'model did not call the output tool')
+    const callItem = res.output.find(
+      (i) => i.type === 'function_call' && i.name === toolName(req.schemaName),
+    )
+    if (!callItem || callItem.type !== 'function_call')
+      throw new ProviderError('fatal', 'model did not call the output tool')
     return callItem.arguments
   }
   let text = ''
@@ -100,7 +166,8 @@ function extractText(res: OpenAI.Responses.Response, req: ProviderRequest): stri
     if (item.type !== 'message') continue
     for (const part of item.content) {
       if (part.type === 'output_text') text += part.text
-      else if (part.type === 'refusal') throw new ProviderError('fatal', `model refused: ${part.refusal}`)
+      else if (part.type === 'refusal')
+        throw new ProviderError('fatal', `model refused: ${part.refusal}`)
     }
   }
   if (!text) throw new ProviderError('fatal', 'response has no output text')
@@ -117,34 +184,70 @@ function usageOf(res: OpenAI.Responses.Response) {
 
 function toProviderError(e: unknown): ProviderError {
   if (e instanceof ProviderError) return e
-  if (e instanceof APIConnectionTimeoutError) return new ProviderError('timeout', e.message)
-  if (e instanceof APIConnectionError) return new ProviderError('transient', e.message)
+  if (e instanceof APIConnectionTimeoutError)
+    return new ProviderError('timeout', e.message)
+  if (e instanceof APIConnectionError)
+    return new ProviderError('transient', e.message)
   if (e instanceof APIError) {
     const body = e.error as { detail?: string; message?: string } | undefined
-    const err = classify(e.status, e.code ?? undefined, e.param ?? undefined, body?.message ?? body?.detail ?? e.message)
+    const err = classify(
+      e.status,
+      e.code ?? undefined,
+      e.param ?? undefined,
+      body?.message ?? body?.detail ?? e.message,
+    )
     const ra = retryAfterMs(e.headers)
-    return ra === undefined ? err : new ProviderError(err.kind, err.message, { status: err.status, code: err.code, retryAfterMs: ra })
+    return ra === undefined
+      ? err
+      : new ProviderError(err.kind, err.message, {
+          status: err.status,
+          code: err.code,
+          retryAfterMs: ra,
+        })
   }
-  if ((e as Error)?.name === 'AbortError') return new ProviderError('fatal', 'aborted')
+  if ((e as Error)?.name === 'AbortError')
+    return new ProviderError('fatal', 'aborted')
   return new ProviderError('fatal', (e as Error)?.message ?? String(e))
 }
 
-const TRANSIENT_CODES = new Set(['subscription_sharing_usage_unavailable', 'subscription_sharing_user_unavailable', 'server_error'])
-const MODEL_CODES = new Set(['model_not_found', 'model_not_available', 'model_not_supported'])
+const TRANSIENT_CODES = new Set([
+  'subscription_sharing_usage_unavailable',
+  'subscription_sharing_user_unavailable',
+  'server_error',
+])
+const MODEL_CODES = new Set([
+  'model_not_found',
+  'model_not_available',
+  'model_not_supported',
+])
 
 /** Maps an upstream status/code to the gateway's reaction (§9 step 6; OpenAI "Errors and recovery"). */
-export function classify(status: number | undefined, code: string | undefined, param: string | undefined, message: string): ProviderError {
+export function classify(
+  status: number | undefined,
+  code: string | undefined,
+  param: string | undefined,
+  message: string,
+): ProviderError {
   const kind = ((): ProviderErrorKind => {
-    if (code === 'subscription_sharing_usage_limit_exceeded') return 'plan-limit'
-    if ((code && MODEL_CODES.has(code)) || status === 404) return 'model-unavailable'
-    if (code === 'subscription_sharing_unsupported_capability' && param === 'model') return 'model-unavailable'
-    if (status === 400 && param && /^text(\.|$)/.test(param)) return 'unsupported-format'
+    if (code === 'subscription_sharing_usage_limit_exceeded')
+      return 'plan-limit'
+    if ((code && MODEL_CODES.has(code)) || status === 404)
+      return 'model-unavailable'
+    if (
+      code === 'subscription_sharing_unsupported_capability' &&
+      param === 'model'
+    )
+      return 'model-unavailable'
+    if (status === 400 && param && /^text(\.|$)/.test(param))
+      return 'unsupported-format'
     if (code && TRANSIENT_CODES.has(code)) return 'transient'
     if (status === 429 || code === 'rate_limit_exceeded') return 'rate-limit'
     if (status !== undefined && status >= 500) return 'transient'
     return 'fatal'
   })()
-  const detail = [status && `HTTP ${status}`, code, param && `param ${param}`].filter(Boolean).join(', ')
+  const detail = [status && `HTTP ${status}`, code, param && `param ${param}`]
+    .filter(Boolean)
+    .join(', ')
   return new ProviderError(kind, detail ? `${message} (${detail})` : message, {
     ...(status !== undefined && { status }),
     ...(code && { code }),
