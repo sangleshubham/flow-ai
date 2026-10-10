@@ -48,6 +48,8 @@ export const RunVisual = z.object({
   critic: CriticReport.optional(),
   /** Trace visuals: how the code ran and the first scenario's final return value (Python repr). */
   trace: z.object({ mode: z.enum(['executed', 'simulated']), returnValue: z.string().nullable() }).optional(),
+  /** Why the item produced no visual (`item-failed` code and message), when it failed. */
+  failure: z.string().optional(),
   /** Concept-model visuals: mean node displacement from the previous section, in px (§13). */
   displacementPx: z.number().nonnegative().optional(),
 })

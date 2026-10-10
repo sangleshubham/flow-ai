@@ -160,6 +160,8 @@ export function liveRunner(o: LiveRunnerOptions): CaseRunner {
     let noVisual = false
     let error: string | undefined
     const ready: SectionJobEvents['item-ready'][] = []
+    const failed = new Map<string, string>()
+    job.on('item-failed', (e) => failed.set(e.planItemId, `${e.code}: ${e.message}`))
     job.on('plan', (e) => (plan = e.plan))
     job.on('no-visual', () => (noVisual = true))
     job.on('item-ready', (e) => ready.push(e))
@@ -181,6 +183,7 @@ export function liveRunner(o: LiveRunnerOptions): CaseRunner {
         kind: record?.kind ?? item.kind,
         attempts: item.kind === 'trace' ? [] : attempts,
         ...(record?.critic && { critic: record.critic }),
+        ...(failed.has(item.planItemId) && { failure: failed.get(item.planItemId) }),
       }
     })
     const concepts = await book.repos.concepts.listByBook(book.bookId)

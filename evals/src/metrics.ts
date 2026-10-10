@@ -164,6 +164,7 @@ export function scoreCase(c: EvalCase, run: CaseRun | null): CaseResult {
         shown.push(...displayedText(ir))
       }
     }
+    if (v.failure) r.reasons.push(`${v.planItemId}: failed (${v.failure})`)
     if (v.critic) {
       r.critic.checked++
       if (criticPasses(v.critic)) r.critic.passed++
