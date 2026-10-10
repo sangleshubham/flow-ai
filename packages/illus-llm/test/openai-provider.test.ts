@@ -367,3 +367,44 @@ describe('gateway + openai provider end to end (fake stream)', () => {
     expect(f.calls).toHaveLength(1)
   })
 })
+
+describe('stream idle timeout', () => {
+  const stalled = () =>
+    (async () =>
+      new Response(
+        new ReadableStream({
+          start(c) {
+            c.enqueue(
+              new TextEncoder().encode(
+                'event: response.created\ndata: {"type":"response.created","sequence_number":0}\n\n',
+              ),
+            )
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'text/event-stream' } },
+      )) as unknown as typeof fetch
+
+  it('rejects with a timeout ProviderError when the stream goes silent', async () => {
+    const p = createOpenAiProvider({
+      id: 'chatgpt-plan',
+      fetch: stalled(),
+      idleTimeoutMs: 50,
+    })
+    await expect(p.respond(base)).rejects.toMatchObject({
+      name: 'ProviderError',
+      kind: 'timeout',
+    })
+  })
+
+  it('still aborts on caller abort', async () => {
+    const ac = new AbortController()
+    const p = createOpenAiProvider({
+      id: 'chatgpt-plan',
+      fetch: stalled(),
+      idleTimeoutMs: 5000,
+    })
+    const r = p.respond({ ...base, signal: ac.signal })
+    setTimeout(() => ac.abort(), 20)
+    await expect(r).rejects.not.toMatchObject({ kind: 'timeout' })
+  })
+})
