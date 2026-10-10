@@ -3,11 +3,13 @@
   "compilerOptions": {
     "types": [
       "node"
-    ]
+    ],
+    "jsx": "react-jsx"
   },
   "include": [
     "src",
     "test",
-    "*.ts"
+    "*.ts",
+    "../illus-render/src/templates/d3-hierarchy.d.ts"
   ]
 }

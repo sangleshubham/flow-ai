@@ -11,6 +11,8 @@ import { SCHEMAS, resolveFlags } from '@illus/core'
 import type { IrKind, LlmRequest, LlmResponse, RoleName, VisualRecord } from '@illus/core'
 import { DEFAULT_MODELS, createLlmClient, createPromptRegistry, fixtureKey, memoryFixtures, replayTransport, resolveRoute } from '@illus/llm'
 import type { Fixture, FixtureStore, LlmTransport } from '@illus/llm'
+// eslint-disable-next-line no-restricted-imports -- the published DOM-free template entry (ADR 0040)
+import { templateRegistry } from '@illus/render/templates'
 import { beforeAll, describe, expect, test } from 'vitest'
 
 import { createPipeline } from '../src/index.ts'
@@ -134,6 +136,7 @@ describe('synthetic.epub end to end on replay fixtures', () => {
       flags: resolveFlags({ templates: true }),
       concepts: pass,
       lexical: book.lexical,
+      templates: templateRegistry,
       now: () => 1,
     })
   }, 60_000)

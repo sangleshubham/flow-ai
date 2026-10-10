@@ -1,5 +1,5 @@
 {
-  "key": "5de5e40e0e315a56cd9a471af9ba656916aef21758464ad1f03ebf87b81c2c55",
+  "key": "223c939d70f8a294adb9e70673a864106d865d50f2ef20750a8e8b83deb4a4a8",
   "source": "handwritten",
   "role": "extractor.template",
   "promptVersion": "1.0.0",
@@ -31,7 +31,7 @@
     ]
   },
   "usage": {
-    "input": 1021,
+    "input": 1181,
     "output": 200,
     "cachedInput": 0
   },
