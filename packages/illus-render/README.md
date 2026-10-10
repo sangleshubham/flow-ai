@@ -102,7 +102,8 @@ function Pane({ record, frame, bridge }) {
 - `pnpm test`: Vitest, unit (pure compilers, layout under Node, theme, elements) and jsdom component tests.
 - `test/templates-entry.test.ts`: imports the public subpath under Node, validates all 16 examples,
   rejects malformed props and semantic graph errors, and rejects renderer/worker engine imports.
-- `pnpm e2e`: runs both `e2e:core` and `e2e:templates` sequentially, failing if either suite fails.
+- `pnpm e2e`: runs `e2e:core`, `e2e:templates` and `e2e:check` sequentially, failing if any suite fails.
+- `pnpm e2e:check`: W10's render-check and critic-PNG browser tests (`src/check/e2e`).
 - `pnpm e2e:core`: Playwright in Chromium against a Vite harness (`test/harness`) served under the ADR 0001 CSP. Visual baselines for every renderer in light and dark (`test/e2e/__screenshots__`, platform-suffixed; only `darwin` baselines exist so far), evidence ids and callbacks, frames, export, the layout worker, XSS and sandbox tests.
 - `pnpm e2e:templates`: all 16 templates in light and dark plus frame fixtures, using W5's existing harness and configuration. See the [template library documentation](src/templates/README.md#tests).
 - Baseline updates must be reviewed visually. Pass snapshot options to the relevant suite, e.g. `pnpm e2e:core --update-snapshots`; Linux baselines remain deferred. First run: `pnpm exec playwright install chromium`.
