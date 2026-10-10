@@ -1,4 +1,4 @@
-// The section orchestrator (§15): cache → context → plan → extract → validate → (animate, critic) → store.
+// The section orchestrator (§15): cache → context → plan → extract → validate → (animate, review) → store.
 import {
   COMPILER_VERSION,
   ConceptModelKind,
@@ -18,11 +18,11 @@ import {
 import type {
   AnimationIR,
   Block,
-  CriticReport,
   Flags,
   GroundingFn,
   IllusRepos,
   LlmCall,
+  LlmContext,
   LlmResult,
   PlanItem,
   PlanRecord,
@@ -32,6 +32,7 @@ import type {
   SectionNode,
   TemplateRegistry,
   TraceRunner,
+  ValidationContext,
   ValidationIssue,
   ValidationReport,
   Validator,
@@ -39,6 +40,7 @@ import type {
   VisualPlan,
   VisualRecord,
 } from '@illus/core'
+import { conceptModelIdOf, createConceptModels } from '@illus/concepts'
 import { CONTEXT_VERSION, attrs, escapeText, packContext } from '@illus/context'
 import type { LexicalSearch, PackedContext } from '@illus/context'
 import { resolveRoute } from '@illus/llm'
@@ -61,6 +63,7 @@ export type ItemStage =
   | 'retrying'
   | 'escalating'
   | 'tracing'
+  | 'catching-up'
   | 'patching'
   | 'animating'
   | 'critic'
@@ -69,7 +72,8 @@ export type ItemStage =
 export interface SectionJobEvents {
   plan: { plan: VisualPlan; record: PlanRecord; partialContext: boolean; fromCache: boolean }
   'no-visual': { reason: string }
-  'item-progress': { planItemId: string; stage: ItemStage }
+  /** `sections` is set for `catching-up`: "Catching up the concept model: N sections" (§13 step 3). */
+  'item-progress': { planItemId: string; stage: ItemStage; sections?: number }
   'item-ready': { planItemId: string; record: VisualRecord; fromCache: boolean }
   'item-failed': { planItemId: string; code: string; message: string; report?: ValidationReport }
   /** The job could not plan (unknown section, planner failure, plan limit). */
@@ -117,6 +121,16 @@ export type ConceptModelRoute = (input: {
   usageTokens: number
 }>
 
+/**
+ * W10's L4/L5 review: render checks, critic and repair. Gets what `repair` needs (the
+ * extractor's exact context and permitted blocks); the returned record is stored, so repairs and
+ * render findings persist. A rejected promise stores the unreviewed record.
+ */
+export type ReviewHook = (
+  record: VisualRecord,
+  ctx: { context: LlmContext; validation: ValidationContext; planItem: PlanItem; signal?: AbortSignal },
+) => Promise<VisualRecord>
+
 export interface PipelineDeps {
   repos: IllusRepos
   llm: LlmCall
@@ -139,10 +153,13 @@ export interface PipelineDeps {
   tracerVersion?: string | number
   /** W6: validate against exactly the permitted packed blocks; errors drop animation, preserving static IR. */
   validateAnimation?: (ir: unknown, animation: AnimationIR, context: { blocks: ReadonlyMap<string, Block> }) => ValidationIssue[]
-  /** W8 (`conceptModels` flag). */
+  /** W8 (`conceptModels` flag). Default: `createConceptModels({ repos, llm, prompts, lexical, ground }).route`. */
   conceptModels?: ConceptModelRoute
-  /** W10 phase B (`critic` flag): renders and judges a record. */
-  critic?: (record: VisualRecord) => Promise<CriticReport | undefined>
+  /**
+   * W10 phase B: L4 render checks, L5 critic and repair; the returned record is stored. Called for every
+   * new visual (§16: every visual passes L4); the app turns the L5 critic on or off with the `critic` flag in the hook's env.
+   */
+  review?: ReviewHook
   now?: () => number
   maxLlmRequests?: number
   maxSections?: number
@@ -215,6 +232,13 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
   const now = deps.now ?? Date.now
   const flagsNow = () => (typeof deps.flags === 'function' ? deps.flags() : (deps.flags ?? resolveFlags()))
   const jobs = new Set<Job>()
+  // "Catching up" progress per concept model and section, set while that item's route runs.
+  const catchUp = new Map<string, (n: number) => void>()
+  const conceptModels = deps.conceptModels ?? createConceptModels({
+    repos, llm: deps.llm, prompts: deps.prompts, ground,
+    ...(deps.lexical && { lexical: deps.lexical }),
+    onCatchUp: (e) => catchUp.get(`${e.conceptModelId}|${e.sectionId}`)?.(e.count),
+  }).route
 
   /** Expected (primary, then fallback) model runs of a role: cache lookups try each in order. */
   function expectedRuns(role: RoleName, escalate = false) {
@@ -403,6 +427,8 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     ].filter(Boolean)
     let ctx = { prefix: packed.prefix, body: [packed.body, ...extra].join('\n') }
     const callOpts = { bookId: section.bookId, sectionId: section.sectionId }
+    const validationContext = async (): Promise<ValidationContext> =>
+      ({ blocks, ground, ...(deps.templates && { templates: deps.templates }), aliases: await aliasMap(section.bookId) })
 
     let ir: unknown = null
     let report: ValidationReport = emptyReport()
@@ -443,9 +469,11 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
         ].filter(Boolean).join('\n') }
       }
     }
-    if (!traceKeyOut && flags.conceptModels && (routeItem.conceptModelId || routeItem.newConceptModel) && deps.conceptModels) {
+    if (!traceKeyOut && flags.conceptModels && (routeItem.conceptModelId || routeItem.newConceptModel)) {
       progress('patching')
-      const out = await deps.conceptModels({ planItem: item, section, context: packed, llm })
+      const key = `${conceptModelIdOf(item)}|${section.sectionId}`
+      catchUp.set(key, (n) => job.emit('item-progress', { planItemId: item.planItemId, stage: 'catching-up', sections: n }))
+      const out = await conceptModels({ planItem: item, section, context: packed, llm }).finally(() => catchUp.delete(key))
       ;({ ir, report, kind } = out)
       Object.assign(promptVersions, out.promptVersions)
       Object.assign(models, out.models)
@@ -463,7 +491,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
           })
           note(exRole, res)
           if (item.kind !== 'trace') storeRun = { promptVersion: res.promptVersion, model: res.model, effort: res.effort }
-          return validate(routeItem.kind, res.data, { blocks, ground, ...(deps.templates && { templates: deps.templates }), aliases: await aliasMap(section.bookId) })
+          return validate(routeItem.kind, res.data, await validationContext())
         } catch (e) {
           // An L1 schema failure is treated like an unusable extraction: retried, then escalated.
           if (e instanceof LlmError && e.code === 'schema') {
@@ -547,10 +575,11 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       stale: false,
       ...(instruction && { instruction }),
     }
-    if (flags.critic && deps.critic) {
+    if (deps.review) {
       progress('critic')
-      const critic = await deps.critic(record).catch(() => undefined)
-      if (critic) record = { ...record, critic }
+      const unreviewed = record
+      record = await deps.review(record, { context: ctx, validation: await validationContext(), planItem: routeItem, signal: job.controller.signal })
+        .catch(() => unreviewed)
     }
     await repos.visuals.put(record)
     job.emit('item-ready', { planItemId: item.planItemId, record, fromCache: false })
