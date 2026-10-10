@@ -5,6 +5,8 @@ import {
   LlmError,
   ROLES,
   Translation,
+  VisualKind,
+  animationTargets,
   ground as defaultGround,
   needsReextract,
   planKey,
@@ -20,6 +22,7 @@ import type {
   Block,
   Flags,
   GroundingFn,
+  IR,
   IllusRepos,
   LlmCall,
   LlmContext,
@@ -36,7 +39,6 @@ import type {
   ValidationIssue,
   ValidationReport,
   Validator,
-  VisualKind,
   VisualPlan,
   VisualRecord,
 } from '@illus/core'
@@ -99,7 +101,7 @@ export interface SectionJob {
     event: E,
     cb: (payload: SectionJobEvents[E]) => void,
   ): () => void
-  /** Cancels the planner call and queued items; extractor calls in flight complete and are cached (§15). */
+  /** Aborts every call of the job (planner, extractor, animator, repair, review) and starts no new step. */
   cancel(): void
   readonly cancelled: boolean
   /** Settles after `done` was emitted. */
@@ -412,7 +414,12 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     const synthetic = target.synthetic && { section, blocks: target.synthetic }
     const repo = { ...repos, ...(deps.lexical && { lexical: deps.lexical }) }
 
-    // §15 step 3: plan.
+    // §15 step 3: plan. The enabled flag-gated kinds enter the key, so toggling a flag re-plans.
+    const enabled = VisualKind.options.filter((k) => kindEnabled(k, flags))
+    const kinds = enabled
+      .filter((k) => KIND_FLAG[k])
+      .sort()
+      .join(',')
     const planKeys = expectedRuns('planner').map((planner) =>
       planKey({
         bookId: section.bookId,
@@ -420,6 +427,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
         contentHash: section.contentHash,
         contextVersion: CONTEXT_VERSION,
         planner,
+        kinds,
       }),
     )
     let record = opts.force
@@ -434,7 +442,17 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
         repo,
         ...(synthetic && { synthetic }),
       })
-      const parts = [packed.body]
+      const available = enabled.flatMap((k) =>
+        k === 'template' && deps.templates
+          ? deps.templates.listTemplates().map((t) => `template:${t.id}`)
+          : [k],
+      )
+      const parts = [
+        packed.body,
+        `<available_kinds>${escapeText(
+          available.join(', '),
+        )}</available_kinds>`,
+      ]
       // Existing concept models the planner may extend (§13), only when the flag is on.
       const models = flags.conceptModels
         ? (await repos.conceptModels.listByBook(section.bookId)).sort((a, b) =>
@@ -478,6 +496,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
             model: res.model,
             effort: res.effort,
           },
+          kinds,
         }),
         bookId: section.bookId,
         sectionId: section.sectionId,
@@ -516,11 +535,13 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
         ),
       ),
     ]
-    if (!items.length && off.length) {
+    if (!items.length) {
       job.emit('no-visual', {
-        reason: `The planned visuals need features that are turned off: ${off.join(
-          ', ',
-        )}. Turn them on in Illustrate settings.`,
+        reason: off.length
+          ? `The planned visuals need features that are turned off: ${off.join(
+              ', ',
+            )}. Turn them on in Illustrate settings.`
+          : 'The plan has no visual to draw for this section.',
       })
       return
     }
@@ -566,6 +587,10 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
   ) {
     const progress = (stage: ItemStage) =>
       job.emit('item-progress', { planItemId: item.planItemId, stage })
+    /** Called before every further step: a cancelled job starts no new call. */
+    const stopIfCancelled = () => {
+      if (job.cancelled) throw new LlmError('aborted', 'job cancelled')
+    }
     if (item.kind === 'template' && !item.templateId)
       throw new ItemFailure(
         'needs-template',
@@ -620,7 +645,11 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       prefix: packed.prefix,
       body: [packed.body, ...extra].join('\n'),
     }
-    const callOpts = { bookId: section.bookId, sectionId: section.sectionId }
+    const callOpts = {
+      bookId: section.bookId,
+      sectionId: section.sectionId,
+      signal: job.controller.signal,
+    }
     const validationContext = async (): Promise<ValidationContext> => ({
       blocks,
       ground,
@@ -774,6 +803,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       let retried = false
       let escalated = false
       if (unusable(v.report, v.ir)) {
+        stopIfCancelled()
         progress('retrying')
         retried = true
         v = await attempt(reportBlock(v.report), false)
@@ -781,6 +811,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
           unusable(v.report, v.ir) &&
           (ROLES[exRole] as RoleSpec).escalationTier
         ) {
+          stopIfCancelled()
           progress('escalating')
           escalated = true
           v = await attempt(reportBlock(v.report), true)
@@ -812,13 +843,16 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     // §15 step 7: animate when asked and enabled.
     let animation: AnimationIR | undefined
     if (routeItem.animate && flags.animations && kind !== 'trace') {
+      stopIfCancelled()
       progress('animating')
       try {
         const res = await llm.call(
           'animator',
           {
             prefix: ctx.prefix,
-            body: `${ctx.body}\n<ir>${escapeText(JSON.stringify(ir))}</ir>`,
+            body: `${ctx.body}\n<ir>${escapeText(
+              JSON.stringify(ir),
+            )}</ir>${animatorTargets(ir)}`,
           },
           callOpts,
         )
@@ -828,6 +862,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
         if (issues.some((issue) => issue.severity === 'error')) {
           // §11: exactly one repair, charged/logged through the same request limiter. Revalidation
           // uses the same block whitelist; a repair never gains evidence from later book sections.
+          stopIfCancelled()
           progress('retrying')
           try {
             const fixed = await llm.call(
@@ -942,7 +977,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
   async function traceRoute(
     item: PlanItem,
     packed: PackedContext,
-    callOpts: { bookId: string; sectionId: string },
+    callOpts: { bookId: string; sectionId: string; signal: AbortSignal },
     note: (r: RoleName, res: LlmResult<unknown>) => void,
     signal: AbortSignal,
     flags: Flags,
@@ -1135,6 +1170,23 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
         c.aliases,
       ]),
     )
+  }
+
+  /** `<targets>` and `<supported_actions>` in the tags of docs/prompts/animator.md; empty when they cannot be resolved (e.g. no template registry), leaving it to animation validation. */
+  function animatorTargets(ir: unknown): string {
+    try {
+      const { targets, supportedActions } = animationTargets(
+        ir as IR,
+        deps.templates ? { templates: deps.templates } : {},
+      )
+      return `<targets>${escapeText(
+        targets.join(', '),
+      )}</targets><supported_actions>${escapeText(
+        supportedActions.join(','),
+      )}</supported_actions>`
+    } catch {
+      return ''
+    }
   }
 
   function templateBlock(id: NonNullable<PlanItem['templateId']>): string {
