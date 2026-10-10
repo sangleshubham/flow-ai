@@ -1,8 +1,8 @@
 {
-  "key": "451d51480fddd40bcc37ead64a12dcb308a29b7c0610bbf10006f95376b7d28d",
+  "key": "57813cbc89178f3c36c20f5f955fb706c33474c9d849d749eb929a8059888382",
   "source": "handwritten",
   "role": "extractor.graph",
-  "promptVersion": "1.0.0",
+  "promptVersion": "1.1.0",
   "model": "gpt-6.1-sol",
   "effort": "medium",
   "schemaName": "GraphIR",
