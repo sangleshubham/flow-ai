@@ -1,5 +1,5 @@
 // `pnpm illus:export-feedback <cache.json>… [--book-ref private:<file>] [--out dir]` (§16 L6).
-// Reads cache files exported from the reader (Settings → Illustrate → Export cache) and writes one
+// Reads cache files exported from the reader ("Export cache JSON" in the Illustrate settings) and writes one
 // regression case per thumbs-down or "This is wrong" report: open books into evals/regressions/,
 // private books into evals/regressions/private/ (git-ignored). Existing cases are kept, never overwritten.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
