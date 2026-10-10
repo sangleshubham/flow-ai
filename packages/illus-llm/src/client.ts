@@ -42,7 +42,10 @@ export function httpTransport(opts: { url?: string; fetch?: typeof fetch } = {})
       return { ok: false, code: 'upstream', message: `network error: ${(e as Error).message}` }
     }
     const parsed = LlmResponse.safeParse(await res.json().catch(() => undefined))
-    return parsed.success ? parsed.data : { ok: false, code: 'upstream', message: `bad gateway response (HTTP ${res.status})` }
+    if (parsed.success) return parsed.data
+    // Next.js answers an oversized body (the /api/llm limit is 4 MB, sized for critic PNGs) with plain text.
+    if (res.status === 413) return { ok: false, code: 'upstream', message: 'request too large for /api/llm (4 MB limit; critic image too big?)' }
+    return { ok: false, code: 'upstream', message: `bad gateway response (HTTP ${res.status})` }
   }
 }
 

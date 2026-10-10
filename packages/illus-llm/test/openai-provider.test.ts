@@ -124,6 +124,34 @@ describe('gateway + openai provider end to end (fake stream)', () => {
     for (const c of f.calls) expect(c.body.reasoning).toEqual({ effort: 'medium' })
   })
 
+  it('critic: the PNG reaches the Responses API as an input_image after the body text', async () => {
+    const png = Buffer.from('\x89PNG\r\n\x1a\n fake critic render').toString('base64')
+    const f = fakeFetch(() => textStream(make.criticReport()))
+    const res = await (await gatewayWith(f.fetch)).handle(
+      { ...request, role: 'critic', schemaName: 'CriticReport', body: 'INTENT + IR SUMMARY', image: { mediaType: 'image/png', base64: png } },
+      { session: true },
+    )
+    expect(res.body).toMatchObject({ ok: true, data: make.criticReport() })
+    expect(f.calls).toHaveLength(1)
+    expect(f.calls[0]!.body.input).toEqual([
+      {
+        type: 'message',
+        role: 'user',
+        content: [
+          { type: 'input_text', text: 'INTENT + IR SUMMARY' },
+          { type: 'input_image', image_url: `data:image/png;base64,${png}`, detail: 'auto' },
+        ],
+      },
+    ])
+  })
+
+  it('an image on a non-image role is rejected before any upstream call', async () => {
+    const f = fakeFetch(() => textStream(make.visualPlan()))
+    const res = await (await gatewayWith(f.fetch)).handle({ ...request, image: { mediaType: 'image/png', base64: 'iVBORw0K' } }, { session: true })
+    expect(res).toMatchObject({ status: 400, body: { ok: false } })
+    expect(f.calls).toHaveLength(0)
+  })
+
   it('plan-limit 429 → one upstream request, code plan-limit, no paid fallback', async () => {
     const f = fakeFetch(() => errorResponse(429, { code: 'subscription_sharing_usage_limit_exceeded' }))
     const res = await (await gatewayWith(f.fetch)).handle(request, { session: true })
