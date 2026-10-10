@@ -26,12 +26,18 @@ export const ELK_STRESS_OPTIONS = {
   'elk.json.edgeCoords': 'ROOT',
 } as const
 
-/** With position hints, ELK keeps the previous order so unchanged nodes stay put (§11, §13). */
+/**
+ * With position hints, ELK keeps the previous order so unchanged nodes stay put (§11, §13).
+ * Semi-interactive LAYER_SWEEP (ordered by each node's `elk.position`) instead of the INTERACTIVE crossing
+ * minimiser: it is hierarchy-aware, so compound graphs work, and it still places edge-label dummies sensibly.
+ * Model order is off so it cannot override the hinted order. Applied to the root and every group (ADR 0043).
+ */
 const INTERACTIVE_LAYERED = {
   'elk.interactiveLayout': 'true',
   'elk.layered.cycleBreaking.strategy': 'INTERACTIVE',
   'elk.layered.layering.strategy': 'INTERACTIVE',
-  'elk.layered.crossingMinimization.strategy': 'INTERACTIVE',
+  'elk.layered.crossingMinimization.semiInteractive': 'true',
+  'elk.layered.considerModelOrder.strategy': 'NONE',
 } as const
 const INTERACTIVE_STRESS = { 'elk.interactive': 'true' } as const
 
@@ -65,6 +71,8 @@ export async function runElkLayout(elk: ELK, input: LayoutGraphInput): Promise<L
     if (parents.has(n.id)) {
       node.layoutOptions = {
         'elk.padding': `[top=${GROUP_PADDING.top},left=${GROUP_PADDING.side},bottom=${GROUP_PADDING.side},right=${GROUP_PADDING.side}]`,
+        // ELK requires the same (hierarchy-aware) strategies on every compound node as on the root.
+        ...interactive,
       }
     } else {
       node.width = n.width
@@ -73,6 +81,7 @@ export async function runElkLayout(elk: ELK, input: LayoutGraphInput): Promise<L
     if (hint) {
       node.x = hint.x
       node.y = hint.y
+      node.layoutOptions = { ...node.layoutOptions, 'elk.position': `(${hint.x}, ${hint.y})` }
     }
     byId.set(n.id, node)
   }
