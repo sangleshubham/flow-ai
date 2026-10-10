@@ -223,13 +223,7 @@ function specTargets(ir: IR): string[] {
   }
 }
 
-/** Builds validated frame states, including frame zero; never mutates the IR or template seeds. */
-export function buildFrames(
-  ir: IR,
-  animation: AnimationIR,
-  options: AnimationOptions = {},
-): FrameState[] {
-  const anim = AnimationIR.parse(animation)
+function resolveTargets(ir: IR, options: AnimationOptions) {
   const template =
     ir.type === 'template'
       ? options.templates?.getTemplate(ir.templateId)
@@ -245,10 +239,30 @@ export function buildFrames(
       Target.parse(t),
     ),
   )
-  const supported = template?.supportedActions ?? [
+  const supported: readonly ActionOp[] = template?.supportedActions ?? [
     ...BASE,
     ...(ir.type === 'graph' || ir.type === 'state' ? ['token' as const] : []),
   ]
+  return { template, props, targets, supported }
+}
+
+/** Valid targets (sorted, deduplicated) and supported actions for an IR; what the animator may reference. */
+export function animationTargets(
+  ir: IR,
+  options: AnimationOptions = {},
+): { targets: string[]; supportedActions: string[] } {
+  const { targets, supported } = resolveTargets(ir, options)
+  return { targets: [...targets].sort(), supportedActions: [...supported] }
+}
+
+/** Builds validated frame states, including frame zero; never mutates the IR or template seeds. */
+export function buildFrames(
+  ir: IR,
+  animation: AnimationIR,
+  options: AnimationOptions = {},
+): FrameState[] {
+  const anim = AnimationIR.parse(animation)
+  const { template, props, targets, supported } = resolveTargets(ir, options)
   const seed = structuredClone(template?.initialFrame?.(props) ?? {})
   let frame = { ...emptyFrame(anim.initialHidden), ...seed }
   const resolves = (t: string) => {
