@@ -1,0 +1,81 @@
+{
+  "key": "abd6079ee9cb6c04bdd95b7654c2abc348c521d3d77e132870bcbd52814f12aa",
+  "source": "handwritten",
+  "role": "patcher",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "usedModel": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "PatchOutput",
+  "data": {
+    "ops": [
+      {
+        "op": "addNode",
+        "node": {
+          "id": "commit-index",
+          "label": "Commit index",
+          "shape": "box",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-4-commitment:4#b0",
+            "quote": "The leader tracks a commit index"
+          }
+        }
+      },
+      {
+        "op": "addEdge",
+        "edge": {
+          "id": "e-tracks",
+          "from": "leader",
+          "to": "commit-index",
+          "label": "tracks",
+          "style": "solid",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-4-commitment:4#b0",
+            "quote": "The leader tracks a commit index"
+          }
+        }
+      },
+      {
+        "op": "addNode",
+        "node": {
+          "id": "state-machine",
+          "label": "State machine",
+          "shape": "store",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-4-commitment:4#b1",
+            "quote": "applies it to its state machine"
+          }
+        }
+      },
+      {
+        "op": "addEdge",
+        "edge": {
+          "id": "e-apply",
+          "from": "commit-index",
+          "to": "state-machine",
+          "label": "apply committed",
+          "style": "solid",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-4-commitment:4#b1",
+            "quote": "Once an entry is committed, every server applies it"
+          }
+        }
+      },
+      {
+        "op": "annotate",
+        "id": "commit-index",
+        "text": "highest entry on a majority",
+        "evidence": {
+          "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-4-commitment:4#b0",
+          "quote": "the highest log entry stored on a majority of servers"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input": 617,
+    "output": 300,
+    "cachedInput": 0
+  },
+  "note": "W8 fixture concept \"leader\" (6 Replicated State Machines), 6.4 Commitment. Written from packages/illus-concepts/src/models/test/raft-book.ts."
+}

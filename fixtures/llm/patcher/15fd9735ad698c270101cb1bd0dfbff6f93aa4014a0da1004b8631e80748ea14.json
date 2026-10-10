@@ -1,0 +1,74 @@
+{
+  "key": "15fd9735ad698c270101cb1bd0dfbff6f93aa4014a0da1004b8631e80748ea14",
+  "source": "handwritten",
+  "role": "patcher",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "usedModel": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "PatchOutput",
+  "data": {
+    "ops": [
+      {
+        "op": "addNode",
+        "node": {
+          "id": "candidate",
+          "label": "Candidate",
+          "shape": "box",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-3-elections:3#b0",
+            "quote": "for an election timeout becomes a candidate"
+          }
+        }
+      },
+      {
+        "op": "addEdge",
+        "edge": {
+          "id": "e-timeout",
+          "from": "follower",
+          "to": "candidate",
+          "label": "election timeout",
+          "style": "solid",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-3-elections:3#b0",
+            "quote": "for an election timeout becomes a candidate"
+          }
+        }
+      },
+      {
+        "op": "addEdge",
+        "edge": {
+          "id": "e-requestvote",
+          "from": "candidate",
+          "to": "follower",
+          "label": "RequestVote",
+          "style": "solid",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-3-elections:3#b1",
+            "quote": "sends RequestVote messages to the other servers"
+          }
+        }
+      },
+      {
+        "op": "addEdge",
+        "edge": {
+          "id": "e-wins",
+          "from": "candidate",
+          "to": "leader",
+          "label": "wins a majority",
+          "style": "solid",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-3-elections:3#b2",
+            "quote": "wins votes from a majority becomes the new leader"
+          }
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input": 582,
+    "output": 300,
+    "cachedInput": 0
+  },
+  "note": "W8 fixture concept \"leader\" (6 Replicated State Machines), 6.3 Elections. Written from packages/illus-concepts/src/models/test/raft-book.ts."
+}
