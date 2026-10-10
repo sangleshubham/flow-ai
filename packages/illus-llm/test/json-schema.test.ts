@@ -91,3 +91,27 @@ describe('outputSchema (strict-mode adaptation, ADR 0003)', () => {
     expect(s.zod.safeParse({ ...sample, props: { values: 'x' } }).success).toBe(false)
   })
 })
+
+describe('length limits the strict schema cannot carry', () => {
+  const find = (s: JsonSchema, path: string[]): JsonSchema => {
+    let cur = s
+    for (const k of path) {
+      if (k === '[]') cur = cur.items as JsonSchema
+      else cur = (cur.properties as Record<string, JsonSchema>)[k]!
+      const nonNull = (cur.anyOf as JsonSchema[] | undefined)?.find((b) => b.type !== 'null')
+      if (nonNull) cur = nonNull
+    }
+    return cur
+  }
+
+  it('states maxLength in the description so the model sees it', () => {
+    const { strict } = outputSchema('GraphIR')
+    expect(find(strict, ['nodes', '[]', 'label']).description).toMatch(/at most 40 characters/i)
+    expect(find(strict, ['nodes', '[]', 'sublabel']).description).toMatch(/at most 40 characters/i)
+  })
+
+  it('states word limits in the description', () => {
+    const { strict } = outputSchema('VisualPlan')
+    expect(find(strict, ['items', '[]', 'intent']).description).toMatch(/at most 25 words/i)
+  })
+})

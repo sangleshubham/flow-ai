@@ -93,6 +93,12 @@ function toStrict(s: JsonSchema, state: { isStrict: boolean }): JsonSchema {
     else if (k === 'required' || k === 'additionalProperties') continue // set with `properties`
     else out[k] = v
   }
+  // Strict mode drops maxLength/minLength, so state them where the model reads them (the Zod parse enforces them).
+  const limits = [
+    typeof src.minLength === 'number' && src.minLength > 1 ? `at least ${src.minLength} characters` : '',
+    typeof src.maxLength === 'number' ? `at most ${src.maxLength} characters` : '',
+  ].filter(Boolean)
+  if (limits.length) out.description = [out.description, `Length: ${limits.join(', ')}.`].filter(Boolean).join(' ')
   if (src.type === 'object' && !out.properties) {
     out.properties = {}
     out.required = []
