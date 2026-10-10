@@ -2,7 +2,7 @@
 // cross-reference patterns (steps 5, 7, 13). Pure and DOM-free.
 
 /** Bump when the structural output for the same EPUB changes; books indexed with an older version are re-indexed (§6 step 1). */
-export const INDEX_VERSION = 2
+export const INDEX_VERSION = 3
 
 /** Block text: NFC, soft hyphens (U+00AD) removed, whitespace collapsed and trimmed (§6 step 9). */
 export function normalizeText(text: string): string {
