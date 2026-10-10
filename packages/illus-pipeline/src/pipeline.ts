@@ -86,6 +86,11 @@ export interface SectionJobEvents {
   'no-visual': { reason: string }
   /** `sections` is set for `catching-up`: "Catching up the concept model: N sections" (§13 step 3). */
   'item-progress': { planItemId: string; stage: ItemStage; sections?: number }
+  /**
+   * The validated IR, before animation and review (ADR 0054). Not stored yet: `item-ready` (or
+   * `item-failed`) for the same item always follows and supersedes it. Only sent when a later step runs.
+   */
+  'item-preview': { planItemId: string; record: VisualRecord }
   'item-ready': { planItemId: string; record: VisualRecord; fromCache: boolean }
   'item-failed': {
     planItemId: string
@@ -552,8 +557,9 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       return
     }
 
-    // §15 step 5: item 1 at once, then the rest two at a time.
-    const itemSlots = createLimiter(2)
+    // §15 step 5 as amended by ADR 0054: every item starts at once (the global request limiter still
+    // caps calls in flight, FIFO in priority order). Items that patch the same concept model run one
+    // after another, so neither reads the model while the other is writing it.
     const runOne = async (item: PlanItem) => {
       if (job.cancelled) return
       try {
@@ -575,11 +581,20 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
         })
       }
     }
-    const [first, ...rest] = items
     for (const i of items)
       job.emit('item-progress', { planItemId: i.planItemId, stage: 'queued' })
-    if (first) await runOne(first)
-    await Promise.all(rest.map((i) => itemSlots.run(() => runOne(i))))
+    const chains = new Map<string, Promise<void>>()
+    await Promise.all(
+      items.map((i) => {
+        const model = i.conceptModelId ?? i.newConceptModel
+        if (!model) return runOne(i)
+        const run = (chains.get(model) ?? Promise.resolve()).then(() =>
+          runOne(i),
+        )
+        chains.set(model, run)
+        return run
+      }),
+    )
   }
 
   async function runItem(
@@ -850,9 +865,40 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
         ],
       }
 
+    const cacheKey = await visualKey({
+      planKey: plan.cacheKey,
+      planItem: item,
+      extractor: storeRun,
+      compilerVersion: COMPILER_VERSION,
+      ...(instruction && { instruction }),
+    })
+    const willAnimate =
+      routeItem.animate && flags.animations && kind !== 'trace'
+    if ((willAnimate || deps.review) && !job.cancelled)
+      job.emit('item-preview', {
+        planItemId: item.planItemId,
+        record: {
+          cacheKey,
+          bookId: section.bookId,
+          sectionId: section.sectionId,
+          planItemId: item.planItemId,
+          kind,
+          ir,
+          spec: null,
+          ...(traceKeyOut && { traceKey: traceKeyOut }),
+          validation: report,
+          promptVersions: { ...promptVersions },
+          models: { ...models },
+          usageTokens: usage,
+          createdAt: now(),
+          stale: false,
+          ...(instruction && { instruction }),
+        },
+      })
+
     // §15 step 7: animate when asked and enabled.
     let animation: AnimationIR | undefined
-    if (routeItem.animate && flags.animations && kind !== 'trace') {
+    if (willAnimate) {
       stopIfCancelled()
       progress('animating')
       try {
@@ -978,13 +1024,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
 
     progress('storing')
     let record: VisualRecord = {
-      cacheKey: await visualKey({
-        planKey: plan.cacheKey,
-        planItem: item,
-        extractor: storeRun,
-        compilerVersion: COMPILER_VERSION,
-        ...(instruction && { instruction }),
-      }),
+      cacheKey,
       bookId: section.bookId,
       sectionId: section.sectionId,
       planItemId: item.planItemId,
@@ -1346,8 +1386,11 @@ export function validateGraphSource(
   if (!parsed.ir) return fail(parsed.issues)
   const v = validate('graph', parsed.ir, ctx)
   const dropped = parsed.issues.filter((i) => i.severity === 'error')
-  const issues = parsed.issues.map((i): ValidationIssue =>
-    i.severity === 'error' ? { ...i, severity: 'warning', autoFixed: true } : i,
+  const issues = parsed.issues.map(
+    (i): ValidationIssue =>
+      i.severity === 'error'
+        ? { ...i, severity: 'warning', autoFixed: true }
+        : i,
   )
   return {
     ir: v.ir,
