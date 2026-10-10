@@ -17,8 +17,9 @@ import type {
 export const OPENAI_BASE_URL = 'https://api.openai.com/v1'
 /** Namespace of the structured-output fallback tool. */
 export const TOOL_NAMESPACE = 'illus'
-/** The SDK timeout only covers response headers; this bounds the gap between stream events. */
-export const STREAM_IDLE_MS = 60_000
+/** The SDK timeout only covers response headers; this bounds the gap between stream events. Reasoning
+ * runs silently (no summaries requested), so it matches the per-attempt timeout rather than being tighter. */
+export const STREAM_IDLE_MS = 180_000
 
 export interface OpenAiProviderOptions {
   id: ProviderId
