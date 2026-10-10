@@ -6,7 +6,13 @@ import type {
 } from '@illus/pipeline'
 import { describe, expect, it, vi } from 'vitest'
 
-import { bindJob, createPaneState, evidenceAction, whenCritic } from './state'
+import {
+  bindJob,
+  createPaneState,
+  evidenceAction,
+  stageLabel,
+  whenCritic,
+} from './state'
 
 function jobFake() {
   const listeners = new Map<string, (value: never) => void>()
@@ -191,5 +197,24 @@ describe('evidence highlight policy', () => {
         pinned: false,
       }),
     ).toBe('ignore')
+  })
+})
+describe('generation stages', () => {
+  it('stores the latest stage per item and labels it', () => {
+    const s = createPaneState()
+    const fake = jobFake()
+    bindJob(s, fake.job, () => true, vi.fn())
+    fake.emit('plan', {
+      plan: make.visualPlan({ overview: 'Big picture' }),
+      record: make.planRecord(),
+      partialContext: false,
+      fromCache: false,
+    })
+    expect(s.overview).toBe('Big picture')
+    fake.emit('item-progress', { planItemId: 'x', stage: 'retrying' })
+    fake.emit('item-progress', { planItemId: 'x', stage: 'critic' })
+    expect(s.stages.x).toBe('critic')
+    expect(stageLabel('retrying')).toBe('Fixing the diagram…')
+    expect(stageLabel('cached')).toBeUndefined()
   })
 })
