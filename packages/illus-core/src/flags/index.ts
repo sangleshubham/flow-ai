@@ -1,8 +1,16 @@
 // Feature flags (§4) so workstreams can merge dark. A flag's default flips to `true` once its
 // workstream's "done when" criterion passes (orchestrator decision, recorded in docs/build-log.md).
+// `templates` and `animations` are on by default; the rest are still dark.
 import { z } from 'zod'
 
-export const FlagName = z.enum(['templates', 'animations', 'tracer', 'conceptModels', 'critic', 'htmlFallback'])
+export const FlagName = z.enum([
+  'templates',
+  'animations',
+  'tracer',
+  'conceptModels',
+  'critic',
+  'htmlFallback',
+])
 export type FlagName = z.infer<typeof FlagName>
 
 export type Flags = Readonly<Record<FlagName, boolean>>
@@ -18,8 +26,8 @@ export const FLAG_OWNERS: Readonly<Record<FlagName, string>> = {
 }
 
 export const DEFAULT_FLAGS: Flags = {
-  templates: false,
-  animations: false,
+  templates: true,
+  animations: true,
   tracer: false,
   conceptModels: false,
   critic: false,
@@ -53,5 +61,7 @@ export function parseFlagList(list: string | undefined): FlagOverrides {
 
 function stripUnknown(value: unknown): unknown {
   if (!value || typeof value !== 'object') return {}
-  return Object.fromEntries(Object.entries(value).filter(([k]) => FlagName.safeParse(k).success))
+  return Object.fromEntries(
+    Object.entries(value).filter(([k]) => FlagName.safeParse(k).success),
+  )
 }
