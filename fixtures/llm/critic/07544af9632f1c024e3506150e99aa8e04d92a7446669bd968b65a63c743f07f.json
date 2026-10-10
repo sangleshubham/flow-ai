@@ -1,0 +1,26 @@
+{
+  "key": "07544af9632f1c024e3506150e99aa8e04d92a7446669bd968b65a63c743f07f",
+  "source": "handwritten",
+  "role": "critic",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "low",
+  "schemaName": "CriticReport",
+  "prefix": "",
+  "body": "<intent>One replication round between the leader and a follower</intent>\n<ir_summary kind=\"sequence\">{\"type\":\"sequence\",\"title\":\"One replication round\",\"participants\":[{\"id\":\"leader\",\"label\":\"Leader\"},{\"id\":\"follower\",\"label\":\"Follower\"}],\"messages\":[{\"id\":\"m1\",\"from\":\"leader\",\"to\":\"follower\",\"label\":\"AppendEntries\",\"kind\":\"async\"},{\"id\":\"m2\",\"from\":\"follower\",\"to\":\"leader\",\"label\":\"success flag\",\"kind\":\"reply\"}]}</ir_summary>",
+  "data": {
+    "pass": true,
+    "scores": {
+      "legibility": 5,
+      "intentMatch": 5,
+      "clutter": 5
+    },
+    "issues": []
+  },
+  "usage": {
+    "input": 108,
+    "output": 150,
+    "cachedInput": 0
+  },
+  "note": "evals/test/quality-prompts.test.ts: critic-fixed-sequence"
+}
