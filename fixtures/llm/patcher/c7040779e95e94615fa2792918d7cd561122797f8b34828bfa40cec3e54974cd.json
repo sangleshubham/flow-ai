@@ -1,0 +1,97 @@
+{
+  "key": "c7040779e95e94615fa2792918d7cd561122797f8b34828bfa40cec3e54974cd",
+  "source": "handwritten",
+  "role": "patcher",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "usedModel": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "PatchOutput",
+  "data": {
+    "ops": [
+      {
+        "op": "addGroup",
+        "group": {
+          "id": "cluster",
+          "label": "Cluster",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-1-servers-and-roles:1#b0",
+            "quote": "A cluster runs several servers"
+          }
+        }
+      },
+      {
+        "op": "addNode",
+        "node": {
+          "id": "leader",
+          "label": "Leader",
+          "shape": "box",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-1-servers-and-roles:1#b0",
+            "quote": "one of them acts as the leader"
+          },
+          "group": "cluster"
+        }
+      },
+      {
+        "op": "addNode",
+        "node": {
+          "id": "follower",
+          "label": "Follower",
+          "shape": "box",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-1-servers-and-roles:1#b1",
+            "quote": "The other servers are followers"
+          },
+          "group": "cluster"
+        }
+      },
+      {
+        "op": "addNode",
+        "node": {
+          "id": "client",
+          "label": "Client",
+          "shape": "actor",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-1-servers-and-roles:1#b2",
+            "quote": "Clients send every request to the leader"
+          }
+        }
+      },
+      {
+        "op": "addEdge",
+        "edge": {
+          "id": "e-request",
+          "from": "client",
+          "to": "leader",
+          "label": "request",
+          "style": "solid",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-1-servers-and-roles:1#b2",
+            "quote": "Clients send every request to the leader"
+          }
+        }
+      },
+      {
+        "op": "addEdge",
+        "edge": {
+          "id": "e-respond",
+          "from": "follower",
+          "to": "leader",
+          "label": "respond",
+          "style": "dashed",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-1-servers-and-roles:1#b1",
+            "quote": "followers that respond to requests from the leader"
+          }
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input": 288,
+    "output": 300,
+    "cachedInput": 0
+  },
+  "note": "W8 fixture concept \"leader\" (6 Replicated State Machines), 6.1 Servers and Roles. Written from packages/illus-concepts/src/models/test/raft-book.ts."
+}

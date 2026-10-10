@@ -1,0 +1,96 @@
+{
+  "key": "6afd0f1122f2d4484a3e6ee813ea41debe738afbc9c1e36816772956ef85c3dd",
+  "source": "handwritten",
+  "role": "patcher",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "usedModel": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "PatchOutput",
+  "data": {
+    "ops": [
+      {
+        "op": "addNode",
+        "node": {
+          "id": "leader",
+          "label": "Leader",
+          "shape": "box",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-5-snapshots:5#b1",
+            "quote": "A leader sends InstallSnapshot"
+          }
+        }
+      },
+      {
+        "op": "addNode",
+        "node": {
+          "id": "follower",
+          "label": "Follower",
+          "shape": "box",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-5-snapshots:5#b1",
+            "quote": "a follower that has fallen too far behind"
+          }
+        }
+      },
+      {
+        "op": "addNode",
+        "node": {
+          "id": "leader-log",
+          "label": "Leader log",
+          "shape": "store",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-5-snapshots:5#b0",
+            "quote": "To keep the log short"
+          }
+        }
+      },
+      {
+        "op": "addNode",
+        "node": {
+          "id": "snapshot",
+          "label": "Snapshot",
+          "shape": "store",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-5-snapshots:5#b0",
+            "quote": "compacts committed entries into a snapshot"
+          }
+        }
+      },
+      {
+        "op": "addEdge",
+        "edge": {
+          "id": "e-compact",
+          "from": "leader-log",
+          "to": "snapshot",
+          "label": "compact",
+          "style": "solid",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-5-snapshots:5#b0",
+            "quote": "compacts committed entries into a snapshot"
+          }
+        }
+      },
+      {
+        "op": "addEdge",
+        "edge": {
+          "id": "e-install",
+          "from": "leader",
+          "to": "follower",
+          "label": "InstallSnapshot",
+          "style": "solid",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-5-snapshots:5#b1",
+            "quote": "A leader sends InstallSnapshot to a follower"
+          }
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input": 504,
+    "output": 300,
+    "cachedInput": 0
+  },
+  "note": "W8 fixture concept \"leader\" (6 Replicated State Machines), 6.5 Snapshots. Written from packages/illus-concepts/src/models/test/raft-book.ts."
+}

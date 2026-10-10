@@ -1,0 +1,60 @@
+{
+  "key": "6a7607b21cf12164699977a771d35e14429007b39c95c89d2a6aaccf9e37c88b",
+  "source": "handwritten",
+  "role": "patcher",
+  "promptVersion": "1.0.0",
+  "model": "gpt-6.1-sol",
+  "usedModel": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "PatchOutput",
+  "data": {
+    "ops": [
+      {
+        "op": "addNode",
+        "node": {
+          "id": "snapshot",
+          "label": "Snapshot",
+          "shape": "store",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-5-snapshots:5#b0",
+            "quote": "compacts committed entries into a snapshot"
+          }
+        }
+      },
+      {
+        "op": "addEdge",
+        "edge": {
+          "id": "e-compact",
+          "from": "leader-log",
+          "to": "snapshot",
+          "label": "compact",
+          "style": "solid",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-5-snapshots:5#b0",
+            "quote": "compacts committed entries into a snapshot"
+          }
+        }
+      },
+      {
+        "op": "addEdge",
+        "edge": {
+          "id": "e-install",
+          "from": "leader",
+          "to": "follower",
+          "label": "InstallSnapshot",
+          "style": "solid",
+          "evidence": {
+            "blockId": "feedc0de00000006:1:6-replicated-state-machines/6-5-snapshots:5#b1",
+            "quote": "A leader sends InstallSnapshot to a follower"
+          }
+        }
+      }
+    ]
+  },
+  "usage": {
+    "input": 709,
+    "output": 300,
+    "cachedInput": 0
+  },
+  "note": "W8 fixture concept \"leader\" (6 Replicated State Machines), 6.5 Snapshots. Written from packages/illus-concepts/src/models/test/raft-book.ts."
+}

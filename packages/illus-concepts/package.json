@@ -19,9 +19,24 @@
     "@illus/context": "workspace:*"
   },
   "devDependencies": {
+    "@illus/anim": "workspace:*",
     "@illus/eslint-config": "workspace:*",
+    "@illus/llm": "workspace:*",
+    "@illus/render": "workspace:*",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/react": "16.3.3",
+    "@types/node": "24.13.6",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "elkjs": "0.12.0",
     "eslint": "10.11.0",
+    "jsdom": "30.1.1",
+    "react": "18.0.0",
+    "react-dom": "18.0.0",
     "typescript": "5.9.3",
     "vitest": "4.1.11"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0"
   }
 }
