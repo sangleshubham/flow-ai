@@ -1,32 +1,221 @@
-.illus-pane-slot { flex-shrink:0; min-width:280px; height:100%; border-left:1px solid rgb(var(--md-sys-color-outline-variant)); }
-.illus-pane,.illus-settings { --illus-bg:rgb(var(--md-sys-color-surface)); --illus-fg:rgb(var(--md-sys-color-on-surface)); --illus-muted:rgb(var(--md-sys-color-on-surface-variant)); --illus-line:rgb(var(--md-sys-color-outline-variant)); --illus-accent:rgb(var(--md-sys-color-primary)); color:var(--illus-fg); background:var(--illus-bg); font-family:var(--md-sys-typescale-body-medium-family); line-height:1.5; }
-.illus-pane { height:100%; display:flex; flex-direction:column; user-select:text; }
-.illus-pane-header { display:flex; gap:8px; align-items:flex-start; padding:18px 16px 10px; border-bottom:1px solid var(--illus-line); }
-.illus-pane-header>div { flex:1; min-width:0; }
-.illus-pane h2,.illus-settings h2 { font-size:20px; font-weight:500; }
-.illus-path { font-size:13px; color:var(--illus-muted); margin-top:4px; overflow-wrap:anywhere; }
-.illus-meta { display:flex; flex-wrap:wrap; gap:4px 12px; padding:8px 16px; font-size:12px; color:var(--illus-muted); }
-.illus-pane-body { flex:1; overflow:auto; padding:12px; }
-.illus-state { padding:20px 8px; }
-.illus-state h3 { font-size:18px; font-weight:500; margin-bottom:8px; }
-.illus-state p { margin:0 0 12px; overflow-wrap:anywhere; }
-.illus-pane button,.illus-settings button,.illus-button { display:inline-block; padding:6px 10px; color:var(--illus-accent); border:1px solid var(--illus-line); border-radius:6px; margin:4px 6px 4px 0; font-size:14px; }
-.illus-pane button:hover,.illus-settings button:hover { background:rgb(var(--md-sys-color-primary)/.08); }
-.illus-pane :focus-visible,.illus-settings :focus-visible,.illus-toggle:focus-visible { outline:3px solid rgb(var(--md-sys-color-primary)); outline-offset:3px; }
-.illus-pane button:disabled { opacity:.5; }
-.illus-tabs { display:flex; gap:4px; overflow-x:auto; border-bottom:1px solid var(--illus-line); margin-bottom:12px; }
-.illus-tabs button { flex-shrink:0; border:0; border-radius:0; }
-.illus-tabs button[aria-selected=true] { border-bottom:3px solid var(--illus-accent); }
-.illus-live { min-height:28px; padding:6px 16px; font-size:12px; border-top:1px solid var(--illus-line); }
-.illus-skeleton { height:150px; border-radius:8px; background:rgb(var(--md-sys-color-surface-variant)); opacity:.7; }
-.illus-inline-form { border-top:1px solid var(--illus-line); margin-top:12px; padding:12px 0; }
-.illus-inline-form label { display:block; }
-.illus-pane textarea { display:block; width:100%; min-height:80px; padding:8px; border:1px solid var(--illus-line); border-radius:4px; background:var(--illus-bg); }
-.illus-token-usage { font-size:12px; color:var(--illus-muted); margin:8px 0; }
-.illus-toggle { position:fixed; top:8px; right:16px; z-index:35; padding:6px 12px; border-radius:18px; background:rgb(var(--md-sys-color-primary-container)); color:rgb(var(--md-sys-color-on-primary-container)); font-size:14px; }
-.illus-settings { padding-top:24px; border-top:1px solid var(--illus-line); user-select:text; }
-.illus-settings label { display:block; margin:12px 0; }
-.illus-settings input[type=checkbox] { margin-right:8px; accent-color:var(--illus-accent); }
-.illus-settings select { margin-left:8px; padding:4px; background:var(--illus-bg); border:1px solid var(--illus-line); }
-@media(max-width:640px) { .illus-pane-slot { position:fixed; inset:0 0 48px auto; z-index:40; width:min(100%,480px)!important; box-shadow:-8px 0 32px #0003; } }
-@media(prefers-reduced-motion:reduce) { .illus-pane *, .illus-settings * { animation:none!important; transition:none!important; } }
+.illus-pane-slot {
+  flex-shrink: 0;
+  min-width: 280px;
+  height: 100%;
+  border-left: 1px solid rgb(var(--md-sys-color-outline-variant));
+}
+.illus-pane,
+.illus-settings {
+  --illus-bg: rgb(var(--md-sys-color-surface));
+  --illus-fg: rgb(var(--md-sys-color-on-surface));
+  --illus-muted: rgb(var(--md-sys-color-on-surface-variant));
+  --illus-line: rgb(var(--md-sys-color-outline-variant));
+  --illus-accent: rgb(var(--md-sys-color-primary));
+  color: var(--illus-fg);
+  background: var(--illus-bg);
+  font-family: var(--md-sys-typescale-body-medium-family);
+  line-height: 1.5;
+}
+.illus-pane {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  user-select: text;
+}
+.illus-pane-header {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 18px 16px 10px;
+  border-bottom: 1px solid var(--illus-line);
+}
+.illus-pane-header > div {
+  flex: 1;
+  min-width: 0;
+}
+.illus-pane h2,
+.illus-settings h2 {
+  font-size: 20px;
+  font-weight: 500;
+}
+.illus-path {
+  font-size: 13px;
+  color: var(--illus-muted);
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+.illus-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--illus-muted);
+}
+.illus-pane-body {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+}
+.illus-state {
+  padding: 20px 8px;
+}
+.illus-state h3 {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.illus-state p {
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+.illus-pane button,
+.illus-settings button,
+.illus-button {
+  display: inline-block;
+  padding: 6px 10px;
+  color: var(--illus-accent);
+  border: 1px solid var(--illus-line);
+  border-radius: 6px;
+  margin: 4px 6px 4px 0;
+  font-size: 14px;
+}
+.illus-pane button:hover,
+.illus-settings button:hover {
+  background: rgb(var(--md-sys-color-primary) / 0.08);
+}
+.illus-pane :focus-visible,
+.illus-settings :focus-visible,
+.illus-toggle:focus-visible {
+  outline: 3px solid rgb(var(--md-sys-color-primary));
+  outline-offset: 3px;
+}
+.illus-pane button:disabled {
+  opacity: 0.5;
+}
+.illus-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--illus-line);
+  margin-bottom: 12px;
+}
+.illus-tabs button {
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 0;
+}
+.illus-tabs button[aria-selected='true'] {
+  border-bottom: 3px solid var(--illus-accent);
+}
+.illus-live {
+  min-height: 28px;
+  padding: 6px 16px;
+  font-size: 12px;
+  border-top: 1px solid var(--illus-line);
+}
+.illus-skeleton {
+  height: 150px;
+  border-radius: 8px;
+  background: rgb(var(--md-sys-color-surface-variant));
+  opacity: 0.7;
+}
+.illus-inline-form {
+  border-top: 1px solid var(--illus-line);
+  margin-top: 12px;
+  padding: 12px 0;
+}
+.illus-inline-form label {
+  display: block;
+}
+.illus-pane textarea {
+  display: block;
+  width: 100%;
+  min-height: 80px;
+  padding: 8px;
+  border: 1px solid var(--illus-line);
+  border-radius: 4px;
+  background: var(--illus-bg);
+}
+.illus-token-usage {
+  font-size: 12px;
+  color: var(--illus-muted);
+  margin: 8px 0;
+}
+.illus-toggle {
+  position: fixed;
+  top: 8px;
+  right: 16px;
+  z-index: 35;
+  padding: 6px 12px;
+  border-radius: 18px;
+  background: rgb(var(--md-sys-color-primary-container));
+  color: rgb(var(--md-sys-color-on-primary-container));
+  font-size: 14px;
+}
+.illus-settings {
+  padding-top: 24px;
+  border-top: 1px solid var(--illus-line);
+  user-select: text;
+}
+.illus-settings label {
+  display: block;
+  margin: 12px 0;
+}
+.illus-settings input[type='checkbox'] {
+  margin-right: 8px;
+  accent-color: var(--illus-accent);
+}
+.illus-settings select {
+  margin-left: 8px;
+  padding: 4px;
+  background: var(--illus-bg);
+  border: 1px solid var(--illus-line);
+}
+@media (max-width: 640px) {
+  .illus-pane-slot {
+    position: fixed;
+    inset: 0 0 48px auto;
+    z-index: 40;
+    width: min(100%, 480px) !important;
+    box-shadow: -8px 0 32px #0003;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .illus-pane *,
+  .illus-settings * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+.illus-quality-warning {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  border: 1px solid rgb(var(--md-sys-color-error));
+  border-radius: 6px;
+  color: rgb(var(--md-sys-color-on-surface));
+}
+.illus-quality-warning ul {
+  margin: 6px 0 0 18px;
+  list-style: disc;
+}
+.illus-warning-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgb(var(--md-sys-color-error));
+  color: rgb(var(--md-sys-color-on-error));
+  font-weight: 700;
+  font-size: 12px;
+}
+.illus-concept-toggles label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0 12px 8px 0;
+  font-size: 13px;
+}
