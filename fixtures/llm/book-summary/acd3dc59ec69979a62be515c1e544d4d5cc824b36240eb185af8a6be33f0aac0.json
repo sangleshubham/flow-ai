@@ -1,20 +1,20 @@
 {
-  "key": "52b6319ed3f4992b02e24b4ec5e2725f1cea667b5848c4a0defe2c95cc563780",
+  "key": "acd3dc59ec69979a62be515c1e544d4d5cc824b36240eb185af8a6be33f0aac0",
   "source": "handwritten",
   "role": "book-summary",
   "promptVersion": "1.0.0",
-  "model": "gpt-6-luna",
-  "effort": "low",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
   "schemaName": "BookSummary",
   "data": {
-    "summary": "A synthetic test book. It introduces server states, the RequestVote and AppendEntries messages, a binary search with its loop invariant and a bound on its steps, and then explains replicated logs: heartbeats, elections, terms and snapshots.",
+    "summary": "A synthetic test book. It introduces server states (follower, candidate, leader), the RequestVote and AppendEntries messages, a binary search in Python with its loop invariant, and a formula bounding the number of search steps.",
     "conventions": [
       "Listings, tables and figures are numbered by chapter, e.g. Listing 1.1.",
       "Code listings are in Python."
     ]
   },
   "usage": {
-    "input": 928,
+    "input": 341,
     "output": 200,
     "cachedInput": 0
   },
