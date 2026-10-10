@@ -796,8 +796,9 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
           throw e
         }
       }
+      // Any remaining error (e.g. a duplicate label) is worth one retry with the report, not only heavy drops.
       const unusable = (r: ValidationReport, out: unknown) =>
-        out === undefined || needsReextract(r)
+        out === undefined || needsReextract(r) || !r.ok
       progress('extracting')
       let v = await attempt('', false)
       let retried = false
