@@ -45,7 +45,7 @@ if (!est.needsConfirm || (await askReader(est))) {
 - Views: `sectionView(model, ordinal, { onlyNew?, fullModel?, title?, direction? })` → `{ ir, newIds, removedIds, frame, patch, focus, collapsed }`; removed elements stay in `ir` and in `frame.removed` to fade out; focus mode past 24 graph nodes (`focusGraph`).
 - Layout: `conceptLayoutGraph(model, layoutGraph)` (hints from `model.layout`, INTERACTIVE ELK), `withLayout(model, layoutResult)`, `meanDisplacement(prev, next)`.
 - React (no JSX, so DOM-free importers stay JSX-free): `<EvolutionScrubber Player model sectionOrdinal renderView sectionTitles? viewOptions? />` (pass W6's `Player`; one frame per patch), `<ConceptViewToggles value onChange />`, `evolutionFrames()`.
-- Prompt: `docs/prompts/patcher.md`; fixtures: `fixtures/llm/patcher/` (`ILLUS_WRITE_FIXTURES=1 pnpm test` regenerates them from `src/models/test/raft-book.ts`). Decisions and open questions: ADR 0043.
+- Prompt: `docs/prompts/patcher.md`; fixtures: `fixtures/llm/patcher/` (`ILLUS_WRITE_FIXTURES=1 pnpm test` regenerates them from `src/models/test/raft-book.ts`). Decisions and open questions: ADR 0044.
 
 ```tsx
 const cm = createConceptModels({ repos, llm, prompts })

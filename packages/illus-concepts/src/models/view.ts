@@ -147,30 +147,35 @@ export function focusGraph(ir: GraphIR, focusIds: ReadonlySet<string>): { ir: Gr
 /**
  * `<VisualView layoutGraph>` for a concept model (§13 layout stability): stored positions become ELK hints,
  * which switch W4's `layoutGraph` to INTERACTIVE layering and crossing minimisation. New nodes get hints
- * too (two placements are tried; the one that moves existing nodes least wins), and the result is shifted
+ * too (four placements are tried, including W4's own; the one that moves existing nodes least wins), and the result is shifted
  * so existing nodes stay where they were on average. Hints the renderer passes itself (previous frame) win.
  */
 export function conceptLayoutGraph(model: Pick<ConceptModel, 'layout'>, base: LayoutGraphFn): LayoutGraphFn {
   return async (input, opts) => {
-    const parents = new Set(input.nodes.flatMap((n) => (n.parent ? [n.parent] : [])))
-    const ids = new Set(input.nodes.filter((n) => !parents.has(n.id)).map((n) => n.id))
+    const ids = new Set(input.nodes.map((n) => n.id))
     const stored = Object.fromEntries(Object.entries(model.layout ?? {}).filter(([id]) => ids.has(id))) as Record<string, LayoutPoint>
-    if (!Object.keys(stored).length) return shift(await base(input, opts), HEADROOM, HEADROOM)
-    // ponytail: two ELK runs per relayout; add placements here if a book shows worse drift.
+    if (!Object.keys(stored).length) return shift(await base(input, opts), HEADROOM.x, HEADROOM.y)
+    const known = { ...stored, ...input.hints }
+    // ponytail: four ELK runs per relayout; add placements here if a book shows worse drift.
     const tries = await Promise.allSettled(
-      (['below', 'beside'] as const).map((mode) => base({ ...input, hints: placeNew(input, { ...stored, ...input.hints }, mode) }, opts)),
+      [placeNew(input, known, 'below'), placeNew(input, known, 'above'), placeNew(input, known, 'beside'), known].map((hints) => base({ ...input, hints }, opts)),
     )
     if (opts?.signal?.aborted) throw opts.signal.reason
     const ok = tries.flatMap((t) => (t.status === 'fulfilled' ? [anchor(t.value, stored)] : []))
     // A layout engine that rejects hints must not cost the reader the diagram: lay out from scratch.
     if (!ok.length) return base(input, opts)
-    const moved = (r: LayoutGraphResult) => meanDisplacement(stored, r.nodes)
+    const parents = new Set(input.nodes.flatMap((n) => (n.parent ? [n.parent] : [])))
+    const leaves = Object.fromEntries(Object.entries(stored).filter(([id]) => !parents.has(id)))
+    const moved = (r: LayoutGraphResult) => meanDisplacement(leaves, r.nodes)
     return ok.reduce((best, r) => (moved(r) < moved(best) ? r : best))
   }
 }
 
-/** Room left above and before a model's first layout, so later edge routes need not push it down (§13). */
-export const HEADROOM = 64
+/**
+ * Room left before and above a model's first layout, so later back-edge routes need not push existing
+ * nodes right or down (§13). Tuned on the 5-section fixture (ADR 0044).
+ */
+export const HEADROOM = { x: 48, y: 96 } as const
 
 /**
  * ELK's coordinates float: a new back edge can open an empty band above the whole drawing. Shifts the layout
@@ -202,7 +207,7 @@ function shift(r: LayoutGraphResult, dx: number, dy: number): LayoutGraphResult 
  * placed node. Edges from a new node back to existing ones then point backwards, so interactive cycle
  * breaking reverses them instead of pushing existing nodes into later layers.
  */
-function placeNew(input: Parameters<LayoutGraphFn>[0], known: Record<string, LayoutPoint>, mode: 'below' | 'beside'): Record<string, LayoutPoint> {
+function placeNew(input: Parameters<LayoutGraphFn>[0], known: Record<string, LayoutPoint>, mode: 'below' | 'above' | 'beside'): Record<string, LayoutPoint> {
   const hints = { ...known }
   const parents = new Set(input.nodes.flatMap((n) => (n.parent ? [n.parent] : [])))
   const lr = input.direction === 'LR'
@@ -215,20 +220,25 @@ function placeNew(input: Parameters<LayoutGraphFn>[0], known: Record<string, Lay
   const at = (a: number, c: number): LayoutPoint => (lr ? { x: a, y: c } : { x: c, y: a })
   let todo = input.nodes.filter((n) => !hints[n.id] && !parents.has(n.id))
   let bottom = Math.max(0, ...Object.values(hints).map(across)) + 60
+  let top = Math.min(0, ...Object.values(hints).map(across)) - 60
+  const stack = (n: { width: number; height: number }) => {
+    const size = (lr ? n.height : n.width) + 24
+    if (mode === 'above') return (top -= size) + 24
+    bottom += size
+    return bottom - size
+  }
   while (todo.length) {
     const left = todo.filter((n) => {
       const nbrs = input.edges.flatMap((e) => (e.to === n.id ? [e.from] : e.from === n.id ? [e.to] : [])).filter((id) => hints[id])
       if (!nbrs.length) return true
-      hints[n.id] = at(Math.max(...nbrs.map((id) => along(hints[id]!) + extent(id))) + 48, mode === 'below' ? bottom : across(hints[nbrs[0]!]!) + 1)
-      if (mode === 'below') bottom += (lr ? n.height : n.width) + 24
+      hints[n.id] = at(Math.max(...nbrs.map((id) => along(hints[id]!) + extent(id))) + 48, mode === 'beside' ? across(hints[nbrs[0]!]!) + 1 : stack(n))
       return false
     })
     if (left.length === todo.length) {
       // Unconnected to anything placed: after the last layer.
       const end = Math.max(0, ...Object.entries(hints).map(([id, p]) => along(p) + extent(id))) + 48
       for (const n of left) {
-        hints[n.id] = at(end, bottom)
-        bottom += (lr ? n.height : n.width) + 24
+        hints[n.id] = at(end, stack(n))
       }
       break
     }

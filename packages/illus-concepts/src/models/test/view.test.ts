@@ -16,31 +16,6 @@ const node = (id: string, extra: object = {}): PatchOp => ({ op: 'addNode', node
 const edge = (id: string, from: string, to: string): PatchOp => ({ op: 'addEdge', edge: { id, from, to, label: id, style: 'solid', evidence: Q.request } })
 const patch = (ord: number, ops: PatchOp[]) => make.patch({ patchId: `m@${ord}`, sectionId: `s${ord}`, sectionOrdinal: ord, ops })
 
-/**
- * W4's runElkLayout sets the INTERACTIVE strategies on the root only; with groups (INCLUDE_CHILDREN) ELK then
- * rejects the graph. Copies them onto compound nodes, as proposed to W4 in ADR 0043 (remove once W4 ships it).
- */
-function interactiveCompounds(elk: InstanceType<typeof ELK>): InstanceType<typeof ELK> {
-  type N = { layoutOptions?: Record<string, string>; children?: N[] }
-  const KEYS = ['elk.layered.cycleBreaking.strategy', 'elk.layered.layering.strategy', 'elk.layered.crossingMinimization.strategy']
-  const spread = (n: N, opts: Record<string, string>) => {
-    for (const c of n.children ?? []) {
-      if (c.children?.length) c.layoutOptions = { ...opts, ...c.layoutOptions }
-      spread(c, opts)
-    }
-  }
-  return new Proxy(elk, {
-    get: (t, k) =>
-      k === 'layout'
-        ? (g: N, ...rest: unknown[]) => {
-            const opts = Object.fromEntries(KEYS.filter((key) => g.layoutOptions?.[key]).map((key) => [key, g.layoutOptions![key]!]))
-            spread(g, opts)
-            return (t.layout as (...a: unknown[]) => unknown)(g, ...rest)
-          }
-        : Reflect.get(t, k),
-  })
-}
-
 async function inOrderModel(): Promise<ConceptModel> {
   const { repos } = await buildRaftBook()
   const llm = {
@@ -129,13 +104,12 @@ describe('layout stability', () => {
     const base = vi.fn<LayoutGraphFn>(async () => ({ width: 0, height: 0, nodes: {}, edges: {} }))
     const f = conceptLayoutGraph({ layout: { a: { x: 1, y: 2 }, gone: { x: 0, y: 0 } } }, base)
     await f({ algorithm: 'layered', direction: 'LR', nodes: [{ id: 'a', width: 10, height: 10 }, { id: 'b', width: 10, height: 10 }], edges: [], hints: { b: { x: 5, y: 5 } } })
-    expect(base.mock.calls.map((c) => c[0].hints)).toEqual([
-      { a: { x: 1, y: 2 }, b: { x: 5, y: 5 } },
-      { a: { x: 1, y: 2 }, b: { x: 5, y: 5 } },
-    ])
+    // Four placements are tried (below, above, beside, W4's own); with no new node they all match.
+    expect(base.mock.calls.map((c) => c[0].hints)).toEqual(Array(4).fill({ a: { x: 1, y: 2 }, b: { x: 5, y: 5 } }))
     const c = await f({ algorithm: 'layered', direction: 'LR', nodes: [{ id: 'a', width: 10, height: 10 }, { id: 'n', width: 10, height: 10 }], edges: [{ id: 'e', from: 'a', to: 'n' }] })
     // A new node is hinted one layer after its placed neighbour.
-    expect(base.mock.calls.at(-2)![0].hints!.n!.x).toBe(1 + 10 + 48)
+    expect(base.mock.calls.at(-4)![0].hints!.n!.x).toBe(1 + 10 + 48)
+    expect(base.mock.calls.at(-1)![0].hints!.n).toBeUndefined()
     expect(c).toEqual({ width: 0, height: 0, nodes: {}, edges: {} })
     await conceptLayoutGraph({}, base)({ algorithm: 'layered', direction: 'LR', nodes: [], edges: [] })
     expect(base.mock.calls.at(-1)![0].hints).toBeUndefined()
@@ -163,19 +137,22 @@ describe('layout stability', () => {
     return moves
   }
 
-  it('existing nodes move ≤ 40 px on average between consecutive sections (real ELK, interactive; ADR 0043)', async () => {
-    const moves = await evolve(interactiveCompounds(new ELK()))
+  it('existing nodes move ≤ 40 px on average between consecutive sections (real ELK, interactive; ADR 0044)', async () => {
+    const moves = await evolve(new ELK())
     expect(moves).toHaveLength(4)
     // §18 metric: mean over every existing node's move between consecutive sections.
     const pooled = moves.reduce((s, m) => s + m.mean * m.shared, 0) / moves.reduce((s, m) => s + m.shared, 0)
     expect(pooled).toBeLessThanOrEqual(40)
-    // Per transition: 3 of 4 meet 40 px; 6.2 → 6.3 (two back edges into the group) moves about 81 px (ADR 0043).
+    // Per transition: 3 of 4 meet 40 px; 6.2 → 6.3 (two back edges into the group) moves about 45 px (ADR 0044).
     expect(moves.filter((m) => m.mean <= 40)).toHaveLength(3)
     for (const m of moves) expect(m.mean).toBeLessThanOrEqual(100)
   })
 
-  it('falls back to a fresh layout when W4 rejects hints on grouped graphs', async () => {
-    const moves = await evolve(new ELK())
-    expect(moves).toHaveLength(4)
+  it('falls back to a fresh layout when the layout engine rejects hints', async () => {
+    const empty = { width: 1, height: 1, nodes: {}, edges: {} }
+    const base = vi.fn<LayoutGraphFn>(async (input) => (input.hints ? Promise.reject(new Error('no hints')) : empty))
+    const r = await conceptLayoutGraph({ layout: { a: { x: 0, y: 0 } } }, base)({ algorithm: 'layered', direction: 'LR', nodes: [{ id: 'a', width: 10, height: 10 }], edges: [] })
+    expect(r).toBe(empty)
+    expect(base.mock.calls.at(-1)![0].hints).toBeUndefined()
   })
 })
