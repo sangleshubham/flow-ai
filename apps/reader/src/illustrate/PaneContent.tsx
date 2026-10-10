@@ -2,7 +2,7 @@ import type { VisualRecord } from '@illus/core'
 import React from 'react'
 import type { ReactNode } from 'react'
 
-import { catchUpText } from './state'
+import { catchUpText, PLANNING_TEXT, stageLabel } from './state'
 import type { PaneState } from './state'
 
 export interface PaneCommands {
@@ -30,6 +30,9 @@ export function PaneContent({
 }: PaneContentProps) {
   const record =
     s.records.find((r) => r.planItemId === s.selectedItem) ?? s.records[0]
+  const caption = s.items.find(
+    (i) => i.planItemId === record?.planItemId,
+  )?.caption
   const blocked = s.status === 'plan-limit' || s.status === 'signin-required'
   return (
     <section
@@ -93,7 +96,7 @@ export function PaneContent({
         )}
         {s.status === 'planning' && (
           <div className="illus-state" aria-busy="true">
-            <p>Reading this section…</p>
+            <p>{PLANNING_TEXT}</p>
             <div className="illus-skeleton" />
           </div>
         )}
@@ -108,6 +111,9 @@ export function PaneContent({
                   </p>
                 )}
                 <div className="illus-skeleton" />
+                <p className="illus-stage" aria-live="polite">
+                  {stageLabel(s.stages[i.planItemId])}
+                </p>
               </div>
             ))}
           </div>
@@ -177,6 +183,7 @@ export function PaneContent({
         )}
         {(s.status === 'ready' || s.status === 'offline' || blocked) && record && (
           <>
+            {s.overview && <p className="illus-overview">{s.overview}</p>}
             <div
               className="illus-tabs"
               role="tablist"
@@ -225,6 +232,7 @@ export function PaneContent({
                   ?.intent ?? 'Illustration'
               }
             >
+              {caption && <p className="illus-caption">{caption}</p>}
               <QualityWarning record={record} />
               {renderVisual(record)}
             </div>
