@@ -17,12 +17,16 @@ import type {
 export const OPENAI_BASE_URL = 'https://api.openai.com/v1'
 /** Namespace of the structured-output fallback tool. */
 export const TOOL_NAMESPACE = 'illus'
+/** The SDK timeout only covers response headers; this bounds the gap between stream events. */
+export const STREAM_IDLE_MS = 60_000
 
 export interface OpenAiProviderOptions {
   id: ProviderId
   baseURL?: string
   /** Per-attempt timeout; deep reasoning can take minutes. */
   timeoutMs?: number
+  /** Max silence between stream events before aborting with a timeout (default STREAM_IDLE_MS). */
+  idleTimeoutMs?: number
   /** Injected in tests (fake Responses API); defaults to global fetch. */
   fetch?: typeof fetch
 }
@@ -38,15 +42,30 @@ export function createOpenAiProvider(o: OpenAiProviderOptions): LlmProvider {
         timeout: o.timeoutMs ?? 180_000,
         ...(o.fetch && { fetch: o.fetch }),
       })
+      const idleMs = o.idleTimeoutMs ?? STREAM_IDLE_MS
+      const idle = new AbortController()
+      let idled = false
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const arm = () => {
+        clearTimeout(timer)
+        timer = setTimeout(() => {
+          idled = true
+          idle.abort()
+        }, idleMs)
+      }
       try {
+        arm()
         const stream = await client.responses.create(buildRequest(req), {
-          signal: req.signal,
+          signal: AbortSignal.any(
+            [req.signal, idle.signal].filter((x): x is AbortSignal => !!x),
+          ),
         })
         let final: OpenAI.Responses.Response | undefined
         // With store:false the plan route can send response.completed with an empty `output`;
         // the items only arrive as output_item.done events.
         const items: OpenAI.Responses.ResponseOutputItem[] = []
         for await (const event of stream) {
+          arm()
           if (event.type === 'response.output_item.done')
             items[event.output_index] = event.item
           else if (event.type === 'response.completed') final = event.response
@@ -85,7 +104,14 @@ export function createOpenAiProvider(o: OpenAiProviderOptions): LlmProvider {
           final = { ...final, output: items.filter(Boolean) }
         return { text: extractText(final, req), usage: usageOf(final) }
       } catch (e) {
+        if (idled && !req.signal?.aborted)
+          throw new ProviderError(
+            'timeout',
+            `no stream event for ${Math.round(idleMs / 1000)}s`,
+          )
         throw toProviderError(e)
+      } finally {
+        clearTimeout(timer)
       }
     },
   }
