@@ -11,15 +11,22 @@ const PENDING_ATTRS = 'Path=/; HttpOnly; SameSite=Lax; Max-Age=600'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   res.setHeader('Cache-Control', 'no-store')
+  const action = req.query.action
+  // Status is polled by the pane, so an unconfigured server answers JSON, not an error page. The
+  // configuration error itself is not echoed (it may name env vars or paths).
+  const unconfigured = (title: string, message: string) => {
+    if (action !== 'status') return page(res, 500, title, message)
+    console.warn(`/auth/chatgpt/status: ${message}`)
+    return res.status(200).json({ ok: true, configured: false })
+  }
   let server
   try {
     server = await getIllusServer()
   } catch (e) {
-    return page(res, 500, 'Sign-in is not configured', (e as Error).message)
+    return unconfigured('Sign-in is not configured', (e as Error).message)
   }
   const auth = server.auth
-  if (!auth) return page(res, 500, 'Sign-in is not configured', 'Set ILLUS_TOKEN_ENC_KEY and ILLUS_PUBLIC_URL (docs/setup-chatgpt-signin.md).')
-  const action = req.query.action
+  if (!auth) return unconfigured('Sign-in is not configured', 'Set ILLUS_TOKEN_ENC_KEY and ILLUS_PUBLIC_URL (docs/setup-chatgpt-signin.md).')
   const session = server.sessions.verify(req.headers.cookie)
 
   try {
@@ -49,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (action === 'status' && req.method === 'GET') {
       if (!session) return res.status(401).json({ ok: false, code: 'auth', message: 'sign in first' })
-      return res.status(200).json({ ok: true, ...(await auth.status()), usage: server.usage.summary() })
+      return res.status(200).json({ ok: true, configured: true, ...(await auth.status()), usage: server.usage.summary() })
     }
   } catch (e) {
     if (e instanceof AccountRefusedError) return page(res, 403, 'Account not allowed', e.message)
