@@ -1,8 +1,8 @@
 {
-  "key": "187794b132da6253f2e304578400ab8719505ae00cb5e1097ae3d6a3595e37ce",
+  "key": "8287504b4a4e34ec0e7e4a87df6a309d6b65601071899b6cfa0b12a07b6ebbab",
   "source": "handwritten",
   "role": "extractor.chart",
-  "promptVersion": "1.0.0",
+  "promptVersion": "1.1.0",
   "model": "gpt-6.1-sol",
   "effort": "low",
   "schemaName": "ChartIR",

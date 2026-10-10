@@ -1,8 +1,8 @@
 {
-  "key": "3321c6020f53dcdcb0ba7805237b3b168c9d87f756d33c56eb1159aa42e6ad69",
+  "key": "fb6e7b98aa52204d4cce2c0d9c22536fea43a5c33f11518e4212b46ef61ad16f",
   "source": "handwritten",
   "role": "extractor.mermaid",
-  "promptVersion": "1.0.0",
+  "promptVersion": "1.1.0",
   "model": "gpt-6.1-sol",
   "effort": "medium",
   "schemaName": "SequenceIR",
