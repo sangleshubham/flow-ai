@@ -146,6 +146,42 @@ describe('every Illustrate pane state', () => {
     ).toBeDefined()
   })
 })
+describe('item previews (ADR 0054)', () => {
+  it('draws a preview with its stage line and no quality badge; a stored record wins', () => {
+    const s = createPaneState()
+    s.status = 'ready'
+    s.items = [make.planItem({ planItemId: 'a' })]
+    s.selectedItem = 'a'
+    s.stages = { a: 'animating' }
+    const preview = make.visualRecord({ planItemId: 'a' })
+    preview.critic = {
+      pass: false,
+      scores: { legibility: 2, intentMatch: 4, clutter: 3 },
+      issues: [{ kind: 'overlap', note: 'Labels overlap' }],
+    } as never
+    s.previews = { a: preview }
+    const { rerender } = render(
+      <PaneContent
+        state={s}
+        commands={commands()}
+        renderVisual={(r) => <p>{r === preview ? 'preview' : 'stored'}</p>}
+      />,
+    )
+    expect(screen.getByText('preview')).toBeDefined()
+    expect(screen.getByText('Adding animation…')).toBeDefined()
+    expect(screen.queryByTestId('quality-warning')).toBeNull()
+    s.records = [make.visualRecord({ planItemId: 'a' })]
+    rerender(
+      <PaneContent
+        state={s}
+        commands={commands()}
+        renderVisual={(r) => <p>{r === preview ? 'preview' : 'stored'}</p>}
+      />,
+    )
+    expect(screen.getByText('stored')).toBeDefined()
+    expect(screen.queryByText('Adding animation…')).toBeNull()
+  })
+})
 describe('quality warning badge (§16 L4/L5)', () => {
   const critic = {
     pass: false,
@@ -222,8 +258,12 @@ describe('dwell countdown (ADR 0048)', () => {
   })
   it('titles the pane with the open section and keeps its path as a tooltip', () => {
     const s = createPaneState()
-    s.section = make.sectionNode({ headingPath: ['5 Replication', '5.1 Leaders'] })
-    render(<PaneContent state={s} commands={commands()} renderVisual={() => null} />)
+    s.section = make.sectionNode({
+      headingPath: ['5 Replication', '5.1 Leaders'],
+    })
+    render(
+      <PaneContent state={s} commands={commands()} renderVisual={() => null} />,
+    )
     const title = screen.getByRole('heading', { level: 2 })
     expect(title.textContent).toBe('5.1 Leaders')
     expect(title.getAttribute('title')).toBe('5 Replication / 5.1 Leaders')

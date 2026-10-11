@@ -134,6 +134,7 @@ export async function collect(job: SectionJob) {
     'plan',
     'no-visual',
     'item-progress',
+    'item-preview',
     'item-ready',
     'item-failed',
     'error',
