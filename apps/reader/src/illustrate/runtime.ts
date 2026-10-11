@@ -364,6 +364,7 @@ async function onLocation(loc: ReaderLocation, own: number) {
     unbind = undefined
     currentJob = null
     pane.records = []
+    pane.previews = {}
     pane.items = []
     pane.selectedItem = ''
   }
@@ -585,6 +586,7 @@ export async function clearVisuals() {
   await repos.plans.deleteByBook(pane.bookId)
   await repos.traces.deleteByBook(pane.bookId)
   pane.records = []
+  pane.previews = {}
   pane.items = []
   pane.status = 'idle'
   pane.announcement = 'Visuals cleared for this book.'

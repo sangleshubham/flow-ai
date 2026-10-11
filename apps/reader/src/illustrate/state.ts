@@ -83,6 +83,11 @@ export interface PaneState {
   section: SectionNode | null
   items: PlanItem[]
   records: VisualRecord[]
+  /**
+   * Plan item → validated visual still being animated or reviewed (ADR 0054). Shown until its
+   * `item-ready`; never stored, pinned or reported, so it stays out of `records`.
+   */
+  previews: Record<string, VisualRecord>
   selectedItem: string
   reason: string
   message: string
@@ -121,6 +126,7 @@ export function createPaneState(): PaneState {
     section: null,
     items: [],
     records: [],
+    previews: {},
     selectedItem: '',
     reason: '',
     message: '',
@@ -160,6 +166,13 @@ export function bindJob(
   state.catchingUp = {}
   state.stages = {}
   state.overview = ''
+  state.previews = {}
+  const dropPreview = (planItemId: string) => {
+    if (!(planItemId in state.previews)) return
+    const rest = { ...state.previews }
+    delete rest[planItemId]
+    state.previews = rest
+  }
   const caughtUp = (planItemId: string) => {
     const rest = { ...state.catchingUp }
     delete rest[planItemId]
@@ -211,9 +224,17 @@ export function bindJob(
       }),
     ),
     job.on(
+      'item-preview',
+      guarded(({ planItemId, record }) => {
+        state.previews = { ...state.previews, [planItemId]: record }
+        if (state.status === 'generating') state.status = 'ready'
+      }),
+    ),
+    job.on(
       'item-ready',
       guarded(({ record }) => {
         caughtUp(record.planItemId)
+        dropPreview(record.planItemId)
         state.records = [
           ...state.records.filter((r) => r.planItemId !== record.planItemId),
           record,
@@ -230,6 +251,7 @@ export function bindJob(
       'item-failed',
       guarded((e) => {
         caughtUp(e.planItemId)
+        dropPreview(e.planItemId)
         // Plan limit and sign-in block every item: show that state (cached visuals stay visible in it).
         if (
           !state.records.length ||
@@ -244,6 +266,7 @@ export function bindJob(
     job.on(
       'done',
       guarded(() => {
+        state.previews = {}
         // Every remaining item failed while cached visuals exist: show those instead of a skeleton forever.
         if (state.status === 'generating' && state.records.length)
           state.status = 'ready'

@@ -2,7 +2,12 @@ import type { VisualRecord } from '@illus/core'
 import React from 'react'
 import type { ReactNode } from 'react'
 
-import { catchUpText, dwellSecondsLeft, PLANNING_TEXT, stageLabel } from './state'
+import {
+  catchUpText,
+  dwellSecondsLeft,
+  PLANNING_TEXT,
+  stageLabel,
+} from './state'
 import type { PaneState } from './state'
 
 export interface PaneCommands {
@@ -30,8 +35,13 @@ export function PaneContent({
   commands: c,
   renderVisual,
 }: PaneContentProps) {
+  // A stored record wins; a preview (ADR 0054) fills in while its item finishes.
   const record =
-    s.records.find((r) => r.planItemId === s.selectedItem) ?? s.records[0]
+    s.records.find((r) => r.planItemId === s.selectedItem) ??
+    s.previews[s.selectedItem] ??
+    s.records[0] ??
+    Object.values(s.previews)[0]
+  const previewing = !!record && !s.records.includes(record)
   const caption = s.items.find(
     (i) => i.planItemId === record?.planItemId,
   )?.caption
@@ -68,14 +78,16 @@ export function PaneContent({
           <span>{s.progress || 'Open a book to begin'}</span>
           {s.usage && (
             <span title="Local request caps">
-              {s.usage.used5h}/{s.usage.max5h} requests · 5h;{' '}
-              {s.usage.usedDay}/{s.usage.maxDay} today
+              {s.usage.used5h}/{s.usage.max5h} requests · 5h; {s.usage.usedDay}/
+              {s.usage.maxDay} today
             </span>
           )}
         </div>
       )}
       <div
-        className={`illus-pane-body${showVisual ? ' illus-pane-body-visual' : ''}`}
+        className={`illus-pane-body${
+          showVisual ? ' illus-pane-body-visual' : ''
+        }`}
       >
         {s.status === 'idle' && (
           <div className="illus-state">
@@ -254,7 +266,13 @@ export function PaneContent({
                   ?.intent ?? 'Illustration'
               }
             >
-              <QualityWarning record={record} />
+              {previewing ? (
+                <p className="illus-stage" aria-live="polite">
+                  {stageLabel(s.stages[record.planItemId]) ?? 'Finishing…'}
+                </p>
+              ) : (
+                <QualityWarning record={record} />
+              )}
               {renderVisual(record)}
             </div>
             {(caption || s.overview) && (
