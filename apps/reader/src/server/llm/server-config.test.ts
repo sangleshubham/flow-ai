@@ -168,9 +168,9 @@ describe('reader disk fixture integration', () => {
       body: 'B',
       requestId: 'reader-record',
     })
-    expect(
-      await record.gateway.handle(request, { session: true }),
-    ).toMatchObject({ status: 200, body: { ok: true, data: plan } })
+    expect(await record.gateway.handle(request, { sub: 'test' })).toMatchObject(
+      { status: 200, body: { ok: true, data: plan } },
+    )
     expect(fetch).toHaveBeenCalledTimes(1)
     const dir = join(workspace, 'fixtures/llm')
     const files = await readdir(join(dir, 'planner'))
@@ -187,9 +187,9 @@ describe('reader disk fixture integration', () => {
       },
       { prompts, fetch },
     )
-    expect(
-      await replay.gateway.handle(request, { session: true }),
-    ).toMatchObject({ status: 200, body: { ok: true, data: plan } })
+    expect(await replay.gateway.handle(request, { sub: 'test' })).toMatchObject(
+      { status: 200, body: { ok: true, data: plan } },
+    )
     expect(fetch).toHaveBeenCalledTimes(1)
   })
 
@@ -265,7 +265,7 @@ describe('reader disk fixture integration', () => {
         body: fixture.body,
         requestId: 'reader-disk-replay',
       },
-      { session: true },
+      { sub: 'test' },
     )
     expect(result).toMatchObject({
       status: 200,

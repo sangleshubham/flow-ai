@@ -33,9 +33,9 @@ export default async function handler(
   res.on('close', () => {
     if (!res.writableEnded) abort.abort()
   })
-  const session = server.sessions.verify(req.headers.cookie) !== null
+  const sub = server.sessions.verify(req.headers.cookie)?.sub ?? null
   await respondWithKeepAlive(
     res,
-    server.gateway.handle(req.body, { session, signal: abort.signal }),
+    server.gateway.handle(req.body, { sub, signal: abort.signal }),
   )
 }

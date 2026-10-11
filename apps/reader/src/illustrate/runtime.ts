@@ -163,16 +163,18 @@ export async function refreshUsage() {
     if (account.ok) {
       const status = await account.json()
       pane.signinConfigured = status.configured !== false
+      pane.signedIn = status.signedIn === true
       pane.account = !pane.signinConfigured
         ? body.mode === 'replay'
           ? 'Replay mode: no ChatGPT account needed'
           : 'ChatGPT sign-in is not configured on this server'
-        : status.email ??
-          status.sub ??
-          (status.signedIn
-            ? 'ChatGPT account connected'
-            : 'Reader session active; connect ChatGPT for plan usage')
-    } else pane.account = 'ChatGPT sign-in is unavailable on this server'
+        : status.signedIn
+        ? `Signed in as ${status.email ?? status.sub}`
+        : 'Reader session active; connect ChatGPT for plan usage'
+    } else {
+      pane.signedIn = false
+      pane.account = 'ChatGPT sign-in is unavailable on this server'
+    }
   } catch {
     /* Offline cached reading remains available. */
   }
@@ -308,7 +310,7 @@ export async function activate(tab: BookTabLike) {
           typeof threshold === 'number' && threshold >= 0
             ? threshold
             : INDEX_CONFIRM_THRESHOLD_TOKENS,
-        maxRequests5h: pane.usage?.max5h ?? 100,
+        maxRequests5h: 100,
       },
     )
     pane.estimate = {

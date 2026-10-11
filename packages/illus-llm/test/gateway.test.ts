@@ -1,7 +1,3 @@
-import { mkdtemp, readFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-
 import { describe, expect, it } from 'vitest'
 
 import type { LlmRequest } from '@illus/core'
@@ -23,6 +19,7 @@ import {
   backoff,
   createGateway,
   createUsageTracker,
+  openReaderDb,
 } from '../src/server/index.ts'
 import type { GatewayDeps } from '../src/server/index.ts'
 import { allPrompts } from './helpers.ts'
@@ -70,15 +67,11 @@ const CHAINED = {
   },
 }
 
-async function setup(
-  over: Partial<GatewayDeps> = {},
-  caps = { max5h: 100, maxDay: 300 },
-) {
-  const dir = await mkdtemp(join(tmpdir(), 'illus-gw-'))
-  const file = join(dir, 'usage.jsonl')
+async function setup(over: Partial<GatewayDeps> = {}) {
+  const db = openReaderDb({ memory: true })
   let t = 1_000_000
   const sleeps: number[] = []
-  const usage = await createUsageTracker({ file, caps, now: () => t })
+  const usage = createUsageTracker({ db, now: () => t })
   const gw = createGateway({
     mode: 'live',
     models: DEFAULT_MODELS,
@@ -91,21 +84,21 @@ async function setup(
     ...over,
   })
   const rows = async () =>
-    (await readFile(file, 'utf8').catch(() => ''))
-      .split('\n')
-      .filter(Boolean)
-      .map((l) => JSON.parse(l))
+    db
+      .prepare('SELECT row FROM usage ORDER BY id')
+      .all()
+      .map((r) => JSON.parse(String(r.row)))
   return { gw, usage, sleeps, rows, advance: (ms: number) => (t += ms) }
 }
 
 const req = (o: Partial<LlmRequest> = {}): LlmRequest =>
   ({ ...make.llmRequest(), requestId: 'r1', ...o } as LlmRequest)
-const session = { session: true }
+const session = { sub: 'A' }
 
 describe('gateway steps 1–8', () => {
   it('1: rejects requests without a session (auth)', async () => {
     const { gw } = await setup(scripted())
-    expect(await gw.handle(req(), { session: false })).toMatchObject({
+    expect(await gw.handle(req(), { sub: null })).toMatchObject({
       status: 401,
       body: { ok: false, code: 'auth' },
     })
@@ -220,63 +213,48 @@ describe('gateway steps 1–8', () => {
       code: 'plan-limit',
       message: expect.any(String),
     })
-    expect(usage.pausedUntil()).toBe(1_000_000 + 30 * 60_000)
+    expect(usage.forUser('A').pausedUntil()).toBe(1_000_000 + 30 * 60_000)
   })
 
-  it('3: local soft caps stop requests before they reach the plan', async () => {
+  it('500 requests reach the provider without local caps and credentials receive the account', async () => {
+    const seen: string[] = []
     const s = scripted(
-      () => ok(make.visualPlan()),
-      () => ok(make.visualPlan()),
+      ...Array.from({ length: 500 }, () => () => ok(make.visualPlan())),
     )
-    const { gw } = await setup(s, { max5h: 2, maxDay: 10 })
-    await gw.handle(req(), session)
-    await gw.handle(req(), session)
-    const third = await gw.handle(req(), session)
-    expect(third).toMatchObject({
-      status: 429,
-      body: {
-        code: 'plan-limit',
-        message: expect.stringMatching(/local soft cap reached \(2\/2 per 5 h/),
+    const { gw, usage, rows } = await setup({
+      ...s,
+      credential: async (sub) => {
+        seen.push(sub)
+        return 'access-token'
       },
     })
-    expect(s.calls).toHaveLength(2)
+    for (let i = 0; i < 500; i++)
+      expect((await gw.handle(req(), session)).status).toBe(200)
+    expect(s.calls).toHaveLength(500)
+    expect(new Set(seen)).toEqual(new Set(['A']))
+    expect(usage.forUser('A').summary()).toEqual({
+      used5h: 500,
+      usedDay: 500,
+      pausedUntil: null,
+    })
+    expect((await rows()).every((r) => r.sub === 'A')).toBe(true)
   })
 
-  it('3: caps survive a restart (re-read from usage.jsonl)', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'illus-caps-'))
-    const file = join(dir, 'usage.jsonl')
-    const a = await createUsageTracker({
-      file,
-      caps: { max5h: 2, maxDay: 2 },
-      now: () => 5_000,
+  it('a plan limit for A leaves B working with separate usage', async () => {
+    const { gw, usage } = await setup(
+      scripted(fail('plan-limit'), () => ok(make.visualPlan())),
+    )
+    expect((await gw.handle(req(), { sub: 'A' })).status).toBe(429)
+    expect((await gw.handle(req(), { sub: 'B' })).status).toBe(200)
+    expect(usage.forUser('A').summary()).toMatchObject({
+      usedDay: 1,
+      pausedUntil: expect.any(Number),
     })
-    await a.append({
-      ts: 5_000,
-      requestId: 'x',
-      role: 'planner',
-      provider: 'chatgpt-plan',
-      mode: 'live',
-      model: 'm',
-      effort: 'low',
-      inputTokens: 0,
-      outputTokens: 0,
-      cachedInputTokens: 0,
-      latencyMs: 1,
-      outcome: 'ok',
-      attempts: 2,
+    expect(usage.forUser('B').summary()).toEqual({
+      used5h: 1,
+      usedDay: 1,
+      pausedUntil: null,
     })
-    const b = await createUsageTracker({
-      file,
-      caps: { max5h: 2, maxDay: 2 },
-      now: () => 6_000,
-    })
-    expect(b.remaining()).toBe(0)
-    const later = await createUsageTracker({
-      file,
-      caps: { max5h: 2, maxDay: 2 },
-      now: () => 5_000 + 25 * 3_600_000,
-    })
-    expect(later.remaining()).toBe(2)
   })
 
   it('6: retries timeouts and 5xx with 1 s, 2 s backoff (±20%), max 3 attempts', async () => {

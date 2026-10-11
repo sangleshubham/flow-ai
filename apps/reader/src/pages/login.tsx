@@ -1,17 +1,17 @@
-// Login gate (spec §17 as amended by ADR 0020 and ADR 0047). Two ways in, both for the one allowed account:
-// - "Continue with ChatGPT" (W2's OAuth routes): a redirect on 127.0.0.1, or pasting the loopback address
-//   back on a remote reader. The first account to sign in becomes the owner unless ILLUS_ALLOWED_ACCOUNT_ID is set;
-// - an optional password (ILLUS_LOGIN_PASSWORD), once the owner is known.
+// Sign in with each visitor’s own ChatGPT account (ADR 0055).
 import type { GetServerSideProps } from 'next'
 import Head from 'next/head'
 
 import { MIN_PASSWORD_LENGTH, safeNext } from '../security/login'
+import { getIllusServer } from '../server/llm'
 
 interface Props {
   chatgpt: boolean
   password: boolean
   next: string
   error: string | null
+  open: boolean
+  sourceUrl: string
 }
 
 const ERRORS: Record<string, string> = {
@@ -20,7 +20,14 @@ const ERRORS: Record<string, string> = {
   config: 'Login is not configured on this server. See docs/deploy.md.',
 }
 
-export default function Login({ chatgpt, password, next, error }: Props) {
+export default function Login({
+  chatgpt,
+  password,
+  next,
+  error,
+  open,
+  sourceUrl,
+}: Props) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-white p-6 text-gray-900">
       <Head>
@@ -29,6 +36,11 @@ export default function Login({ chatgpt, password, next, error }: Props) {
       </Head>
       <div className="w-full max-w-xs space-y-4">
         <h1 className="text-xl font-semibold">Sign in</h1>
+        {open && (
+          <p className="text-sm">
+            Sign in with your ChatGPT account. The reader uses your own plan.
+          </p>
+        )}
         {error && (
           <p role="alert" className="text-sm text-red-700">
             {ERRORS[error] ?? 'Sign-in failed.'}
@@ -36,7 +48,7 @@ export default function Login({ chatgpt, password, next, error }: Props) {
         )}
         {chatgpt && (
           <a
-            href="/auth/chatgpt/start"
+            href={`/auth/chatgpt/start?next=${encodeURIComponent(next)}`}
             className="block w-full rounded-md bg-black px-4 py-2.5 text-center font-medium text-white hover:bg-gray-800"
           >
             Continue with ChatGPT
@@ -65,20 +77,44 @@ export default function Login({ chatgpt, password, next, error }: Props) {
           </form>
         )}
         {!chatgpt && !password && <p className="text-sm">{ERRORS.config}</p>}
+        <footer className="text-sm">
+          <a href={sourceUrl} rel="noopener noreferrer">
+            Source code
+          </a>
+        </footer>
       </div>
     </main>
   )
 }
 
-export const getServerSideProps: GetServerSideProps<Props> = async ({ query, res }) => {
+export const getServerSideProps: GetServerSideProps<Props> = async ({
+  query,
+  res,
+}) => {
   res.setHeader('Cache-Control', 'no-store')
   const env = process.env
   const secret = (env.ILLUS_SESSION_SECRET?.length ?? 0) >= 32
-  const owner = !!env.ILLUS_ALLOWED_ACCOUNT_ID?.trim()
+  let owner = !!env.ILLUS_ALLOWED_ACCOUNT_ID?.trim()
+  if (secret && !owner) {
+    try {
+      owner = !!(await (await getIllusServer()).ownerSub())
+    } catch {
+      /* Show configuration help below. */
+    }
+  }
+  const sourceUrl =
+    env.ILLUS_SOURCE_URL || 'https://github.com/sangleshubham/flow-ai'
   return {
     props: {
+      open: (env.ILLUS_ACCESS ?? 'open') === 'open',
+      sourceUrl: /^https?:\/\//.test(sourceUrl)
+        ? sourceUrl
+        : 'https://github.com/sangleshubham/flow-ai',
       chatgpt: secret && !!env.ILLUS_TOKEN_ENC_KEY,
-      password: secret && owner && (env.ILLUS_LOGIN_PASSWORD?.length ?? 0) >= MIN_PASSWORD_LENGTH,
+      password:
+        secret &&
+        owner &&
+        (env.ILLUS_LOGIN_PASSWORD?.length ?? 0) >= MIN_PASSWORD_LENGTH,
       next: safeNext(query.next),
       error: typeof query.error === 'string' ? query.error : null,
     },
