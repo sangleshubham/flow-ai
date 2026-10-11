@@ -143,7 +143,9 @@ Record mode counts against the local caps and your plan like live mode. For the 
 
 ## Running on a VPS
 
-OpenAI only redirects to `127.0.0.1`, so a browser on your laptop can't complete sign-in against a server elsewhere. OpenAI's documented approach for remote machines:
+A reader served from any other address (`ILLUS_PUBLIC_URL` not `http://127.0.0.1…`) uses paste sign-in ([ADR 0047](adr/0047-remote-chatgpt-signin-and-zero-config.md)). **Continue with ChatGPT** opens a page with a link to OpenAI's sign-in. After you allow plan usage, that tab ends on `http://127.0.0.1:7199/auth/chatgpt/callback?code=…`, which cannot load. Copy the whole address into the form on the reader's page within 10 minutes. With Docker, the server generates its own secrets and the first account to sign in becomes the owner; see [deploy.md](deploy.md).
+
+Copying credentials from a laptop still works. OpenAI's documented approach for remote machines:
 
 1. Do steps 1–4 on your laptop with the **same** `ILLUS_TOKEN_ENC_KEY` that the server will use.
 2. Copy `chatgpt-tokens.enc` and `chatgpt-registration.json` from your laptop's `ILLUS_DATA_DIR` to the server's data volume over SSH.

@@ -48,10 +48,12 @@ export interface StoredTokens {
   savedAt: number
 }
 
-/** Non-secret: the persistent host id and the client id issued at first registration. */
+/** Non-secret: the persistent host id, the client id issued at first registration and the owner. */
 export interface Registration {
   hostId: string
   clientId?: string
+  /** The account that claimed this reader at its first sign-in (ADR 0047). */
+  ownerSub?: string
 }
 
 export interface TokenStore {

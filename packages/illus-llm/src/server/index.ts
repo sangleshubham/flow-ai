@@ -11,7 +11,7 @@ import { loadModelsConfig } from '../models.ts'
 import type { ModelsConfig } from '../models.ts'
 import type { PromptRegistry } from '../prompts.ts'
 import type { ProviderId } from '../provider.ts'
-import { createChatGptAuth } from './chatgpt-auth.ts'
+import { PASTE_REDIRECT_URI, createChatGptAuth } from './chatgpt-auth.ts'
 import type { ChatGptAuth } from './chatgpt-auth.ts'
 import { fileFixtures } from './fixtures-fs.ts'
 import { createGateway } from './gateway.ts'
@@ -38,8 +38,13 @@ export interface IllusServer {
   gateway: Gateway
   sessions: Sessions
   usage: UsageTracker
-  /** Present when `ILLUS_TOKEN_ENC_KEY` and `ILLUS_PUBLIC_URL` are set (required for the plan provider). */
+  /** Present when `ILLUS_TOKEN_ENC_KEY` is set (required for the plan provider). */
   auth: ChatGptAuth | undefined
+  /**
+   * The reader is not on `http://127.0.0.1`, so OpenAI cannot redirect back to it: sign-in ends with the user
+   * pasting the loopback address their browser landed on (ADR 0047).
+   */
+  pasteSignin: boolean
 }
 
 export interface IllusServerOptions {
@@ -85,19 +90,22 @@ export async function createIllusServer(env: Record<string, string | undefined>,
   })
 
   let auth: ChatGptAuth | undefined
-  if (env.ILLUS_TOKEN_ENC_KEY && env.ILLUS_PUBLIC_URL) {
+  const pasteSignin = !isLoopbackUrl(publicUrl)
+  if (env.ILLUS_TOKEN_ENC_KEY) {
     const key = parseEncKey(env.ILLUS_TOKEN_ENC_KEY)
+    const allowed = env.ILLUS_ALLOWED_ACCOUNT_ID?.trim()
     auth = createChatGptAuth({
       store: createTokenStore({ dir: dataDir, key }),
       key,
       publicUrl,
-      ...(env.ILLUS_ALLOWED_ACCOUNT_ID && { allowedAccountId: env.ILLUS_ALLOWED_ACCOUNT_ID.trim() }),
+      ...(pasteSignin && { redirectUri: PASTE_REDIRECT_URI }),
+      ...(allowed ? { allowedAccountId: allowed } : { claimOwner: true }),
       ...(env.ILLUS_CHATGPT_CLIENT_ID && { clientId: env.ILLUS_CHATGPT_CLIENT_ID.trim() }),
       ...(env.ILLUS_CHATGPT_ISSUER && { issuer: env.ILLUS_CHATGPT_ISSUER }),
       ...(o.fetch && { fetch: o.fetch }),
       ...(o.now && { now: o.now }),
     })
-  } else if (live && provider === 'chatgpt-plan') throw new Error('ILLUS_TOKEN_ENC_KEY and ILLUS_PUBLIC_URL are required for the chatgpt-plan provider')
+  } else if (live && provider === 'chatgpt-plan') throw new Error('ILLUS_TOKEN_ENC_KEY is required for the chatgpt-plan provider')
 
   const fixtures = mode === 'live' ? undefined : (o.fixtures ?? (await fileFixtures(env.ILLUS_FIXTURES_DIR ?? join(process.cwd(), 'fixtures', 'llm'))))
   const apiKey = env.ILLUS_OPENAI_API_KEY
@@ -114,5 +122,10 @@ export async function createIllusServer(env: Record<string, string | undefined>,
       credential: provider === 'openai-api-key' ? async () => apiKey! : () => auth!.getPlanToken(),
     }),
   })
-  return { mode, provider, models, gateway, sessions, usage, auth }
+  return { mode, provider, models, gateway, sessions, usage, auth, pasteSignin }
+}
+
+/** OpenAI redirects only to `http://127.0.0.1:<port>` (ADR 0007). */
+export function isLoopbackUrl(url: string): boolean {
+  return /^http:\/\/127\.0\.0\.1(?::\d+)?\/?$/.test(url)
 }

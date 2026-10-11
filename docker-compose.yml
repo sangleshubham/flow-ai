@@ -14,9 +14,11 @@ services:
       # Spec §9
       ILLUS_CHATGPT_CLIENT_ID: ${ILLUS_CHATGPT_CLIENT_ID:-} # optional override (ADR 0007)
       ILLUS_PUBLIC_URL: ${ILLUS_PUBLIC_URL:-http://127.0.0.1:3000}
-      ILLUS_ALLOWED_ACCOUNT_ID: ${ILLUS_ALLOWED_ACCOUNT_ID:-} # empty refuses everyone; the first sign-in shows your id
-      ILLUS_TOKEN_ENC_KEY: ${ILLUS_TOKEN_ENC_KEY:?set a 32-byte key (openssl rand -base64 32)}
-      ILLUS_SESSION_SECRET: ${ILLUS_SESSION_SECRET:?set at least 32 random characters (openssl rand -base64 48)}
+      # Optional (ADR 0047). Empty: the first ChatGPT sign-in claims the reader, and the entrypoint generates
+      # both secrets once and keeps them in /data/secrets.json.
+      ILLUS_ALLOWED_ACCOUNT_ID: ${ILLUS_ALLOWED_ACCOUNT_ID:-}
+      ILLUS_TOKEN_ENC_KEY: ${ILLUS_TOKEN_ENC_KEY:-}
+      ILLUS_SESSION_SECRET: ${ILLUS_SESSION_SECRET:-}
       ILLUS_MAX_REQUESTS_5H: ${ILLUS_MAX_REQUESTS_5H:-100}
       ILLUS_MAX_REQUESTS_DAY: ${ILLUS_MAX_REQUESTS_DAY:-300}
       ILLUS_DATA_DIR: /data

@@ -50,7 +50,18 @@ describe('createIllusServer (env, §9 table)', () => {
     )
     expect(plan.provider).toBe('chatgpt-plan')
     expect(plan.usage.summary()).toMatchObject({ max5h: 20, maxDay: 300 })
+    expect(plan.pasteSignin).toBe(false)
     // Signed out: the plan provider answers signin-required, never a paid fallback.
     expect(await plan.gateway.handle({ ...make.llmRequest(), requestId: 'y' }, { session: true })).toMatchObject({ body: { code: 'signin-required' } })
+  })
+
+  it('needs no ILLUS_PUBLIC_URL for sign-in; a non-loopback URL selects paste sign-in (ADR 0047)', async () => {
+    const data = await mkdtemp(join(tmpdir(), 'illus-data-'))
+    const env = { ILLUS_SESSION_SECRET: SECRET, ILLUS_LLM_MODE: 'live', ILLUS_DATA_DIR: data, ILLUS_TOKEN_ENC_KEY: Buffer.alloc(32).toString('base64') }
+    const local = await createIllusServer(env, { prompts })
+    expect(local.auth).toBeDefined()
+    expect(local.pasteSignin).toBe(false)
+    const remote = await createIllusServer({ ...env, ILLUS_PUBLIC_URL: 'https://reader.example.com' }, { prompts })
+    expect(remote.pasteSignin).toBe(true)
   })
 })

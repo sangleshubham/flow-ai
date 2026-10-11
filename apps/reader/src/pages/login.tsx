@@ -1,6 +1,7 @@
-// Login gate (spec §17 as amended by ADR 0020). Two ways in, both for the one allowed account:
-// - "Continue with ChatGPT" (W2's OAuth routes) where OpenAI's loopback redirect allows it (laptop);
-// - a password (ILLUS_LOGIN_PASSWORD) for the Tailscale-only VPS, where ChatGPT sign-in cannot run.
+// Login gate (spec §17 as amended by ADR 0020 and ADR 0047). Two ways in, both for the one allowed account:
+// - "Continue with ChatGPT" (W2's OAuth routes): a redirect on 127.0.0.1, or pasting the loopback address
+//   back on a remote reader. The first account to sign in becomes the owner unless ILLUS_ALLOWED_ACCOUNT_ID is set;
+// - an optional password (ILLUS_LOGIN_PASSWORD), once the owner is known.
 import type { GetServerSideProps } from 'next'
 import Head from 'next/head'
 
@@ -72,14 +73,12 @@ export default function Login({ chatgpt, password, next, error }: Props) {
 export const getServerSideProps: GetServerSideProps<Props> = async ({ query, res }) => {
   res.setHeader('Cache-Control', 'no-store')
   const env = process.env
-  const configured = !!env.ILLUS_ALLOWED_ACCOUNT_ID?.trim() && (env.ILLUS_SESSION_SECRET?.length ?? 0) >= 32
-  // OpenAI accepts only http://127.0.0.1:<port> redirect URIs (ADR 0007), so the ChatGPT button is shown
-  // only where the callback can work.
-  const loopback = /^http:\/\/127\.0\.0\.1(?::\d+)?\/?$/.test(env.ILLUS_PUBLIC_URL ?? '')
+  const secret = (env.ILLUS_SESSION_SECRET?.length ?? 0) >= 32
+  const owner = !!env.ILLUS_ALLOWED_ACCOUNT_ID?.trim()
   return {
     props: {
-      chatgpt: configured && loopback && !!env.ILLUS_TOKEN_ENC_KEY,
-      password: configured && (env.ILLUS_LOGIN_PASSWORD?.length ?? 0) >= MIN_PASSWORD_LENGTH,
+      chatgpt: secret && !!env.ILLUS_TOKEN_ENC_KEY,
+      password: secret && owner && (env.ILLUS_LOGIN_PASSWORD?.length ?? 0) >= MIN_PASSWORD_LENGTH,
       next: safeNext(query.next),
       error: typeof query.error === 'string' ? query.error : null,
     },
