@@ -1,9 +1,10 @@
 ---
 role: extractor.graph
-version: 1.1.0
+version: 1.2.0
 schema: GraphIR
 budgetTokens: 16000
 changelog:
+  - 1.2.0: Diagram first (ADR 0048). Short labels (at most 3 words, sublabels at most 5), at most 8 nodes when possible, `TB` unless a short chain, flowcharts for algorithms.
   - 1.1.0: Blocks inside <subsections> (the open section's own subsections) are data and quotable evidence.
   - 1.0.0: First version.
 ---
@@ -28,9 +29,11 @@ Rules:
 What to produce, for the `<plan_item>` at the end of the input:
 
 - `type`: `"graph"`. `title`: a short title in the book's words.
-- `direction`: `"LR"` for pipelines and data flow, `"TB"` for hierarchies and layers.
-- `nodes` (at most 12): `id` (a short slug: letters, digits, `-`, `_`), `label` (at most 40 characters), optional `sublabel`, optional `group` (a group id), `shape` (`box` for components, `store` for logs, databases and storage, `actor` for users and clients, `queue` for queues and channels, `decision` for a branch, `note` for an annotation), and `evidence`.
-- `edges` (at most 18): `id`, `from`, `to` (node ids), optional `label` (the verb or message, at most 40 characters), `style` (`solid`, or `dashed` for replies, optional or asynchronous paths when the text says so), and `evidence`.
+- `direction`: the pane is taller than it is wide, so prefer `"TB"`. Use `"LR"` only for a single chain of at most 4 nodes.
+- `nodes` (at most 12; aim for 8 or fewer, the reader must take the picture in at a glance): `id` (a short slug: letters, digits, `-`, `_`), `label` (the book's name for the thing, at most 3 words), optional `sublabel` (only for a defining trait such as "accepts all writes", at most 5 words), optional `group` (a group id), `shape` (`box` for components, `store` for logs, databases and storage, `actor` for users and clients, `queue` for queues and channels, `decision` for a branch, `note` for an annotation; avoid `note`), and `evidence`.
+- `edges` (at most 18): `id`, `from`, `to` (node ids), optional `label` (the verb or message, at most 3 words), `style` (`solid`, or `dashed` for replies, optional or asynchronous paths when the text says so), and `evidence`.
+- No sentences inside the diagram: labels name things, edges name actions. The evidence holds the sentence.
+- For an algorithm, draw a flowchart: one `box` per step in the book's words, a `decision` node for each branch with its outcomes as edge labels (e.g. "yes", "no").
 - `groups`: only when the text names a containing unit (a layer, a cluster, a process); `id`, `label`, optional `parent`, `evidence`. Usually empty.
 - `evidence` is `{ "blockId": "<id of the block>", "quote": "<verbatim words from that block>" }`: at least 3 and at most 30 words, copied exactly, including punctuation inside the quoted span. Quote the sentence that names the element or the connection; for an edge, the sentence that states that one thing reaches the other.
 - Element ids must be unique; edges must connect nodes you defined. No node may stand alone unless the text describes it without a connection (at most 2 such nodes).
@@ -58,7 +61,7 @@ Output:
 {
   "type": "graph",
   "title": "Log replication",
-  "direction": "LR",
+  "direction": "TB",
   "nodes": [
     { "id": "client", "label": "Client", "shape": "actor", "evidence": { "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b0", "quote": "The leader accepts client requests" } },
     { "id": "leader", "label": "Leader", "shape": "box", "evidence": { "blockId": "0123456789abcdef:2:5-log-replication/5-1-leaders-and-followers:1#b0", "quote": "The leader accepts client requests" } },
@@ -114,7 +117,8 @@ Output:
 - **Paraphrased quotes**: the matcher needs the exact words; rule 3 and "copied exactly".
 - **Invented components** (a load balancer the text never mentions): rule 2; "an element with nothing to quote is left out".
 - **Dangling edges** to node ids that do not exist: "edges must connect nodes you defined"; the validator drops them.
-- **Too many nodes** for a narrow pane: hard limits of 12 nodes and 18 edges, and rule 5.
+- **Too many nodes** for a narrow pane: hard limits of 12 nodes and 18 edges, the 8-node aim, and rule 5.
+- **Sentences as labels** (a node that reads like a paragraph): labels at most 3 words, sublabels at most 5; the evidence carries the sentence.
 - **Generic labels** ("Component A"): rule 4, labels use the book's terms.
-- **Wrong direction** (TB for a pipeline): the `direction` guidance.
+- **Wrong direction** (a long `LR` chain squeezed into the narrow pane): the `direction` guidance.
 - **Ignoring the validator report on a retry**: "fix exactly those issues".
