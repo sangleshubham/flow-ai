@@ -471,25 +471,29 @@ function NodeLabel({
           bottom: h,
           cx: w / 2,
         }
-  const block = t.lines.length * LINE_H + (t.sublabel ? SUB_H : 0)
+  const block = t.lines.length * LINE_H + t.sublines.length * SUB_H
   const y0 = area.top + (area.bottom - area.top - block) / 2 + 12
   return (
     <text textAnchor="middle" fontSize={13}>
+      <title>
+        {node.sublabel ? `${node.label} — ${node.sublabel}` : node.label}
+      </title>
       {t.lines.map((l, i) => (
         <tspan key={i} x={area.cx} y={y0 + i * LINE_H}>
           {l}
         </tspan>
       ))}
-      {t.sublabel && (
+      {t.sublines.map((l, i) => (
         <tspan
+          key={`s${i}`}
           className="illus-sub"
           x={area.cx}
-          y={y0 + t.lines.length * LINE_H}
+          y={y0 + t.lines.length * LINE_H + i * SUB_H}
           fontSize={11}
         >
-          {t.sublabel}
+          {l}
         </tspan>
-      )}
+      ))}
     </text>
   )
 }
