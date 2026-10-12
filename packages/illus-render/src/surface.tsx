@@ -21,6 +21,9 @@ interface View {
 const MIN_K = 0.2
 const MAX_K = 4
 const MAX_FIT_H = 640
+/** Fill mode (ADR 0048): small diagrams grow up to this scale; wide ones never shrink below the floor. */
+const MAX_FILL_K = 1.6
+const MIN_FILL_K = 0.6
 const DECOR = ['illus-hidden', 'illus-removed', 'illus-tone-focus', 'illus-tone-success', 'illus-tone-warning', 'illus-tone-muted', 'illus-new', 'illus-earlier']
 
 export interface SurfaceProps {
@@ -33,6 +36,11 @@ export interface SurfaceProps {
   version: number
   onEvidenceHover?: ((e: EvidenceEvent | null) => void) | undefined
   onEvidenceClick?: ((e: EvidenceEvent) => void) | undefined
+  /**
+   * Fill the parent's height (a flex child) and fit the diagram to both axes, enlarging small ones,
+   * with zoom buttons. Default: fit to width only, never enlarge, height follows the diagram.
+   */
+  fill?: boolean | undefined
 }
 
 interface Mark {
@@ -46,7 +54,7 @@ interface Mark {
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
-export function Surface({ children, elements, frame, newIds, version, onEvidenceHover, onEvidenceClick }: SurfaceProps) {
+export function Surface({ children, elements, frame, newIds, version, onEvidenceHover, onEvidenceClick, fill = false }: SurfaceProps) {
   const surfaceRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 })
@@ -84,25 +92,35 @@ export function Surface({ children, elements, frame, newIds, version, onEvidence
     const w = canvas.offsetWidth
     const h = canvas.offsetHeight
     const avail = surface.clientWidth || w
+    if (fill) {
+      const availH = surface.clientHeight || h
+      const k = w > 0 && h > 0 ? clamp(Math.min(avail / w, availH / h), MIN_FILL_K, MAX_FILL_K) : 1
+      setFit({ k, h: availH })
+      // Centred when it fits; otherwise start at the top-left corner and let the reader pan.
+      setView({ x: Math.max(0, (avail - w * k) / 2), y: Math.max(0, (availH - h * k) / 2), k })
+      return
+    }
     const k = w > 0 ? clamp(Math.min(1, avail / w, MAX_FIT_H / Math.max(h, 1)), MIN_K, 1) : 1
     setFit({ k, h: Math.max(80, Math.ceil(h * k)) })
     setView({ x: Math.max(0, (avail - w * k) / 2), y: 0, k })
-  }, [])
+  }, [fill])
 
   useLayoutEffect(computeFit, [version, computeFit])
   useEffect(() => {
     const surface = surfaceRef.current
     if (!surface || typeof ResizeObserver === 'undefined') return
     let last = surface.clientWidth
+    let lastH = surface.clientHeight
     const ro = new ResizeObserver(() => {
-      if (surface.clientWidth !== last) {
+      if (surface.clientWidth !== last || (fill && surface.clientHeight !== lastH)) {
         last = surface.clientWidth
+        lastH = surface.clientHeight
         computeFit()
       }
     })
     ro.observe(surface)
     return () => ro.disconnect()
-  }, [computeFit])
+  }, [computeFit, fill])
 
   // ---------------------------------------------------------------- frame decoration
 
@@ -270,11 +288,16 @@ export function Surface({ children, elements, frame, newIds, version, onEvidence
     onEvidenceClick?.(ev)
   }
 
+  const zoomCentre = (factor: number) => {
+    const s = surfaceRef.current
+    if (s) zoomAt(s.clientWidth / 2, s.clientHeight / 2, factor)
+  }
+
   return (
     <div
       ref={surfaceRef}
-      className="illus-surface"
-      style={{ height: fit.h + 24 * fit.k }}
+      className={`illus-surface${fill ? ' illus-surface-fill' : ''}`}
+      style={fill ? undefined : { height: fit.h + 24 * fit.k }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -301,6 +324,19 @@ export function Surface({ children, elements, frame, newIds, version, onEvidence
           ))}
         </div>
       </div>
+      {fill && (
+        <div className="illus-zoom" role="group" aria-label="Zoom" onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
+          <button type="button" className="illus-btn illus-icon-btn" aria-label="Zoom out" onClick={() => zoomCentre(1 / 1.25)}>
+            −
+          </button>
+          <button type="button" className="illus-btn illus-icon-btn illus-fit" aria-label="Fit to view" onClick={computeFit}>
+            Fit
+          </button>
+          <button type="button" className="illus-btn illus-icon-btn" aria-label="Zoom in" onClick={() => zoomCentre(1.25)}>
+            +
+          </button>
+        </div>
+      )}
     </div>
   )
 }

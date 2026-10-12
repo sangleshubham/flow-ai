@@ -21,6 +21,10 @@ export interface PlayerProps {
   defaultSpeed?: number
   /** Undefined follows prefers-reduced-motion; explicit booleans override it. */
   reducedMotion?: boolean
+  /** Play through once when the frames arrive (never with reduced motion), ending on the full picture. */
+  autoPlay?: boolean
+  /** Initial value of "Highlight passage while playing". */
+  highlightWhilePlaying?: boolean
 }
 
 /** Precomputed frame player. The caller gates mounting with featureFlags.animation. */
@@ -32,9 +36,11 @@ export function Player({
   onEvidenceHighlight,
   defaultSpeed = 1,
   reducedMotion,
+  autoPlay = false,
+  highlightWhilePlaying = true,
 }: PlayerProps) {
   const [index, setIndex] = useState(0)
-  const [autoHighlight, setAutoHighlight] = useState(true)
+  const [autoHighlight, setAutoHighlight] = useState(highlightWhilePlaying)
   const root = useRef<HTMLDivElement>(null)
   const [surfaceVersion, setSurfaceVersion] = useState(0)
   const systemReduced = useReducedMotion()
@@ -68,9 +74,16 @@ export function Player({
     if (priorFrames.current !== frames) {
       priorFrames.current = frames
       setIndex(0)
-      playback.setPlaying(false)
+      playback.setPlaying(autoPlay && !reduced && frames.length > 1)
     }
-  }, [frames, playback.setPlaying])
+  }, [frames, playback.setPlaying, autoPlay, reduced])
+  // Mount only: later frame changes are handled above.
+  const autoStarted = useRef(false)
+  useEffect(() => {
+    if (autoStarted.current) return
+    autoStarted.current = true
+    if (autoPlay && !reduced && frames.length > 1) playback.setPlaying(true)
+  })
   useEffect(() => {
     onStepChange?.(safeIndex)
   }, [safeIndex, onStepChange])
@@ -227,6 +240,7 @@ export function Player({
   return (
     <div
       ref={root}
+      className="illus-player"
       tabIndex={0}
       role="region"
       aria-label="Animation player"
@@ -235,7 +249,7 @@ export function Player({
     >
       {renderFrame(frame)}
       <PlaybackControls {...controls} />
-      <div aria-live="polite" aria-atomic="true">
+      <div className="illus-narration" aria-live="polite" aria-atomic="true">
         {frame.narration ? (
           <button
             type="button"
@@ -247,7 +261,7 @@ export function Player({
           <span>Initial state</span>
         )}
       </div>
-      <label>
+      <label className="illus-player-option">
         <input
           type="checkbox"
           checked={autoHighlight}

@@ -1,5 +1,5 @@
 // Public types of @illus/render (§10, §20 W4 contract).
-import type { ComponentType } from 'react'
+import type { ComponentType, ReactNode } from 'react'
 
 import type {
   Block,
@@ -52,6 +52,11 @@ export interface VisualActions {
   onVote?: (vote: 'up' | 'down') => void
   vote?: 'up' | 'down'
   onShowEvidence?: () => void
+  /** Compact chrome: open the visual large (the host owns the overlay). */
+  onExpand?: () => void
+  expanded?: boolean
+  /** Compact chrome: host items appended to the "More actions" menu. */
+  menuExtra?: ReactNode
 }
 
 /** Props of a template's React component (W5 implements; §10 template library). */
@@ -94,4 +99,10 @@ export interface VisualViewProps {
   /** URL of the sandbox page (default `/illus-sandbox.html`). */
   sandboxUrl?: string
   className?: string
+  /**
+   * `full` (default): title, badges and an action footer around a width-fitted diagram.
+   * `compact` (ADR 0048): the diagram fills its parent's height; actions sit in a small overlay
+   * toolbar and a "More actions" menu. The host shows the title.
+   */
+  chrome?: 'full' | 'compact'
 }
