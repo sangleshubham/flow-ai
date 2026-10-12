@@ -38,6 +38,6 @@ for (const name of ['ILLUS_TOKEN_ENC_KEY', 'ILLUS_SESSION_SECRET'])
   if (!set(name) && secrets[name]) env[name] = secrets[name]
 
 const owner = readJson(join(dataDir, 'chatgpt-registration.json'))?.ownerSub
-if (!set('ILLUS_ALLOWED_ACCOUNT_ID') && typeof owner === 'string' && owner) env.ILLUS_ALLOWED_ACCOUNT_ID = owner
+if (env.ILLUS_ACCESS === 'owner' && !set('ILLUS_ALLOWED_ACCOUNT_ID') && typeof owner === 'string' && owner) env.ILLUS_ALLOWED_ACCOUNT_ID = owner
 
 await import(new URL('./server.js', import.meta.url).href)

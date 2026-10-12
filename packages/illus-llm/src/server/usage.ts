@@ -1,18 +1,13 @@
-// Plan usage controls (§9 steps 3 and 8, §15): `usage.jsonl`, local soft caps over a rolling 5-hour
-// window and a rolling 24-hour day, and the pause after a ChatGPT plan-limit 429.
-import { appendFile, mkdir, readFile } from 'node:fs/promises'
-import { dirname } from 'node:path'
-
+// Per-user usage records and the pause after an upstream ChatGPT plan limit (ADR 0055).
 import type { LlmOutcome, ReasoningEffort, RoleName } from '@illus/core'
 
+import type { ReaderDb } from './db.ts'
+
 const HOUR = 3_600_000
-const WINDOW_5H = 5 * HOUR
-const DAY = 24 * HOUR
-/** Pause when a plan-limit 429 gives no reset time (ADR 0007): OpenAI says not to infer one. */
 export const DEFAULT_PLAN_PAUSE_MS = 30 * 60_000
 
-/** One line of `${ILLUS_DATA_DIR}/usage.jsonl` (§9 step 8). No dollar figures. */
 export interface UsageRow {
+  sub: string
   ts: number
   requestId: string
   role: RoleName
@@ -25,94 +20,83 @@ export interface UsageRow {
   cachedInputTokens: number
   latencyMs: number
   outcome: LlmOutcome
-  /** Upstream requests made (retries and fallbacks included); what the caps count. */
+  /** Upstream requests made (retries and fallbacks included); recorded per user. */
   attempts: number
 }
-
-export interface UsageCaps {
-  max5h: number
-  maxDay: number
-}
-
-/** Starting values (ADR 0007), tuned after the M1 eval. */
-export const DEFAULT_CAPS: UsageCaps = { max5h: 100, maxDay: 300 }
 
 export interface UsageSummary {
   used5h: number
   usedDay: number
-  max5h: number
-  maxDay: number
-  /** Epoch ms until which plan requests are paused after a plan-limit 429. */
   pausedUntil: number | null
 }
 
-export interface UsageTracker {
-  /** Upstream requests still allowed now (min of both windows); 0 means over a cap. */
-  remaining(): number
-  /** Counts one upstream request (call before each attempt). */
-  countAttempt(): void
+export interface UserUsage {
   pausedUntil(): number | null
   pause(untilMs: number): void
   append(row: UsageRow): Promise<void>
   summary(): UsageSummary
 }
 
-/**
- * Usage tracker over `usage.jsonl`. Attempts from the last 24 h are re-read at start so a restart does
- * not reset the caps.
- */
-export async function createUsageTracker(o: { file: string; caps: UsageCaps; now?: () => number }): Promise<UsageTracker> {
-  const now = o.now ?? Date.now
-  // ponytail: in-memory list of attempt timestamps (≤ maxDay entries live); fine for one user.
-  let attempts: number[] = []
-  let pausedUntil: number | null = null
-  try {
-    const since = now() - DAY
-    for (const line of (await readFile(o.file, 'utf8')).split('\n')) {
-      if (!line.trim()) continue
-      try {
-        const row = JSON.parse(line) as Partial<UsageRow>
-        if (typeof row.ts === 'number' && row.ts >= since) for (let i = 0; i < (row.attempts ?? 0); i++) attempts.push(row.ts)
-      } catch {
-        // skip a torn line
-      }
-    }
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e
-  }
-  const prune = () => {
-    const t = now()
-    attempts = attempts.filter((a) => a > t - DAY)
-    if (pausedUntil !== null && pausedUntil <= t) pausedUntil = null
-    return t
-  }
-  const counts = () => {
-    const t = prune()
-    return { used5h: attempts.filter((a) => a > t - WINDOW_5H).length, usedDay: attempts.length }
-  }
-  return {
-    remaining() {
-      const c = counts()
-      return Math.max(0, Math.min(o.caps.max5h - c.used5h, o.caps.maxDay - c.usedDay))
-    },
-    countAttempt: () => void attempts.push(now()),
-    pausedUntil: () => (prune(), pausedUntil),
-    pause(until) {
-      pausedUntil = Math.max(pausedUntil ?? 0, until)
-    },
-    async append(row) {
-      await mkdir(dirname(o.file), { recursive: true })
-      await appendFile(o.file, JSON.stringify(row) + '\n', { mode: 0o600 })
-    },
-    summary() {
-      const c = counts()
-      return { ...c, max5h: o.caps.max5h, maxDay: o.caps.maxDay, pausedUntil }
-    },
-  }
+export interface UsageTracker {
+  forUser(sub: string): UserUsage
 }
 
-/** Reads a positive integer env value, or the default. */
-export function capFromEnv(value: string | undefined, fallback: number): number {
-  const n = Number(value)
-  return value?.trim() && Number.isInteger(n) && n > 0 ? n : fallback
+export function createUsageTracker(o: {
+  db: ReaderDb
+  now?: () => number
+}): UsageTracker {
+  const now = o.now ?? Date.now
+  // Only active pauses are cached; ordinary requests do not grow this map.
+  const pauses = new Map<string, number>()
+  const sum = o.db.prepare(
+    'SELECT COALESCE(SUM(attempts),0) AS n FROM usage WHERE sub=? AND ts>?',
+  )
+  return {
+    forUser(sub) {
+      if (!sub) throw new Error('usage requires an account')
+      const pausedUntil = () => {
+        const until =
+          pauses.get(sub) ??
+          Number(
+            o.db
+              .prepare('SELECT paused_until FROM usage_pause WHERE sub=?')
+              .get(sub)?.paused_until ?? 0,
+          )
+        if (until <= now()) {
+          pauses.delete(sub)
+          return null
+        }
+        pauses.set(sub, until)
+        return until
+      }
+      return {
+        pausedUntil,
+        pause(until) {
+          if (!Number.isFinite(until))
+            throw new Error('invalid plan reset time')
+          o.db
+            .prepare(
+              `INSERT INTO usage_pause(sub,paused_until) VALUES(?,?)
+            ON CONFLICT(sub) DO UPDATE SET paused_until=MAX(paused_until,excluded.paused_until)`,
+            )
+            .run(sub, until)
+          pauses.delete(sub)
+        },
+        async append(row) {
+          if (row.sub !== sub) throw new Error('usage account mismatch')
+          o.db
+            .prepare('INSERT INTO usage(sub,ts,attempts,row) VALUES(?,?,?,?)')
+            .run(sub, row.ts, row.attempts, JSON.stringify(row))
+        },
+        summary() {
+          const t = now()
+          return {
+            used5h: Number(sum.get(sub, t - 5 * HOUR)!.n),
+            usedDay: Number(sum.get(sub, t - 24 * HOUR)!.n),
+            pausedUntil: pausedUntil(),
+          }
+        },
+      }
+    },
+  }
 }

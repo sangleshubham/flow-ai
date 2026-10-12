@@ -1,42 +1,43 @@
 # Deploying the reader
 
-The reader is single-user and self-hosted (spec D6). It runs on your laptop, or on a personal VPS that only your Tailscale devices can reach ([ADR 0020](adr/0020-w11-login-gate-and-deployment.md)). Model calls run on your ChatGPT plan; sign-in itself is covered in [setup-chatgpt-signin.md](setup-chatgpt-signin.md).
+The reader is self-hosted and supports multiple ChatGPT accounts. Each visitor uses their own plan ([ADR 0055](adr/0055-multi-user-chatgpt-signin.md)). The existing Tailscale-only deployment boundary remains in place; this change does not upgrade Next 12 or change ADR 0005. See [setup-chatgpt-signin.md](setup-chatgpt-signin.md) for sign-in.
 
-## Docker with ChatGPT sign-in and no secrets in `.env`
+## Docker with ChatGPT sign-in
 
-Since [ADR 0047](adr/0047-remote-chatgpt-signin-and-zero-config.md), the Docker image needs no secrets in `.env`:
-
-- On first start, the entrypoint generates `ILLUS_TOKEN_ENC_KEY` and `ILLUS_SESSION_SECRET` and saves them in `/data/secrets.json` (mode 0600). If they are set in the environment, it saves those values instead, so an existing deployment can drop them from `.env` after one start.
-- The first account to finish "Continue with ChatGPT" becomes the owner (`ownerSub` in `/data/chatgpt-registration.json`). The entrypoint sets `ILLUS_ALLOWED_ACCOUNT_ID` from it, so on a fresh volume you restart once after that sign-in: `docker compose restart reader`. **Sign in straight after the first start.** Until then, anyone who reaches the reader can claim it. Setting `ILLUS_ALLOWED_ACCOUNT_ID` turns claiming off.
-- When `ILLUS_PUBLIC_URL` is not `http://127.0.0.1…`, sign-in ends with a paste step, because OpenAI redirects only to a loopback address. The ChatGPT tab finishes on a `http://127.0.0.1:7199/auth/chatgpt/callback?…` page that cannot load. Copy its full address into the reader's form within 10 minutes.
-- What is left to set: `ILLUS_PUBLIC_URL` (for the `Secure` cookie and paste sign-in), `ILLUS_LLM_MODE=live`, and optionally the request caps. `ILLUS_LOGIN_PASSWORD` is optional.
-- `/data/secrets.json` sits next to the encrypted tokens, so the data volume alone unlocks them. Treat volume backups as secrets, or keep `ILLUS_TOKEN_ENC_KEY` in the environment.
+- The entrypoint creates `ILLUS_TOKEN_ENC_KEY` and `ILLUS_SESSION_SECRET` once in `/data/secrets.json` (mode 0600), preserving supplied values. Keep the data volume private and back it up as a secret.
+- Set `ILLUS_PUBLIC_URL` to the address visitors open, and `ILLUS_LLM_MODE=live` to enable model calls. Compose defaults to `ILLUS_ACCESS=open`; sign-in works immediately with each visitor's account, without an owner-claim restart.
+- Restrict sign-in with `ILLUS_ALLOWED_EMAILS=you@example.com,@example.org`, or restore single-owner behavior with `ILLUS_ACCESS=owner`. In owner mode only, the first sign-in claims an unconfigured reader and Docker needs one restart to expose the saved owner to Edge. Set an explicit `ILLUS_ALLOWED_ACCOUNT_ID` to avoid first-sign-in claiming.
+- Remote readers use the paste flow: the ChatGPT tab ends at a `http://127.0.0.1:7199/auth/chatgpt/callback?…` page that cannot load. This is expected. Paste the complete address into the reader within ten minutes.
+- There are no local model-request caps. Requests use the current account's plan until OpenAI reports its plan limit. Usage and the resulting pause are isolated per user.
 
 ## Configuration
 
-| Variable                                                                                     | Needed                   | Value                                                                                                                                                                     |
-| -------------------------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ILLUS_ALLOWED_ACCOUNT_ID`                                                                   | always                   | Your ChatGPT account id (the ID token `sub`). Leave empty for the first sign-in: the refusal page shows the value to put here.                                            |
-| `ILLUS_SESSION_SECRET`                                                                       | always                   | At least 32 random characters: `openssl rand -base64 48`. Changing it signs every browser out.                                                                            |
-| `ILLUS_TOKEN_ENC_KEY`                                                                        | always                   | 32-byte key for the token store: `openssl rand -base64 32`. **Use the same key on the laptop and the VPS.**                                                               |
-| `ILLUS_PUBLIC_URL`                                                                           | always                   | Laptop: `http://127.0.0.1:<port>` (OpenAI accepts only this form). VPS: its HTTPS tailnet URL, for example `https://reader.<tailnet>.ts.net`.                             |
-| `ILLUS_DATA_DIR`                                                                             | always                   | Token store and usage log. `/data` in Docker (a volume).                                                                                                                  |
-| `ILLUS_LOGIN_PASSWORD`                                                                       | VPS                      | Password for the login page, at least 16 characters: `openssl rand -base64 24`. Never reuse a password. Empty disables password login.                                    |
-| `ILLUS_LLM_MODE`                                                                             | always                   | `replay` (the default) serves fixtures; `live` calls the model; `record` calls the model and saves responses.                                                             |
-| `ILLUS_FIXTURES_DIR`                                                                         | replay/record containers | Absolute container path. Compose defaults to `/fixtures/llm`, mounted read-only from `./fixtures/llm`. Recording needs a writable path, for example `/data/fixtures/llm`. |
-| `ILLUS_MAX_REQUESTS_5H`, `ILLUS_MAX_REQUESTS_DAY`                                            | optional                 | Local soft caps, default 100 and 300.                                                                                                                                     |
-| `ILLUS_MODELS_JSON`, `ILLUS_CHATGPT_CLIENT_ID`, `ILLUS_LLM_PROVIDER`, `ILLUS_OPENAI_API_KEY` | optional                 | See spec §9 and ADR 0007.                                                                                                                                                 |
-| `ILLUS_AUTH_GATE`                                                                            | dev only                 | `off` skips the login gate under `pnpm dev`. Production builds ignore it.                                                                                                 |
+| Variable                                                                                     | Needed                         | Value                                                                                                                                                                     |
+| -------------------------------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ILLUS_ALLOWED_ACCOUNT_ID`                                                                   | owner mode / optional password | Allowed owner `sub`; in owner mode a saved claimed owner is used when empty. Open-mode ChatGPT sign-in ignores this restriction.                                          |
+| `ILLUS_ACCESS`                                                                               | optional                       | `open` (default) or `owner`; any other value is rejected.                                                                                                                 |
+| `ILLUS_ALLOWED_EMAILS`                                                                       | optional                       | Comma-separated exact emails or `@domain`s, trimmed and case-insensitive; requires verified email. Open mode only.                                                        |
+| `ILLUS_SOURCE_URL`                                                                           | optional                       | HTTP(S) source link shown on login; defaults to `https://github.com/sangleshubham/flow-ai`. Point it at the source of your deployed fork.                                 |
+| `ILLUS_SESSION_SECRET`                                                                       | always                         | At least 32 random characters: `openssl rand -base64 48`. Changing it signs every browser out.                                                                            |
+| `ILLUS_TOKEN_ENC_KEY`                                                                        | plan provider                  | 32-byte AES key, base64 or hex. Preserve it across upgrades and backups. Docker generates it if absent.                                                                   |
+| `ILLUS_PUBLIC_URL`                                                                           | always                         | Laptop: `http://127.0.0.1:<port>` (OpenAI accepts only this form). VPS: its HTTPS tailnet URL, for example `https://reader.<tailnet>.ts.net`.                             |
+| `ILLUS_DATA_DIR`                                                                             | outside replay                 | Private directory for `reader.db`, registration and generated secrets; `/data` in Docker.                                                                                 |
+| `ILLUS_LOGIN_PASSWORD`                                                                       | VPS                            | Password for the login page, at least 16 characters: `openssl rand -base64 24`. Never reuse a password. Empty disables password login.                                    |
+| `ILLUS_LLM_MODE`                                                                             | always                         | `replay` (the default) serves fixtures; `live` calls the model; `record` calls the model and saves responses.                                                             |
+| `ILLUS_FIXTURES_DIR`                                                                         | replay/record containers       | Absolute container path. Compose defaults to `/fixtures/llm`, mounted read-only from `./fixtures/llm`. Recording needs a writable path, for example `/data/fixtures/llm`. |
+| `ILLUS_MODELS_JSON`, `ILLUS_CHATGPT_CLIENT_ID`, `ILLUS_LLM_PROVIDER`, `ILLUS_OPENAI_API_KEY` | optional                       | See spec §9 and ADR 0007.                                                                                                                                                 |
+| `ILLUS_AUTH_GATE`                                                                            | dev only                       | `off` skips the login gate under `pnpm dev`. Production builds ignore it.                                                                                                 |
 
 Keep these in a file that is never committed: `apps/reader/.env.local` for `pnpm dev`/`next start`, or `.env` next to `docker-compose.yml` for Docker. Both names are git-ignored and excluded from the Docker build context.
 
 ## How the gate works
 
 - Every page and API route needs the session cookie, except `/login`, `/auth/chatgpt/*` (with or without a locale prefix) and static files. Pages redirect to `/login`; APIs answer 401.
-- `/login` offers **Continue with ChatGPT** when `ILLUS_PUBLIC_URL` is a `127.0.0.1` URL, and **Continue with password** when `ILLUS_LOGIN_PASSWORD` is set. Both admit only `ILLUS_ALLOWED_ACCOUNT_ID`.
+- `/login` offers **Continue with ChatGPT** for local and remote readers when auth is configured. The optional password form appears only when a known owner and a password of at least 16 characters are configured; it signs in as that owner.
 - The session cookie is signed, `HttpOnly`, `SameSite=Lax`, valid for 30 days, and `Secure` when `ILLUS_PUBLIC_URL` is `https:`.
-- `/api/llm` allows 60 requests per minute per session.
-- To sign out of the app: `fetch('/api/login', { method: 'DELETE' })` in the browser console. To also revoke the ChatGPT tokens: `POST /auth/chatgpt/logout`.
+- `/api/llm` has no local request-rate limit. Unauthenticated ChatGPT sign-in endpoints share a ten-per-minute bucket per IP; password login allows five attempts per minute globally. The reverse proxy should replace client IP headers.
+- Node routes require a live database session and enabled user in addition to the cookie signature. Revoked cookies may still load an HTML shell through Edge.
+- To sign out of the app: `fetch('/api/login', { method: 'DELETE' })` in the browser console. Settings **Sign out** sends `POST /auth/chatgpt/logout`: the last active session also revokes that account’s ChatGPT tokens; other devices stay signed in.
 
 ## Local run (laptop)
 
@@ -70,19 +71,12 @@ The worker response has a separate CSP: only same-origin script and asset loads 
 
 ## VPS over Tailscale only
 
-The VPS is never exposed to the internet. ChatGPT sign-in cannot run there (OpenAI only redirects to `127.0.0.1`), so you sign in on the laptop and copy the token store.
+Keep the VPS reachable only through the tailnet, preserving the existing Next 12 deployment boundary. Remote ChatGPT sign-in works through the paste flow; there is no need to copy a laptop's token files.
 
-1. **Laptop:** run the reader locally (above) with the `ILLUS_TOKEN_ENC_KEY` you will use on the VPS, and sign in with ChatGPT once.
-2. **VPS:** install Docker and Tailscale (`tailscale up`). Turn on MagicDNS and HTTPS certificates for the tailnet in the Tailscale admin console.
-3. **VPS:** copy the repository, create `.env` with the same `ILLUS_TOKEN_ENC_KEY` and `ILLUS_ALLOWED_ACCOUNT_ID`, a fresh `ILLUS_SESSION_SECRET`, an `ILLUS_LOGIN_PASSWORD`, `ILLUS_LLM_MODE=live`, and `ILLUS_PUBLIC_URL=https://<vps-name>.<tailnet>.ts.net`. Then `docker compose up -d --build`.
-4. **Copy the tokens** from the laptop's `ILLUS_DATA_DIR` into the volume, then give the VPS its own host id (setup-chatgpt-signin.md, "Running on a VPS"):
-
-   ```sh
-   scp chatgpt-tokens.enc chatgpt-registration.json vps:/tmp/
-   ssh vps 'docker cp /tmp/chatgpt-tokens.enc reader:/data/ && docker cp /tmp/chatgpt-registration.json reader:/data/ \
-     && docker exec -u 0 reader chown node:node /data/chatgpt-tokens.enc /data/chatgpt-registration.json && rm /tmp/chatgpt-*'
-   ```
-
+1. Install Docker and Tailscale (`tailscale up`) on the VPS. Enable MagicDNS and HTTPS certificates for the tailnet.
+2. Copy the repository and configure `.env` with `ILLUS_ACCESS=open`, `ILLUS_LLM_MODE=live`, and `ILLUS_PUBLIC_URL=https://<vps-name>.<tailnet>.ts.net`. Optionally set `ILLUS_ALLOWED_EMAILS` and the source URL for your deployed fork.
+3. Run `docker compose up -d --build`. The entrypoint creates persistent private secrets and the server opens `/data/reader.db`.
+4. For an existing deployment, retain the data volume and encryption key. Legacy token/usage files migrate automatically; each browser signs in again once. Password login is optional and needs a known owner account.
 5. **HTTPS on the tailnet**, one of:
 
    - `tailscale serve` (simplest): `sudo tailscale serve --bg --https=443 http://127.0.0.1:3000`. Only tailnet devices can connect; Tailscale issues the certificate.
@@ -101,7 +95,7 @@ The VPS is never exposed to the internet. ChatGPT sign-in cannot run there (Open
      Never add a public hostname or bind Caddy to the public interface. With `tailscale serve`, the `x-middleware-subrequest` advisory is already fixed by Next 12.3.7, and the API routes check the session themselves.
 
 6. Check from a non-tailnet network that the VPS's public IP does not answer on 80, 443 or 3000 (a host firewall such as `ufw default deny incoming` plus `ufw allow in on tailscale0` makes sure).
-7. Open `https://<vps-name>.<tailnet>.ts.net/login` from a tailnet device and continue with the password.
+7. Open `https://<vps-name>.<tailnet>.ts.net/login` from a tailnet device and choose **Continue with ChatGPT**. Complete the loopback paste flow using your own account.
 
 ## Reverse proxy timeouts
 
@@ -130,12 +124,14 @@ The OAuth callback URL is always `${ILLUS_PUBLIC_URL}/auth/chatgpt/callback`. It
 
 ## Backups
 
-Everything server-side lives in the data volume: `chatgpt-tokens.enc` (encrypted, useless without `ILLUS_TOKEN_ENC_KEY`), `chatgpt-registration.json` and `usage.jsonl`. Books and generated visuals live in the browser (IndexedDB, spec D10); back them up with the library's **Export** button and the cache export.
+Server state lives in `reader.db` (encrypted per-user tokens, revocable sessions, usage, pauses), `chatgpt-registration.json` and `secrets.json`. On first startup with the token key, legacy `chatgpt-tokens.enc` and the last 24 hours of `usage.jsonl` import once and become `.migrated` files. Existing cookies are invalidated and everyone signs in once more. Books and generated visuals stay in each browser's IndexedDB. Use SQLite's online backup facility, or stop the reader before copying the whole volume, including any WAL files; do not copy only a live `reader.db`.
 
 ```sh
 # back up the volume to ./illus-data-YYYYMMDD.tgz
+docker compose stop reader
 docker run --rm -v flow-ai_illus-data:/data:ro -v "$PWD":/backup alpine \
   tar czf /backup/illus-data-$(date +%Y%m%d).tgz -C /data .
+docker compose start reader
 # restore
 docker compose stop reader
 docker run --rm -v flow-ai_illus-data:/data -v "$PWD":/backup alpine \
@@ -147,4 +143,4 @@ The volume name is `<compose project>_illus-data` (`docker volume ls`). Keep `IL
 
 ## Upgrades
 
-`git pull && docker compose up -d --build`. The volume survives. Sessions survive unless `ILLUS_SESSION_SECRET` changes.
+Back up the stopped reader's data volume first, then use `git pull --ff-only && docker compose up -d --build`. Preserve the existing encryption key and data volume. This authentication upgrade invalidates legacy cookies once, so everyone signs in again. Later database-backed sessions survive restarts unless the session secret changes or the sessions are revoked or expired.

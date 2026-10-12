@@ -61,7 +61,7 @@ it('uses no-transform and keeps the fast gateway status without aborting on norm
   )
   expect(verify).toHaveBeenCalledWith('session-cookie')
   expect(handle).toHaveBeenCalledWith(req.body, {
-    session: true,
+    sub: 'test',
     signal: expect.any(AbortSignal),
   })
   expect(handle.mock.calls[0]![1].signal.aborted).toBe(false)

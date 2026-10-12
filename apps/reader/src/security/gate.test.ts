@@ -40,31 +40,97 @@ describe('verifySessionValue (same format as @illus/llm/server createSessions)',
   const secret = 's'.repeat(40)
   const make = (claims: object, key = secret) => {
     const payload = Buffer.from(JSON.stringify(claims)).toString('base64url')
-    return `${payload}.${createHmac('sha256', key).update(payload).digest('base64url')}`
+    return `${payload}.${createHmac('sha256', key)
+      .update(payload)
+      .digest('base64url')}`
   }
   const now = 1_000_000
 
   it('accepts a valid session for the allowed account', async () => {
-    expect(await verifySessionValue(make({ sub: 'me', exp: now + 10 }), { secret, allowedSub: 'me', nowS: now })).toBe(true)
+    expect(
+      await verifySessionValue(
+        make({ sid: 'session-id', sub: 'me', exp: now + 10 }),
+        { secret, allowedSub: 'me', nowS: now },
+      ),
+    ).toBe(true)
+  })
+
+  it('open mode accepts another account but still requires a session id', async () => {
+    const opts = { secret, nowS: now, open: true }
+    expect(
+      await verifySessionValue(
+        make({ sid: 's', sub: 'other', exp: now + 10 }),
+        opts,
+      ),
+    ).toBe(true)
+    expect(
+      await verifySessionValue(make({ sub: 'other', exp: now + 10 }), opts),
+    ).toBe(false)
+    expect(
+      await verifySessionValue(
+        make({ sid: 's', sub: 'other', exp: now - 1 }),
+        opts,
+      ),
+    ).toBe(false)
+    expect(
+      await verifySessionValue(
+        make({ sid: 's', sub: 'other', exp: now + 10 }, 'wrong'),
+        opts,
+      ),
+    ).toBe(false)
   })
 
   it('refuses a session signed for any other account', async () => {
-    expect(await verifySessionValue(make({ sub: 'other', exp: now + 10 }), { secret, allowedSub: 'me', nowS: now })).toBe(false)
+    expect(
+      await verifySessionValue(
+        make({ sid: 'session-id', sub: 'other', exp: now + 10 }),
+        { secret, allowedSub: 'me', nowS: now },
+      ),
+    ).toBe(false)
   })
 
   it('refuses forged, expired, malformed and missing sessions', async () => {
     const opts = { secret, allowedSub: 'me', nowS: now }
-    expect(await verifySessionValue(make({ sub: 'me', exp: now + 10 }, 'x'.repeat(40)), opts)).toBe(false)
-    expect(await verifySessionValue(make({ sub: 'me', exp: now - 1 }), opts)).toBe(false)
+    expect(
+      await verifySessionValue(
+        make({ sid: 'session-id', sub: 'me', exp: now + 10 }, 'x'.repeat(40)),
+        opts,
+      ),
+    ).toBe(false)
+    expect(
+      await verifySessionValue(
+        make({ sid: 'session-id', sub: 'me', exp: now - 1 }),
+        opts,
+      ),
+    ).toBe(false)
     expect(await verifySessionValue('garbage', opts)).toBe(false)
-    expect(await verifySessionValue(`${make({ sub: 'me', exp: now + 10 })}x`, opts)).toBe(false)
+    expect(
+      await verifySessionValue(
+        `${make({ sid: 'session-id', sub: 'me', exp: now + 10 })}x`,
+        opts,
+      ),
+    ).toBe(false)
     expect(await verifySessionValue(undefined, opts)).toBe(false)
   })
 
   it('refuses everything when the secret or the allowed account is not configured', async () => {
-    const v = make({ sub: 'me', exp: now + 10 })
-    expect(await verifySessionValue(v, { secret: undefined, allowedSub: 'me', nowS: now })).toBe(false)
-    expect(await verifySessionValue(v, { secret: 'short', allowedSub: 'me', nowS: now })).toBe(false)
-    expect(await verifySessionValue(v, { secret, allowedSub: undefined, nowS: now })).toBe(false)
+    const v = make({ sid: 'session-id', sub: 'me', exp: now + 10 })
+    expect(
+      await verifySessionValue(v, {
+        secret: undefined,
+        allowedSub: 'me',
+        nowS: now,
+      }),
+    ).toBe(false)
+    expect(
+      await verifySessionValue(v, {
+        secret: 'short',
+        allowedSub: 'me',
+        nowS: now,
+      }),
+    ).toBe(false)
+    expect(
+      await verifySessionValue(v, { secret, allowedSub: undefined, nowS: now }),
+    ).toBe(false)
   })
 })

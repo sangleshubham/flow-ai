@@ -100,13 +100,12 @@ export interface PaneState {
   usage: {
     used5h: number
     usedDay: number
-    max5h: number
-    maxDay: number
     pausedUntil: number | null
   } | null
   account: string
   /** False when the server has no ChatGPT sign-in configured (`/auth/chatgpt/status` → `configured: false`). */
   signinConfigured: boolean
+  signedIn: boolean
   /** Plan item → sections being caught up by the concept model (§13 step 3), while it lasts. */
   catchingUp: Record<string, number>
   /** Plan item → latest pipeline stage while it generates. */
@@ -138,6 +137,7 @@ export function createPaneState(): PaneState {
     estimate: null,
     usage: null,
     account: '',
+    signedIn: false,
     signinConfigured: true,
     catchingUp: {},
     stages: {},

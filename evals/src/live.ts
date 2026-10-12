@@ -124,7 +124,14 @@ export function liveRunner(o: LiveRunnerOptions): CaseRunner {
           (server) => async (req, signal) =>
             (
               await server.gateway.handle(req, {
-                session: true,
+                sub:
+                  server.mode === 'replay'
+                    ? 'eval-replay'
+                    : process.env.ILLUS_EVAL_SUB?.trim() ||
+                      (await server.ownerSub()) ||
+                      (server.provider === 'openai-api-key'
+                        ? 'eval-api-key'
+                        : null),
                 ...(signal && { signal }),
               })
             ).body,

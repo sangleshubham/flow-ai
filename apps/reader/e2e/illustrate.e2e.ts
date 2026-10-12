@@ -3,7 +3,7 @@ import { join } from 'node:path'
 
 import { expect, test } from '@playwright/test'
 
-import { E2E_ENV, E2E_PORT, sessionValue } from './env'
+import { signIn } from './env'
 
 const BOOK = join(__dirname, '../../../fixtures/books/synthetic.epub')
 test('open book → navigate → visual → evidence highlights the quoted passage; keyboard pane controls', async ({
@@ -38,13 +38,7 @@ test('open book → navigate → visual → evidence highlights the quoted passa
     if (message.type() === 'error')
       console.log('Browser console:', message.text())
   })
-  await context.addCookies([
-    {
-      name: 'illus_session',
-      value: sessionValue(E2E_ENV.ILLUS_ALLOWED_ACCOUNT_ID),
-      url: `http://127.0.0.1:${E2E_PORT}`,
-    },
-  ])
+  await signIn(context)
   try {
     await page.goto('/')
     await page.locator('input[type=file]').setInputFiles(BOOK)

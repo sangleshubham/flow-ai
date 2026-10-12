@@ -2,7 +2,7 @@ import { join } from 'node:path'
 
 import { expect, test } from '@playwright/test'
 
-import { E2E_ENV, E2E_PORT, sessionValue } from './env'
+import { signIn } from './env'
 
 const BOOK = join(__dirname, '../../../fixtures/books/synthetic.epub')
 
@@ -22,13 +22,7 @@ test('sceneAnimations on: a graph is played by the scene player, steps follow th
   })
   // Deterministic: no autoplay and no tweens, every move is a seek (the GSAP path has its own browser tests).
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await context.addCookies([
-    {
-      name: 'illus_session',
-      value: sessionValue(E2E_ENV.ILLUS_ALLOWED_ACCOUNT_ID),
-      url: `http://127.0.0.1:${E2E_PORT}`,
-    },
-  ])
+  await signIn(context)
   const openBook = async () => {
     await page.locator('img[alt=Cover]').first().click()
     await expect(
