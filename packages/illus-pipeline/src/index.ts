@@ -9,6 +9,7 @@ export {
   overrideKind,
   reportBlock,
   roleForKind,
+  validateGraphSource,
 } from './pipeline.ts'
 export type {
   ConceptModelRoute,

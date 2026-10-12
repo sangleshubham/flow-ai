@@ -1,0 +1,18 @@
+{
+  "key": "20047a77c48aaa54bdd18866d02bdbe6fb09a7f5d0d260c12800c253e4707e8a",
+  "source": "handwritten",
+  "role": "extractor.graph",
+  "promptVersion": "2.0.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "GraphSource",
+  "data": {
+    "source": "title Binary search range\ndirection right\nlo [icon: code] @b2 \"mid = (lo + hi) // 2\"\nhi [icon: code] @b2 \"mid = (lo + hi) // 2\"\nmid [icon: search] @b2 \"mid = (lo + hi) // 2\"\nlo > mid @b2 \"mid = (lo + hi) // 2\"\nhi > mid @b2 \"mid = (lo + hi) // 2\""
+  },
+  "usage": {
+    "input": 894,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: extractor.graph for 1.2 Code id=\"p1\". Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}

@@ -2,6 +2,7 @@
 import {
   COMPILER_VERSION,
   ConceptModelKind,
+  GraphSource,
   LlmError,
   ROLES,
   Translation,
@@ -9,6 +10,7 @@ import {
   animationTargets,
   ground as defaultGround,
   needsReextract,
+  parseGraphSource,
   planKey,
   resolveFlags,
   sectionContentHash,
@@ -38,6 +40,7 @@ import type {
   ValidationContext,
   ValidationIssue,
   ValidationReport,
+  ValidationResult,
   Validator,
   VisualPlan,
   VisualRecord,
@@ -204,7 +207,8 @@ const EXTRACTOR: Record<
   Exclude<VisualKind, 'trace'>,
   { role: RoleName; schema: SchemaName }
 > = {
-  graph: { role: 'extractor.graph', schema: 'GraphIR' },
+  // The graph diagram language since extractor.graph 2.0.0 (ADR 0049); parsed into a GraphIR.
+  graph: { role: 'extractor.graph', schema: 'GraphSource' },
   sequence: { role: 'extractor.mermaid', schema: 'SequenceIR' },
   state: { role: 'extractor.mermaid', schema: 'StateIR' },
   class: { role: 'extractor.mermaid', schema: 'ClassIR' },
@@ -772,7 +776,10 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
               model: res.model,
               effort: res.effort,
             }
-          return validate(routeItem.kind, res.data, await validationContext())
+          const vctx = await validationContext()
+          return schema === 'GraphSource'
+            ? validateGraphSource(res.data, vctx, validate)
+            : validate(routeItem.kind, res.data, vctx)
         } catch (e) {
           // An L1 schema failure is treated like an unusable extraction: retried, then escalated.
           if (e instanceof LlmError && e.code === 'schema') {
@@ -1271,10 +1278,61 @@ export function overrideKind(item: PlanItem, kind: VisualKind): PlanItem {
   return out
 }
 
+/**
+ * ADR 0049: parses the graph extractor's diagram source, validates the resulting GraphIR, and folds the
+ * parse issues into the report. A statement that does not parse is dropped like an ungrounded element:
+ * counted in `dropped`, kept as an auto-fixed warning, and quoted back to the model on a retry. A source
+ * with no usable node is an error.
+ */
+export function validateGraphSource(
+  data: unknown,
+  ctx: ValidationContext,
+  validate: Validator,
+): ValidationResult {
+  const fail = (issues: ValidationIssue[]): ValidationResult => {
+    const r = emptyReport()
+    return { ir: undefined, report: { ...r, ok: false, issues } }
+  }
+  const wrapper = GraphSource.safeParse(data)
+  if (!wrapper.success)
+    return fail([
+      {
+        layer: 'schema',
+        severity: 'error',
+        code: 'schema',
+        message: wrapper.error.issues.map((i) => i.message).join('; '),
+      },
+    ])
+  const parsed = parseGraphSource(wrapper.data.source, ctx.blocks)
+  if (!parsed.ir) return fail(parsed.issues)
+  const v = validate('graph', parsed.ir, ctx)
+  const dropped = parsed.issues.filter((i) => i.severity === 'error')
+  const issues = parsed.issues.map((i): ValidationIssue =>
+    i.severity === 'error' ? { ...i, severity: 'warning', autoFixed: true } : i,
+  )
+  return {
+    ir: v.ir,
+    report: {
+      ...v.report,
+      counts: {
+        ...v.report.counts,
+        total: v.report.counts.total + dropped.length,
+        dropped: v.report.counts.dropped + dropped.length,
+      },
+      issues: [...issues, ...v.report.issues],
+    },
+  }
+}
+
 /** The validator report attached to a retry (§8 stage 3 step 3). */
 export function reportBlock(report: ValidationReport): string {
   const issues = report.issues
-    .filter((i) => i.severity === 'error' || i.code === 'quote-not-found')
+    .filter(
+      (i) =>
+        i.severity === 'error' ||
+        i.code === 'quote-not-found' ||
+        (i.code.startsWith('dsl-') && i.autoFixed),
+    )
     .map(
       (i) =>
         `  <issue${attrs([

@@ -8,7 +8,7 @@ import { join } from 'node:path'
 
 import { createConceptPass } from '@illus/concepts'
 import { SCHEMAS, resolveFlags } from '@illus/core'
-import type { IrKind, LlmRequest, LlmResponse, RoleName, VisualRecord } from '@illus/core'
+import type { GraphIR, IrKind, LlmRequest, LlmResponse, RoleName, VisualRecord } from '@illus/core'
 import { DEFAULT_MODELS, createLlmClient, createPromptRegistry, fixtureKey, memoryFixtures, replayTransport, resolveRoute } from '@illus/llm'
 import type { Fixture, FixtureStore, LlmTransport } from '@illus/llm'
 // eslint-disable-next-line no-restricted-imports -- the published DOM-free template entry (ADR 0040)
@@ -169,6 +169,10 @@ describe('synthetic.epub end to end on replay fixtures', () => {
   test('graph, state and class (3.1, part 1)', async () => {
     const { records } = await ready('long1')
     expectValid(records.p1, 'graph')
+    // extractor.graph 2.0.0 writes the diagram language; icons and colours reach the stored IR (ADR 0049).
+    const graph = records.p1!.ir as GraphIR
+    expect(graph.nodes.map((n) => [n.id, n.icon])).toContainEqual(['replicated-log', 'logs'])
+    expect(graph.nodes.find((n) => n.id === 'leader')?.color).toBe('blue')
     expectValid(records.p2, 'state')
     expectValid(records.p3, 'class')
   })

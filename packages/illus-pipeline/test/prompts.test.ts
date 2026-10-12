@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { SCHEMAS } from '@illus/core'
+import { GRAPH_ICON_NAMES, GraphSource, SCHEMAS, parseGraphSource } from '@illus/core'
 import type { RoleName, SchemaName } from '@illus/core'
 import { parsePromptFile } from '@illus/llm'
 import { describe, expect, test } from 'vitest'
@@ -60,8 +60,21 @@ describe.each(W3_ROLES)('docs/prompts/%s.md', (role) => {
       const parsed = SCHEMAS[schema].safeParse(out)
       expect(parsed.success, parsed.success ? '' : parsed.error.message).toBe(true)
       for (const q of quotes(out)) expect(collapse(inputs[i]!), q).toContain(collapse(q))
+      if (schema === 'GraphSource') {
+        // The diagram source must parse cleanly against the example's blocks, quoting them verbatim.
+        const blocks = new Map([...inputs[i]!.matchAll(/<block id="([^"]+)"[^>]*>([\s\S]*?)<\/block>/g)].map((m) => [m[1]!, { text: m[2]! }]))
+        const r = parseGraphSource(GraphSource.parse(out).source, blocks)
+        expect(r.issues).toEqual([])
+        for (const n of [...r.ir!.nodes, ...r.ir!.edges, ...r.ir!.groups])
+          expect(collapse(blocks.get(n.evidence.blockId)!.text), n.evidence.quote).toContain(collapse(n.evidence.quote))
+      }
     })
   })
+})
+
+test('the graph extractor prompt lists every icon of the catalog', () => {
+  const prompt = parsePromptFile(read('extractor.graph'), 'extractor.graph').systemPrompt
+  for (const name of GRAPH_ICON_NAMES) expect(prompt).toContain(`\`${name}\``)
 })
 
 test('the planner prompt carries the §8 kind-selection table verbatim', () => {
