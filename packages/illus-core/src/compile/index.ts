@@ -8,3 +8,6 @@
 
 /** `COMPILER_VERSION` of the visual cache key (§5). */
 export const COMPILER_VERSION = 1
+
+export { parseGraphSource, printGraphSource } from './graph-source.ts'
+export type { ParsedGraphSource } from './graph-source.ts'

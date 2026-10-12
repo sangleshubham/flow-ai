@@ -1,5 +1,6 @@
 // Valid-by-construction factories for every schema. Each takes shallow overrides and parses the result,
 // so a test that passes bad overrides fails loudly. Evidence quotes are verbatim from the small book.
+import { printGraphSource } from '../compile/graph-source.ts'
 import { makeConceptId, makeConceptModelId } from '../ids/index.ts'
 import { AnimationIR, FrameState, emptyFrame, Step } from '../schemas/animation.ts'
 import { Block, BookMeta, BookSummary, CrossRef, SectionNode } from '../schemas/book.ts'
@@ -20,6 +21,7 @@ import {
   ClassIR,
   ErIR,
   GraphIR,
+  GraphSource,
   HtmlIR,
   MathIR,
   SequenceIR,
@@ -232,6 +234,8 @@ export const make = {
       groups: [],
       ...o,
     }),
+  /** The graph extractor's answer (ADR 0049): `make.graphIR()` (or `ir`) in the graph diagram language. */
+  graphSource: (ir?: GraphIR) => GraphSource.parse({ source: printGraphSource(ir ?? make.graphIR()) }),
   sequenceIR: (o: Partial<SequenceIR> = {}) =>
     SequenceIR.parse({
       type: 'sequence',

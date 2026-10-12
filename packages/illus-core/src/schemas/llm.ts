@@ -12,6 +12,7 @@ import {
   ClassIR,
   ErIR,
   GraphIR,
+  GraphSource,
   HtmlIR,
   MathIR,
   SequenceIR,
@@ -29,6 +30,7 @@ export const SCHEMAS = {
   GlossaryOutput,
   BookSummary,
   VisualPlan,
+  GraphSource,
   GraphIR,
   SequenceIR,
   StateIR,
@@ -50,6 +52,7 @@ export const SchemaName = z.enum([
   'GlossaryOutput',
   'BookSummary',
   'VisualPlan',
+  'GraphSource',
   'GraphIR',
   'SequenceIR',
   'StateIR',
@@ -139,7 +142,8 @@ export const ROLES = checkRoles({
     tier: 'standard',
     escalationTier: 'deep',
     effort: 'medium',
-    schemas: ['GraphIR'],
+    // GraphSource since prompt 2.0.0 (ADR 0049); GraphIR stays accepted for older callers.
+    schemas: ['GraphSource', 'GraphIR'],
   },
   'extractor.mermaid': {
     tier: 'standard',

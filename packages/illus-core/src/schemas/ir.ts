@@ -11,12 +11,25 @@ import { TemplateId } from './plan.ts'
 export const GraphNodeShape = z.enum(['box', 'store', 'actor', 'queue', 'decision', 'note'])
 export type GraphNodeShape = z.infer<typeof GraphNodeShape>
 
+/**
+ * Icon drawn above a node's label or beside a group's (ADR 0049). One of `GRAPH_ICONS`; unknown names are
+ * not a schema error so an icon catalog change never invalidates stored visuals, the renderer skips them.
+ */
+export const GraphIcon = z.string().regex(/^[a-z0-9-]{1,40}$/, 'must be an icon name such as "database"')
+export type GraphIcon = z.infer<typeof GraphIcon>
+
+/** Accent colour of a node or group (ADR 0049); themed by the renderer. */
+export const GraphColor = z.enum(['blue', 'green', 'orange', 'red', 'purple', 'gray'])
+export type GraphColor = z.infer<typeof GraphColor>
+
 export const GraphNode = z.object({
   id: IrId,
   label: Label,
   sublabel: Label.optional(),
   group: IrId.optional(),
   shape: GraphNodeShape,
+  icon: GraphIcon.optional(),
+  color: GraphColor.optional(),
   evidence: Evidence,
 })
 export type GraphNode = z.infer<typeof GraphNode>
@@ -35,6 +48,8 @@ export const GraphGroup = z.object({
   id: IrId,
   label: Label,
   parent: IrId.optional(),
+  icon: GraphIcon.optional(),
+  color: GraphColor.optional(),
   evidence: Evidence,
 })
 export type GraphGroup = z.infer<typeof GraphGroup>
@@ -49,6 +64,19 @@ export const GraphIR = z.object({
   groups: z.array(GraphGroup),
 })
 export type GraphIR = z.infer<typeof GraphIR>
+
+/**
+ * What the graph extractor returns (ADR 0049): the diagram as a short Eraser-style source text that
+ * `parseGraphSource` (@illus/core compile) turns into a `GraphIR`, which is then validated like any IR.
+ */
+export const GraphSource = z.object({
+  source: z
+    .string()
+    .min(1)
+    .max(8000)
+    .describe('The diagram in the graph diagram language, one statement per line.'),
+})
+export type GraphSource = z.infer<typeof GraphSource>
 
 // ---------------------------------------------------------------- sequence
 
