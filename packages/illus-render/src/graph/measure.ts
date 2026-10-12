@@ -2,6 +2,8 @@
 // labels wrap at 22 characters, max 2 lines plus 1 sublabel line, width = longest line + 24.
 import type { GraphIR, GraphNode, LayoutGraphInput } from '@illus/core'
 
+import { ICON_SVGS } from './icons.generated.ts'
+
 export const WRAP = 22
 export const LABEL_PX = 13
 export const SUBLABEL_PX = 11
@@ -51,6 +53,25 @@ const SHAPE_PAD: Record<GraphNode['shape'], { w: number; h: number; top: number 
   note: { w: 12, h: 0, top: 0 },
 }
 
+/** Side of a node icon, and the band it takes above the label (ADR 0049). */
+export const ICON_SIZE = 28
+export const ICON_BAND = ICON_SIZE + 6
+
+type NodeLike = Pick<GraphNode, 'label' | 'sublabel' | 'shape'> & { icon?: string | undefined }
+
+/** True when the node draws an icon: a known icon on any shape but `decision` and `note`. */
+export function hasIcon(node: NodeLike): boolean {
+  return !!node.icon && !!ICON_SVGS[node.icon] && node.shape !== 'decision' && node.shape !== 'note'
+}
+
+/** Extra room above the text: the shape's own band, or the icon band (an actor's icon replaces its glyph). */
+function topPad(node: NodeLike): { top: number; h: number } {
+  const pad = SHAPE_PAD[node.shape]
+  if (!hasIcon(node)) return { top: pad.top, h: pad.h }
+  if (node.shape === 'actor') return { top: ICON_BAND, h: ICON_BAND }
+  return { top: pad.top + ICON_BAND, h: pad.h + ICON_BAND }
+}
+
 export interface NodeText {
   lines: string[]
   sublabel?: string
@@ -58,18 +79,19 @@ export interface NodeText {
   top: number
 }
 
-export function nodeText(node: Pick<GraphNode, 'label' | 'sublabel' | 'shape'>): NodeText {
+export function nodeText(node: NodeLike): NodeText {
   const sub = node.sublabel ? wrapLabel(node.sublabel, WRAP, 1)[0] : undefined
-  return { lines: wrapLabel(node.label), ...(sub ? { sublabel: sub } : {}), top: SHAPE_PAD[node.shape].top + PAD_Y / 2 }
+  return { lines: wrapLabel(node.label), ...(sub ? { sublabel: sub } : {}), top: topPad(node).top + PAD_Y / 2 }
 }
 
-export function nodeSize(node: Pick<GraphNode, 'label' | 'sublabel' | 'shape'>, measure: Measure): { width: number; height: number } {
+export function nodeSize(node: NodeLike, measure: Measure): { width: number; height: number } {
   const t = nodeText(node)
   const widths = [...t.lines.map((l) => measure(l, LABEL_PX)), ...(t.sublabel ? [measure(t.sublabel, SUBLABEL_PX)] : [])]
   const pad = SHAPE_PAD[node.shape]
+  const minW = hasIcon(node) ? Math.max(MIN_W, 84) : MIN_W
   return {
-    width: Math.ceil(Math.max(MIN_W, Math.max(...widths) + 24 + pad.w)),
-    height: Math.ceil(t.lines.length * LINE_H + (t.sublabel ? SUB_H : 0) + PAD_Y + pad.h),
+    width: Math.ceil(Math.max(minW, Math.max(...widths) + 24 + pad.w)),
+    height: Math.ceil(t.lines.length * LINE_H + (t.sublabel ? SUB_H : 0) + PAD_Y + topPad(node).h),
   }
 }
 
