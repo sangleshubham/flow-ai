@@ -8,8 +8,13 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   bindJob,
+  createDwell,
   createPaneState,
+  DEFAULT_PREFERENCES,
+  dwellDelay,
+  dwellSecondsLeft,
   evidenceAction,
+  parseDwellMs,
   stageLabel,
   whenCritic,
 } from './state'
@@ -216,5 +221,50 @@ describe('generation stages', () => {
     expect(s.stages.x).toBe('critic')
     expect(stageLabel('retrying')).toBe('Fixing the diagram…')
     expect(stageLabel('cached')).toBeUndefined()
+  })
+})
+
+describe('dwell before generating (ADR 0048)', () => {
+  it('waits 5 s by default and only for sections with nothing cached', () => {
+    expect(DEFAULT_PREFERENCES.dwellMs).toBe(5000)
+    expect(dwellDelay({ cachedPlan: false, dwellMs: 5000 })).toBe(5000)
+    expect(dwellDelay({ cachedPlan: true, dwellMs: 5000 })).toBe(0)
+    expect(dwellDelay({ cachedPlan: false, dwellMs: 0 })).toBe(0)
+  })
+  it('accepts only the offered delays from saved settings', () => {
+    expect(parseDwellMs(undefined)).toBe(5000)
+    expect(parseDwellMs('5000')).toBe(5000)
+    expect(parseDwellMs(-1)).toBe(5000)
+    expect(parseDwellMs(1234)).toBe(5000)
+    for (const ms of [0, 2000, 5000, 10000]) expect(parseDwellMs(ms)).toBe(ms)
+  })
+  it('restarts on every move and fires once for the section the reader stays on', () => {
+    vi.useFakeTimers()
+    try {
+      const dwell = createDwell()
+      const first = vi.fn()
+      const second = vi.fn()
+      dwell.start(5000, first)
+      vi.advanceTimersByTime(4000)
+      dwell.start(5000, second)
+      vi.advanceTimersByTime(4999)
+      expect(first).not.toHaveBeenCalled()
+      expect(second).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(1)
+      expect(second).toHaveBeenCalledOnce()
+      expect(first).not.toHaveBeenCalled()
+      const third = vi.fn()
+      dwell.start(5000, third)
+      dwell.cancel()
+      vi.advanceTimersByTime(10_000)
+      expect(third).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+  it('counts whole seconds down to zero', () => {
+    expect(dwellSecondsLeft(10_000, 5_000)).toBe(5)
+    expect(dwellSecondsLeft(10_000, 9_001)).toBe(1)
+    expect(dwellSecondsLeft(10_000, 12_000)).toBe(0)
   })
 })

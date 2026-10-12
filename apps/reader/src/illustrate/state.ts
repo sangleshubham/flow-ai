@@ -12,6 +12,7 @@ import { proxy } from 'valtio'
 export const PANE_STATES = [
   'idle',
   'indexing-required',
+  'waiting',
   'planning',
   'generating',
   'ready',
@@ -28,6 +29,8 @@ export interface Preferences {
   speed: number
   reducedMotion: 'system' | 'on' | 'off'
   debugPrompts: boolean
+  /** How long the reader must stay on a section before a new illustration is generated (ADR 0048). */
+  dwellMs: number
   flags: Flags
 }
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -36,7 +39,38 @@ export const DEFAULT_PREFERENCES: Preferences = {
   speed: 1,
   reducedMotion: 'system',
   debugPrompts: false,
+  dwellMs: 5000,
   flags: resolveFlags(),
+}
+
+/** Delays offered in settings; 0 generates as soon as the section opens. */
+export const DWELL_OPTIONS_MS = [0, 2000, 5000, 10000] as const
+export const parseDwellMs = (value: unknown): number =>
+  DWELL_OPTIONS_MS.includes(value as typeof DWELL_OPTIONS_MS[number])
+    ? (value as number)
+    : DEFAULT_PREFERENCES.dwellMs
+/** A section with a saved plan opens straight away (no model calls); a new one waits for the dwell. */
+export const dwellDelay = (o: { cachedPlan: boolean; dwellMs: number }) =>
+  o.cachedPlan ? 0 : Math.max(0, o.dwellMs)
+export const dwellSecondsLeft = (until: number, now: number) =>
+  Math.max(0, Math.ceil((until - now) / 1000))
+/** One pending generation at a time: every page move restarts it, leaving the section cancels it. */
+export function createDwell() {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const cancel = () => {
+    if (timer !== undefined) clearTimeout(timer)
+    timer = undefined
+  }
+  return {
+    start(ms: number, fn: () => void) {
+      cancel()
+      timer = setTimeout(() => {
+        timer = undefined
+        fn()
+      }, ms)
+    },
+    cancel,
+  }
 }
 export interface PaneState {
   open: boolean
@@ -69,8 +103,10 @@ export interface PaneState {
   catchingUp: Record<string, number>
   /** Plan item → latest pipeline stage while it generates. */
   stages: Record<string, ItemStage>
-  /** `plan.overview`, shown above the item tabs. */
+  /** `plan.overview`, shown under "About this section". */
   overview: string
+  /** While `waiting`: when generation starts (epoch ms). */
+  dwellUntil: number
   preferences: Preferences
 }
 export function createPaneState(): PaneState {
@@ -97,6 +133,7 @@ export function createPaneState(): PaneState {
     catchingUp: {},
     stages: {},
     overview: '',
+    dwellUntil: 0,
     preferences: { ...DEFAULT_PREFERENCES, flags: resolveFlags() },
   }
 }
