@@ -42,7 +42,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   speed: 1,
   reducedMotion: 'system',
   debugPrompts: false,
-  dwellMs: 5000,
+  dwellMs: 2000,
   flags: resolveFlags(),
 }
 
@@ -52,6 +52,17 @@ export const parseDwellMs = (value: unknown): number =>
   DWELL_OPTIONS_MS.includes(value as typeof DWELL_OPTIONS_MS[number])
     ? (value as number)
     : DEFAULT_PREFERENCES.dwellMs
+/** Storage-only schema version for saved preferences (not part of `Preferences`). */
+export const PREFS_VERSION = 2
+/** ADR 0057: 5 s was the only default before v2, so a saved 5000 from v1 means "default" → 2000. */
+export const migrateDwellMs = (saved: {
+  dwellMs?: unknown
+  prefsVersion?: unknown
+}) =>
+  (typeof saved.prefsVersion === 'number' ? saved.prefsVersion : 1) < 2 &&
+  saved.dwellMs === 5000
+    ? 2000
+    : parseDwellMs(saved.dwellMs)
 /** A section with a saved plan opens straight away (no model calls); a new one waits for the dwell. */
 export const dwellDelay = (o: { cachedPlan: boolean; dwellMs: number }) =>
   o.cachedPlan ? 0 : Math.max(0, o.dwellMs)

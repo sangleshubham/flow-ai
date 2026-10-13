@@ -58,7 +58,9 @@ import {
   dwellDelay,
   evidenceAction,
   pane,
+  migrateDwellMs,
   parseDwellMs,
+  PREFS_VERSION,
   whenCritic,
 } from './state'
 import type { Preferences } from './state'
@@ -110,9 +112,9 @@ export const INDEX_CONFIRM_THRESHOLD_TOKENS = 200_000
 
 export async function loadPreferences() {
   const repos = await getRepos()
-  const saved = await repos.settings.get<Partial<Preferences>>(
-    'illustratePreferences',
-  )
+  const saved = await repos.settings.get<
+    Partial<Preferences> & { prefsVersion?: number }
+  >('illustratePreferences')
   // Treat persisted/imported settings as untrusted input.
   const p = saved ?? {}
   pane.preferences = {
@@ -128,7 +130,7 @@ export async function loadPreferences() {
         ? p.reducedMotion
         : 'system',
     debugPrompts: p.debugPrompts === true,
-    dwellMs: parseDwellMs(p.dwellMs),
+    dwellMs: migrateDwellMs(p),
     flags: resolveFlags(p.flags),
   }
   pane.open = pane.preferences.enabled
@@ -146,7 +148,9 @@ export async function savePreferences(next: Preferences) {
     await getRepos()
   ).settings.set(
     'illustratePreferences',
-    JSON.parse(JSON.stringify(pane.preferences)),
+    JSON.parse(
+      JSON.stringify({ ...pane.preferences, prefsVersion: PREFS_VERSION }),
+    ),
   )
 }
 export function togglePane() {
