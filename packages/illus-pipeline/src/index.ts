@@ -26,3 +26,16 @@ export type {
 } from './pipeline.ts'
 export { createLimiter, limitLlm } from './limiter.ts'
 export type { Limiter, LimiterOptions, Priority } from './limiter.ts'
+export {
+  BOOK_RUN_SECTIONS,
+  REQUESTS_PER_SECTION,
+  bookRunTargets,
+  createBookRun,
+  estimateBookRun,
+} from './book-run.ts'
+export type {
+  BookRun,
+  BookRunDeps,
+  BookRunProgress,
+  BookRunStatus,
+} from './book-run.ts'

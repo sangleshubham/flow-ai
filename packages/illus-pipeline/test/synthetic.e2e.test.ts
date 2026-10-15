@@ -7,18 +7,44 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { createConceptPass } from '@illus/concepts'
+import type { ConceptPass } from '@illus/concepts'
 import { SCHEMAS, resolveFlags } from '@illus/core'
-import type { GraphIR, IrKind, LlmRequest, LlmResponse, RoleName, VisualRecord } from '@illus/core'
-import { DEFAULT_MODELS, createLlmClient, createPromptRegistry, fixtureKey, memoryFixtures, replayTransport, resolveRoute } from '@illus/llm'
+import type {
+  GraphIR,
+  IrKind,
+  LlmRequest,
+  LlmResponse,
+  RoleName,
+  VisualRecord,
+} from '@illus/core'
+import {
+  DEFAULT_MODELS,
+  createLlmClient,
+  createPromptRegistry,
+  fixtureKey,
+  memoryFixtures,
+  replayTransport,
+  resolveRoute,
+} from '@illus/llm'
 import type { Fixture, FixtureStore, LlmTransport } from '@illus/llm'
 // eslint-disable-next-line no-restricted-imports -- the published DOM-free template entry (ADR 0040)
 import { templateRegistry } from '@illus/render/templates'
 import { beforeAll, describe, expect, test } from 'vitest'
 
-import { createPipeline } from '../src/index.ts'
+import { bookRunTargets, createBookRun, createPipeline } from '../src/index.ts'
 import type { Pipeline } from '../src/index.ts'
-import { BOOK_SUMMARY, EXTRACTS, GLOSSARY, INDEX, PLANS, sectionKey } from './fixtures/synthetic-calls.ts'
-import { isCompleteFixture, writeFixtureProfile } from './fixtures/profile-writer.ts'
+import {
+  BOOK_SUMMARY,
+  EXTRACTS,
+  GLOSSARY,
+  INDEX,
+  PLANS,
+  sectionKey,
+} from './fixtures/synthetic-calls.ts'
+import {
+  isCompleteFixture,
+  writeFixtureProfile,
+} from './fixtures/profile-writer.ts'
 import { collect } from './helpers.ts'
 import { ROOT, indexSyntheticBook } from './synthetic-book.ts'
 import type { IndexedBook } from './synthetic-book.ts'
@@ -47,7 +73,11 @@ const prompts = createPromptRegistry(promptFiles)
 
 /** Replaces '@b<n>' with block ids of `sectionId` throughout an answer. */
 function resolve<T>(value: T, sectionId: string): T {
-  return JSON.parse(JSON.stringify(value), (_k, v: unknown) => (typeof v === 'string' && /^@b\d+$/.test(v) ? `${sectionId}#${v.slice(1)}` : v)) as T
+  return JSON.parse(JSON.stringify(value), (_k, v: unknown) =>
+    typeof v === 'string' && /^@b\d+$/.test(v)
+      ? `${sectionId}#${v.slice(1)}`
+      : v,
+  ) as T
 }
 
 /** Answers a request from the hand-written data (generator mode). */
@@ -57,20 +87,32 @@ function handwritten(book: IndexedBook, req: LlmRequest): unknown {
   const key = (id: string) => sectionKey(section(id), book.sections)
   switch (req.role) {
     case 'indexer':
-      return { sections: ids.map((id) => resolve({ sectionId: id, ...INDEX[key(id)!] }, id)) }
+      return {
+        sections: ids.map((id) =>
+          resolve({ sectionId: id, ...INDEX[key(id)!] }, id),
+        ),
+      }
     case 'glossary':
       return GLOSSARY
     case 'book-summary':
-      return /Chapter 4/.test(req.body) ? BOOK_SUMMARY.final : BOOK_SUMMARY.early
+      return /Chapter 4/.test(req.body)
+        ? BOOK_SUMMARY.final
+        : BOOK_SUMMARY.early
     case 'planner': {
       const plan = PLANS[key(ids[0]!)!]
-      if (!plan) throw new Error(`no hand-written plan for ${section(ids[0]!).title}`)
+      if (!plan)
+        throw new Error(`no hand-written plan for ${section(ids[0]!).title}`)
       return resolve({ sectionId: ids[0]!, ...plan }, ids[0]!)
     }
     default: {
       const item = /<plan_item id="([^"]+)"/.exec(req.body)![1]!
       const data = EXTRACTS[`${key(ids[0]!)}|${item}`]
-      if (!data) throw new Error(`no hand-written ${req.role} answer for ${section(ids[0]!).title} ${item}`)
+      if (!data)
+        throw new Error(
+          `no hand-written ${req.role} answer for ${
+            section(ids[0]!).title
+          } ${item}`,
+        )
       return resolve(data, ids[0]!)
     }
   }
@@ -82,7 +124,13 @@ function writingTransport(book: IndexedBook, written: Fixture[]): LlmTransport {
     const route = resolveRoute(DEFAULT_MODELS, req.role, req.escalate).chain[0]!
     const data = handwritten(book, req)
     const fixture: Fixture = {
-      key: await fixtureKey({ role: req.role, promptVersion: req.promptVersion, model: route.model, prefix: req.prefix, body: req.body }),
+      key: await fixtureKey({
+        role: req.role,
+        promptVersion: req.promptVersion,
+        model: route.model,
+        prefix: req.prefix,
+        body: req.body,
+      }),
       source: 'handwritten',
       role: req.role,
       promptVersion: req.promptVersion,
@@ -91,11 +139,32 @@ function writingTransport(book: IndexedBook, written: Fixture[]): LlmTransport {
       schemaName: req.schemaName,
       ...(req.templateId && { templateId: req.templateId }),
       data,
-      usage: { input: Math.ceil((req.prefix.length + req.body.length) / 4), output: 200, cachedInput: 0 },
-      note: `synthetic.epub: ${req.role} for ${[...new Set([...req.body.matchAll(/<section id="([^"]+)"/g)].map((m) => book.sections.find((s) => s.sectionId === m[1])!.title.trim()))].join(', ')}${/<plan_item id="([^"]+)"/.exec(req.body)?.[0].replace('<plan_item ', ' ') ?? ''}. Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts.`,
+      usage: {
+        input: Math.ceil((req.prefix.length + req.body.length) / 4),
+        output: 200,
+        cachedInput: 0,
+      },
+      note: `synthetic.epub: ${req.role} for ${[
+        ...new Set(
+          [...req.body.matchAll(/<section id="([^"]+)"/g)].map((m) =>
+            book.sections.find((s) => s.sectionId === m[1])!.title.trim(),
+          ),
+        ),
+      ].join(', ')}${
+        /<plan_item id="([^"]+)"/
+          .exec(req.body)?.[0]
+          .replace('<plan_item ', ' ') ?? ''
+      }. Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts.`,
     }
     written.push(fixture)
-    return { ok: true, data, usage: fixture.usage!, model: route.model, effort: route.effort, latencyMs: 0 }
+    return {
+      ok: true,
+      data,
+      usage: fixture.usage!,
+      model: route.model,
+      effort: route.effort,
+      latencyMs: 0,
+    }
   }
 }
 
@@ -103,11 +172,19 @@ function loadFixtures(): unknown[] {
   return W3_ROLES.flatMap((role) => {
     let files: string[] = []
     try {
-      files = readdirSync(join(FIXTURES, role)).filter((f) => f.endsWith('.json'))
+      files = readdirSync(join(FIXTURES, role)).filter((f) =>
+        f.endsWith('.json'),
+      )
     } catch {
       return []
     }
-    return files.map((f) => JSON.parse(readFileSync(join(FIXTURES, role, f), 'utf8')) as { note?: string })
+    return files
+      .map(
+        (f) =>
+          JSON.parse(readFileSync(join(FIXTURES, role, f), 'utf8')) as {
+            note?: string
+          },
+      )
       .filter((f) => !f.note?.startsWith('synthetic.epub browser:'))
   })
 }
@@ -115,6 +192,9 @@ function loadFixtures(): unknown[] {
 describe('synthetic.epub end to end on replay fixtures', () => {
   let book: IndexedBook
   let pipeline: Pipeline
+  let pass: ConceptPass
+  /** Requests that reached the transport (replay or generator). */
+  let transportCalls = 0
   const written: Fixture[] = []
   const used = new Set<string>()
   let store: FixtureStore & { all(): Fixture[] }
@@ -122,10 +202,27 @@ describe('synthetic.epub end to end on replay fixtures', () => {
   beforeAll(async () => {
     book = await indexSyntheticBook()
     store = await memoryFixtures(WRITE ? [] : loadFixtures())
-    const tracking: FixtureStore = { get: async (k) => (used.add(k), store.get(k)) }
-    const transport = WRITE ? writingTransport(book, written) : replayTransport({ fixtures: tracking, models: DEFAULT_MODELS })
-    const llm = createLlmClient({ transport, prompts, newRequestId: () => 'req', now: () => 1 })
-    const pass = createConceptPass({ bookId: book.bookId, repos: book.repos, llm, now: () => 1 })
+    const tracking: FixtureStore = {
+      get: async (k) => (used.add(k), store.get(k)),
+    }
+    const inner = WRITE
+      ? writingTransport(book, written)
+      : replayTransport({ fixtures: tracking, models: DEFAULT_MODELS })
+    const transport: LlmTransport = (req, signal) => (
+      transportCalls++, inner(req, signal)
+    )
+    const llm = createLlmClient({
+      transport,
+      prompts,
+      newRequestId: () => 'req',
+      now: () => 1,
+    })
+    pass = createConceptPass({
+      bookId: book.bookId,
+      repos: book.repos,
+      llm,
+      now: () => 1,
+    })
     const progress = await pass.start()
     if (progress.error) throw progress.error
     pipeline = createPipeline({
@@ -142,26 +239,57 @@ describe('synthetic.epub end to end on replay fixtures', () => {
   }, 60_000)
 
   test('the concept pass indexes every section, merges the glossary and writes the book summary', async () => {
-    expect(await book.repos.sectionIndex.countByBook(book.bookId)).toBe(book.sections.length)
+    expect(await book.repos.sectionIndex.countByBook(book.bookId)).toBe(
+      book.sections.length,
+    )
     const meta = await book.repos.books.get(book.bookId)
-    expect(meta).toMatchObject({ indexStatus: 'complete', summary: BOOK_SUMMARY.final })
+    expect(meta).toMatchObject({
+      indexStatus: 'complete',
+      summary: BOOK_SUMMARY.final,
+    })
     const concepts = await book.repos.concepts.listByBook(book.bookId)
-    expect(concepts.find((c) => c.canonical === 'replicated log')).toMatchObject({ aliases: ['log'], spanning: true })
-    expect(concepts.find((c) => c.canonical === 'loop invariant')?.definition?.start).toBeTypeOf('number')
+    expect(
+      concepts.find((c) => c.canonical === 'replicated log'),
+    ).toMatchObject({ aliases: ['log'], spanning: true })
+    expect(
+      concepts.find((c) => c.canonical === 'loop invariant')?.definition?.start,
+    ).toBeTypeOf('number')
   })
 
   const ready = async (key: string, opts = {}) => {
-    const section = book.sections.find((s) => sectionKey(s, book.sections) === key)!
+    const section = book.sections.find(
+      (s) => sectionKey(s, book.sections) === key,
+    )!
     const r = await collect(pipeline.requestSection(section.sectionId, opts))
     expect(r.of('error')).toEqual([])
     expect(r.of('item-failed')).toEqual([])
-    return { r, records: Object.fromEntries(r.of('item-ready').map((e) => [e.planItemId, e.record])) as Record<string, VisualRecord> }
+    return {
+      r,
+      records: Object.fromEntries(
+        r.of('item-ready').map((e) => [e.planItemId, e.record]),
+      ) as Record<string, VisualRecord>,
+    }
   }
   const expectValid = (record: VisualRecord | undefined, kind: IrKind) => {
     expect(record?.kind).toBe(kind)
-    expect(record!.validation).toMatchObject({ ok: true, retried: false, escalated: false })
+    expect(record!.validation).toMatchObject({
+      ok: true,
+      retried: false,
+      escalated: false,
+    })
     expect(record!.validation.groundingScore).toBeGreaterThan(0.6)
-    const schema = { graph: 'GraphIR', sequence: 'SequenceIR', state: 'StateIR', class: 'ClassIR', er: 'ErIR', template: 'TemplateIR', chart: 'ChartIR', math: 'MathIR', timeline: 'TimelineIR', html: 'HtmlIR' } as const
+    const schema = {
+      graph: 'GraphIR',
+      sequence: 'SequenceIR',
+      state: 'StateIR',
+      class: 'ClassIR',
+      er: 'ErIR',
+      template: 'TemplateIR',
+      chart: 'ChartIR',
+      math: 'MathIR',
+      timeline: 'TimelineIR',
+      html: 'HtmlIR',
+    } as const
     expect(SCHEMAS[schema[kind]].safeParse(record!.ir).success).toBe(true)
     expect(record!.spec).toBeNull()
   }
@@ -171,7 +299,10 @@ describe('synthetic.epub end to end on replay fixtures', () => {
     expectValid(records.p1, 'graph')
     // extractor.graph 2.0.0 writes the diagram language; icons and colours reach the stored IR (ADR 0049).
     const graph = records.p1!.ir as GraphIR
-    expect(graph.nodes.map((n) => [n.id, n.icon])).toContainEqual(['replicated-log', 'logs'])
+    expect(graph.nodes.map((n) => [n.id, n.icon])).toContainEqual([
+      'replicated-log',
+      'logs',
+    ])
     expect(graph.nodes.find((n) => n.id === 'leader')?.color).toBe('blue')
     expectValid(records.p2, 'state')
     expectValid(records.p3, 'class')
@@ -205,13 +336,57 @@ describe('synthetic.epub end to end on replay fixtures', () => {
   test('template (2.2, templates flag on) represents only the five entries stated by Figure 2.2', async () => {
     const { records } = await ready('2.2')
     expectValid(records.p1, 'template')
-    expect(records.p1!.ir).toMatchObject({ props: { label: 'Log', values: ['entry', 'entry', 'entry', 'entry', 'entry'] } })
+    expect(records.p1!.ir).toMatchObject({
+      props: {
+        label: 'Log',
+        values: ['entry', 'entry', 'entry', 'entry', 'entry'],
+      },
+    })
   })
 
   test('no visual for chapter 4', async () => {
-    const section = book.sections.find((s) => sectionKey(s, book.sections) === 'ch4')!
+    const section = book.sections.find(
+      (s) => sectionKey(s, book.sections) === 'ch4',
+    )!
     const r = await collect(pipeline.requestSection(section.sectionId))
     expect(r.of('no-visual')).toEqual([{ reason: PLANS.ch4!.reason }])
+  })
+
+  test('a whole-book run plans every target section; a second run makes no model call (ADR 0057)', async () => {
+    const targets = bookRunTargets(book.sections)
+    expect(targets.length).toBeGreaterThan(10)
+    const result = await createBookRun({
+      pipeline,
+      concepts: pass,
+      sections: book.sections,
+    }).start()
+    // No visual: the preface, 2.3.1, chapter 4 and the four other chapter-3 parts.
+    expect(result).toMatchObject({
+      status: 'done',
+      total: targets.length,
+      finished: targets.length,
+      noVisual: 7,
+      failedItems: 0,
+      inProgress: [],
+    })
+    for (const s of targets)
+      expect(
+        await book.repos.plans.listBySection(book.bookId, s.sectionId),
+        s.title,
+      ).not.toEqual([])
+
+    const before = transportCalls
+    const again = await createBookRun({
+      pipeline,
+      concepts: pass,
+      sections: book.sections,
+    }).start()
+    expect(again).toMatchObject({
+      status: 'done',
+      finished: targets.length,
+      failedItems: 0,
+    })
+    expect(transportCalls).toBe(before)
   })
 
   test('fixtures: every committed W3 fixture is hand-written and used (or rewritten in generator mode)', () => {
