@@ -16,3 +16,5 @@ Settings live under `illustratePreferences` in `illus.settings`; concept-index a
 ```
 
 Verify with `pnpm turbo run lint typecheck test --filter=@flow/reader --filter=@illus/reader-bridge` and `pnpm --filter @flow/reader e2e`. The production replay E2E imports only `fixtures/books/synthetic.epub`; request captures and screenshots are test artifacts. No live model calls or credentials are needed.
+
+Whole-book runs (an explicit, user-confirmed per-book bar above the pane states) and the 2 s default dwell are described in ADR 0057.
