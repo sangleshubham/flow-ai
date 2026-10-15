@@ -1,8 +1,10 @@
 // Public API of @illus/pipeline (§8, §15). Owner: W3. Nothing else may be imported from outside this package.
 export {
   INDEX_WAIT_MS,
+  MAX_BACKGROUND_LLM_REQUESTS,
   MAX_INSTRUCTION_CHARS,
   MAX_LLM_REQUESTS,
+  MAX_LLM_REQUESTS_TOTAL,
   MAX_SECTIONS,
   createPipeline,
   kindEnabled,

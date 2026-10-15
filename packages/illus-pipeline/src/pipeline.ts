@@ -57,7 +57,13 @@ import { createLimiter, limitLlm } from './limiter.ts'
 
 /** How long a request waits for `indexNow` before planning with partial context (§15 step 2). */
 export const INDEX_WAIT_MS = 20_000
+/** Most foreground (reader) LLM requests in flight. */
 export const MAX_LLM_REQUESTS = 4
+/** ADR 0057: total LLM requests in flight, so one slot always stays free for the reader. */
+export const MAX_LLM_REQUESTS_TOTAL = 5
+/** ADR 0057: most background (whole-book run) LLM requests in flight. */
+export const MAX_BACKGROUND_LLM_REQUESTS = 4
+/** Foreground sections generated at once; background requests skip these slots (ADR 0057). */
 export const MAX_SECTIONS = 2
 export const MAX_INSTRUCTION_CHARS = 300
 
@@ -97,9 +103,11 @@ export interface SectionJobEvents {
     code: string
     message: string
     report?: ValidationReport
+    /** From the `LlmError` (e.g. the plan limit's reset), when it has one (ADR 0057). */
+    retryAfterMs?: number
   }
   /** The job could not plan (unknown section, planner failure, plan limit). */
-  error: { code: string; message: string }
+  error: { code: string; message: string; retryAfterMs?: number }
   done: { cancelled: boolean }
 }
 export type SectionJobEvent = keyof SectionJobEvents
@@ -129,6 +137,8 @@ export interface RequestOptions {
   planItemId?: string
   /** Keep jobs of other sections running (default: navigating cancels them). */
   keepOthers?: boolean
+  /** ADR 0057: a whole-book run's request. Skips `sectionSlots`; its calls queue behind the reader's. */
+  background?: boolean
 }
 
 /** W8's patch flow (§13), injected; called for items with a concept model when `conceptModels` is on. */
@@ -196,6 +206,7 @@ export interface PipelineDeps {
   review?: ReviewHook
   now?: () => number
   maxLlmRequests?: number
+  maxBackgroundLlmRequests?: number
   maxSections?: number
 }
 
@@ -254,6 +265,12 @@ class ItemFailure extends Error {
   }
 }
 
+/** The `retryAfterMs` field of an event, when `e` is an `LlmError` that carries one (ADR 0057). */
+const retryAfter = (e: unknown) =>
+  e instanceof LlmError && e.retryAfterMs !== undefined
+    ? { retryAfterMs: e.retryAfterMs }
+    : {}
+
 const emptyReport = (): ValidationReport => ({
   ok: true,
   groundingScore: 0,
@@ -271,10 +288,20 @@ const tokensOf = (r: Pick<LlmResult<unknown>, 'usage'>) =>
 
 export function createPipeline(deps: PipelineDeps): Pipeline {
   const { repos } = deps
-  const llm = limitLlm(
-    deps.llm,
-    createLimiter(deps.maxLlmRequests ?? MAX_LLM_REQUESTS),
+  // ADR 0057: a call's class is its job's, read when the limiter picks it: background only while no reader holds it.
+  const maxForeground = deps.maxLlmRequests ?? MAX_LLM_REQUESTS
+  const maxBackground =
+    deps.maxBackgroundLlmRequests ?? MAX_BACKGROUND_LLM_REQUESTS
+  // The total always leaves the reader at least one slot the run cannot take.
+  const limiter = createLimiter(
+    Math.max(MAX_LLM_REQUESTS_TOTAL, maxForeground, maxBackground + 1),
+    { maxForeground, maxBackground },
   )
+  const bySignal = new WeakMap<AbortSignal, Job>()
+  const llm = limitLlm(deps.llm, limiter, (signal) => {
+    const job = signal && bySignal.get(signal)
+    return job && !job.foregroundHeld ? 'background' : 'foreground'
+  })
   const sectionSlots = createLimiter(deps.maxSections ?? MAX_SECTIONS)
   const validate = deps.validate ?? defaultValidate
   const ground = deps.ground ?? defaultGround
@@ -284,6 +311,8 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       ? deps.flags()
       : deps.flags ?? resolveFlags()
   const jobs = new Set<Job>()
+  /** Running joinable jobs by requested section id (ADR 0057). */
+  const inflight = new Map<string, Job>()
   // "Catching up" progress per concept model and section, set while that item's route runs.
   const catchUp = new Map<string, (n: number) => void>()
   const conceptModels =
@@ -320,17 +349,74 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
   }
 
   type Listener = (p: never) => void
-  class Job implements SectionJob {
+  /** The shared core of a section job (ADR 0057): one run of the steps, held by one or more handles. */
+  class Job {
     sectionId: string
     cancelled = false
     readonly controller = new AbortController()
-    readonly listeners = new Map<SectionJobEvent, Set<Listener>>()
-    finished: Promise<void>
-    resolveFinished!: () => void
+    /** Every event so far, replayed to handles that join late. */
+    readonly history: { type: SectionJobEvent; payload: unknown }[] = []
+    /** Handles that receive this job's events. */
+    readonly holders = new Set<Handle>()
+    /** Started for a whole-book run: skips `sectionSlots`. */
+    readonly background: boolean
+    /** A plain request others may join (no force, instruction, kind override, item or selection). */
+    readonly joinable: boolean
+    /** Settles once no reader holds it any more, so it gives back its section slot. */
+    readonly demoted: Promise<void>
+    demote!: () => void
 
-    constructor(sectionId: string) {
+    constructor(sectionId: string, background: boolean, joinable: boolean) {
       this.sectionId = sectionId
+      this.background = background
+      this.joinable = joinable
+      this.demoted = new Promise((r) => (this.demote = r))
+      bySignal.set(this.controller.signal, this)
+    }
+    /** A reader still holds it, so its calls are foreground. */
+    get foregroundHeld() {
+      for (const h of this.holders)
+        if (!h.background && !h.cancelled) return true
+      return false
+    }
+    emit<E extends SectionJobEvent>(event: E, payload: SectionJobEvents[E]) {
+      if (this.cancelled && event !== 'done') return
+      this.history.push({ type: event, payload })
+      for (const h of [...this.holders]) h.deliver()
+    }
+    cancel() {
+      if (this.cancelled) return
+      this.cancelled = true
+      this.controller.abort()
+    }
+  }
+
+  /** One requester's hold on a core job (ADR 0057). `cancel()` releases it; the last holder's cancel aborts the job. */
+  class Handle implements SectionJob {
+    cancelled = false
+    readonly finished: Promise<void>
+    private resolveFinished!: () => void
+    private readonly listeners = new Map<SectionJobEvent, Set<Listener>>()
+    private cursor = 0
+    private ready = false
+    private ended = false
+    private readonly core: Job
+    readonly background: boolean
+
+    constructor(core: Job, background: boolean) {
+      this.core = core
+      this.background = background
       this.finished = new Promise((r) => (this.resolveFinished = r))
+      core.holders.add(this)
+      // Callers subscribe right after the request returns; then the whole history plays in order, then live events.
+      queueMicrotask(() => {
+        this.ready = true
+        this.deliver()
+      })
+    }
+    /** Read through: merge resolution changes the core's section id. */
+    get sectionId() {
+      return this.core.sectionId
     }
     on<E extends SectionJobEvent>(
       event: E,
@@ -341,55 +427,109 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       this.listeners.set(event, set)
       return () => void set.delete(cb as Listener)
     }
-    emit<E extends SectionJobEvent>(event: E, payload: SectionJobEvents[E]) {
-      if (this.cancelled && event !== 'done') return
-      for (const cb of this.listeners.get(event) ?? [])
-        (cb as (p: SectionJobEvents[E]) => void)(payload)
+    /** Sends the core's events this handle has not seen yet, from a single cursor. */
+    deliver() {
+      if (!this.ready || !this.core.holders.has(this)) return
+      const { history } = this.core
+      while (!this.ended && this.cursor < history.length) {
+        const { type, payload } = history[this.cursor++]!
+        if (type === 'done') this.end(payload as SectionJobEvents['done'])
+        else if (!this.cancelled) this.fire(type, payload)
+      }
+    }
+    private fire(type: SectionJobEvent, payload: unknown) {
+      for (const cb of this.listeners.get(type) ?? [])
+        (cb as (p: unknown) => void)(payload)
+    }
+    private end(payload: SectionJobEvents['done']) {
+      if (this.ended) return
+      this.ended = true
+      this.fire('done', payload)
+      this.resolveFinished()
     }
     cancel() {
       if (this.cancelled) return
       this.cancelled = true
-      this.controller.abort()
+      if (this.ended) return
+      const { core } = this
+      let others = false
+      for (const h of core.holders)
+        if (h !== this && !h.cancelled) others = true
+      // The last holder aborts the job; its own `done` then reaches this handle.
+      if (!others) return core.cancel()
+      // Otherwise only this hold ends; the job runs on for the others, maybe now as background.
+      core.holders.delete(this)
+      queueMicrotask(() => this.end({ cancelled: true }))
+      if (!core.foregroundHeld) core.demote()
+      // Its queued calls may now be background, which can have free slots.
+      limiter.poke()
     }
   }
 
   function start(
-    job: Job,
+    sectionId: string,
     opts: RequestOptions,
-    resolveSection: () => Promise<{
+    selection: boolean,
+    resolveSection: (job: Job) => Promise<{
       section: SectionNode
       synthetic?: Block[]
       indexId: string
     }>,
-  ) {
+  ): SectionJob {
     if (opts.instruction && opts.instruction.length > MAX_INSTRUCTION_CHARS)
       throw new Error(
         `instruction is longer than ${MAX_INSTRUCTION_CHARS} characters`,
       )
-    if (!opts.keepOthers)
-      for (const other of jobs)
-        if (other.sectionId !== job.sectionId) other.cancel()
+    const background = !!opts.background
+    const joinable =
+      !selection &&
+      !opts.force &&
+      !opts.instruction &&
+      !opts.kindOverride &&
+      !opts.planItemId
+    const existing = joinable ? inflight.get(sectionId) : undefined
+    // Navigating releases the reader's holds on other sections; a whole-book run's holds stay (ADR 0057).
+    if (!opts.keepOthers && !background)
+      for (const other of [...jobs])
+        if (other.sectionId !== sectionId && other !== existing)
+          for (const h of [...other.holders]) if (!h.background) h.cancel()
+    if (existing?.joinable && !existing.cancelled) {
+      const handle = new Handle(existing, background)
+      limiter.poke() // a reader joining promotes the job's queued calls
+      return handle
+    }
+    const job = new Job(sectionId, background, joinable)
     jobs.add(job)
+    if (joinable) inflight.set(sectionId, job)
+    const handle = new Handle(job, background)
+    const run = async () =>
+      job.cancelled ? undefined : runJob(job, opts, await resolveSection(job))
+    /** A reader's job holds a section slot until it ends, or until only a whole-book run holds it (ADR 0057). */
+    const slotted = () =>
+      new Promise<void>((resolve, reject) => {
+        void sectionSlots.run(() => {
+          const p = run()
+          p.then(resolve, reject)
+          return Promise.race([p, job.demoted]).catch(() => undefined)
+        })
+      })
     // Start on a later tick so the caller can subscribe first.
     void Promise.resolve()
-      .then(() =>
-        sectionSlots.run(async () =>
-          job.cancelled ? undefined : runJob(job, opts, await resolveSection()),
-        ),
-      )
+      .then(() => (job.background ? run() : slotted()))
       .catch((e: unknown) => {
         if (!(e instanceof LlmError && e.code === 'aborted'))
           job.emit('error', {
             code: e instanceof LlmError ? e.code : 'internal',
             message: (e as Error)?.message ?? String(e),
+            ...retryAfter(e),
           })
       })
       .finally(() => {
         jobs.delete(job)
+        if (inflight.get(sectionId) === job) inflight.delete(sectionId)
         job.emit('done', { cancelled: job.cancelled })
-        job.resolveFinished()
       })
-    return job
+    return handle
   }
 
   async function runJob(
@@ -578,6 +718,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
           code: f.code,
           message: f.message,
           ...(f.report && { report: f.report }),
+          ...retryAfter(e),
         })
       }
     }
@@ -1290,8 +1431,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
 
   return {
     requestSection(sectionId, opts = {}) {
-      const job = new Job(sectionId)
-      return start(job, opts, async () => {
+      return start(sectionId, opts, false, async (job) => {
         let section = await repos.sections.get(sectionId)
         if (!section)
           throw new LlmError('upstream', `unknown section ${sectionId}`)
@@ -1311,8 +1451,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     },
 
     requestSelection({ parentSectionId, blockIds }, opts = {}) {
-      const job = new Job(`${parentSectionId}~sel`)
-      return start(job, opts, async () => {
+      return start(`${parentSectionId}~sel`, opts, true, async (job) => {
         const parent = await repos.sections.get(parentSectionId)
         if (!parent)
           throw new LlmError('upstream', `unknown section ${parentSectionId}`)
