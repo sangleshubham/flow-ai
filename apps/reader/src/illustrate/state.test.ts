@@ -1,5 +1,6 @@
 import { make } from '@illus/core/testing'
 import type {
+  BookRunProgress,
   SectionJob,
   SectionJobEvent,
   SectionJobEvents,
@@ -7,7 +8,9 @@ import type {
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  applyBookRunProgress,
   bindJob,
+  createBookRunState,
   createDwell,
   createPaneState,
   DEFAULT_PREFERENCES,
@@ -15,7 +18,9 @@ import {
   dwellSecondsLeft,
   evidenceAction,
   migrateDwellMs,
+  parseBookRuns,
   parseDwellMs,
+  PersistedBookRun,
   stageLabel,
   whenCritic,
 } from './state'
@@ -327,5 +332,89 @@ describe('dwell before generating (ADR 0048)', () => {
     expect(dwellSecondsLeft(10_000, 5_000)).toBe(5)
     expect(dwellSecondsLeft(10_000, 9_001)).toBe(1)
     expect(dwellSecondsLeft(10_000, 12_000)).toBe(0)
+  })
+})
+
+describe('whole-book run state (ADR 0057)', () => {
+  const progress = (o: Partial<BookRunProgress> = {}): BookRunProgress => ({
+    status: 'illustrating',
+    total: 12,
+    finished: 3,
+    noVisual: 1,
+    failedItems: 2,
+    inProgress: ['a', 'b'],
+    ...o,
+  })
+
+  it('starts idle with nothing counted', () => {
+    expect(createPaneState().bookRun).toEqual(createBookRunState())
+    expect(createPaneState().runningBooks).toEqual([])
+    expect(createBookRunState()).toMatchObject({
+      status: 'idle',
+      total: 0,
+      cachedCount: 0,
+      estimate: null,
+      resetAt: null,
+    })
+  })
+
+  it('maps the run progress onto the pane and keeps the cached count', () => {
+    const s = { ...createBookRunState(), cachedCount: 4, estimate: 40 }
+    const p = progress({ indexed: { indexed: 9, total: 12 } })
+    applyBookRunProgress(s, p)
+    expect(s).toMatchObject({
+      status: 'illustrating',
+      total: 12,
+      finished: 3,
+      noVisual: 1,
+      failedItems: 2,
+      inProgress: ['a', 'b'],
+      indexed: { indexed: 9, total: 12 },
+      cachedCount: 4,
+      estimate: null,
+    })
+    // A copy, so the run's later snapshots never alias the pane's state.
+    expect(s.inProgress).not.toBe(p.inProgress)
+  })
+
+  it('keeps a known reset time only while paused by the plan limit', () => {
+    const s = { ...createBookRunState(), resetAt: 123, message: 'Stopped.' }
+    applyBookRunProgress(s, progress({ status: 'paused-limit' }))
+    expect(s.resetAt).toBe(123)
+    expect(s.message).toBe('Stopped.')
+    applyBookRunProgress(s, progress({ status: 'understanding' }))
+    expect(s.resetAt).toBeNull()
+    expect(s.message).toBe('')
+  })
+
+  it('accepts only the saved statuses', () => {
+    expect(PersistedBookRun.safeParse({ status: 'running' }).success).toBe(true)
+    expect(
+      PersistedBookRun.safeParse({ status: 'paused-limit', resetAt: 5 })
+        .success,
+    ).toBe(true)
+    for (const bad of [
+      null,
+      'running',
+      { status: 'done' },
+      { status: 'paused', resetAt: 'soon' },
+    ])
+      expect(PersistedBookRun.safeParse(bad).success).toBe(false)
+  })
+
+  it('drops malformed saved runs without hiding the valid ones', () => {
+    expect(parseBookRuns(undefined)).toEqual({})
+    expect(parseBookRuns('x')).toEqual({})
+    expect(parseBookRuns([{ status: 'running' }])).toEqual({})
+    const runs = parseBookRuns({
+      a: { status: 'running' },
+      b: { status: 'paused-limit', resetAt: 9 },
+      c: { status: 'exploded' },
+      d: 42,
+      ['__proto__']: { status: 'paused' },
+    })
+    expect(Object.keys(runs).sort()).toEqual(['__proto__', 'a', 'b'])
+    expect(runs.b).toEqual({ status: 'paused-limit', resetAt: 9 })
+    expect(Object.getPrototypeOf(runs)).toBe(Object.prototype)
   })
 })

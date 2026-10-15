@@ -6,8 +6,18 @@ import type {
   SectionNode,
   VisualRecord,
 } from '@illus/core'
-import type { ItemStage, ReviewHook, SectionJob } from '@illus/pipeline'
+import type {
+  BookRunProgress,
+  ItemStage,
+  ReviewHook,
+  SectionJob,
+} from '@illus/pipeline'
 import { proxy } from 'valtio'
+import { z } from 'zod'
+
+// Zod's compiled fast path uses new Function, which the strict production CSP forbids. The flag is read
+// when a schema is built, so it is set here, before `PersistedBookRun`.
+z.config({ jitless: true })
 
 export const PANE_STATES = [
   'idle',
@@ -86,6 +96,85 @@ export function createDwell() {
     cancel,
   }
 }
+/** The whole-book run as the pane shows it (ADR 0057). `confirm` is the card before it starts. */
+export type BookRunUiStatus =
+  | 'idle'
+  | 'confirm'
+  | 'understanding'
+  | 'illustrating'
+  | 'paused'
+  | 'paused-limit'
+  | 'done'
+export interface BookRunState {
+  status: BookRunUiStatus
+  /** Target sections (`bookRunTargets`). */
+  total: number
+  finished: number
+  noVisual: number
+  failedItems: number
+  /** Section ids. */
+  inProgress: string[]
+  /** Sections with a saved plan, counted when the book activates and after the run. */
+  cachedCount: number
+  /** Requests, while `confirm`. */
+  estimate: number | null
+  /** Epoch ms, while `paused-limit`, when the plan limit's reset is known. */
+  resetAt: number | null
+  /** Concept-pass progress while `understanding`. */
+  indexed: { indexed: number; total: number } | null
+  /** Why the run stopped or cannot resume yet; empty otherwise. */
+  message: string
+}
+export const createBookRunState = (): BookRunState => ({
+  status: 'idle',
+  total: 0,
+  finished: 0,
+  noVisual: 0,
+  failedItems: 0,
+  inProgress: [],
+  cachedCount: 0,
+  estimate: null,
+  resetAt: null,
+  indexed: null,
+  message: '',
+})
+/** Maps the run's progress onto the pane. `resetAt` is the runtime's (it asks the gateway). */
+export function applyBookRunProgress(
+  state: BookRunState,
+  p: BookRunProgress,
+): void {
+  state.status = p.status
+  state.total = p.total
+  state.finished = p.finished
+  state.noVisual = p.noVisual
+  state.failedItems = p.failedItems
+  state.inProgress = [...p.inProgress]
+  if (p.indexed) state.indexed = { ...p.indexed }
+  state.estimate = null
+  if (p.status !== 'paused-limit') state.resetAt = null
+  if (p.status === 'understanding' || p.status === 'illustrating')
+    state.message = ''
+}
+/** A book's run as saved in settings `bookRuns` (Flow book id → this). Stored settings are untrusted. */
+export const PersistedBookRun = z.object({
+  status: z.enum(['running', 'paused', 'paused-limit']),
+  resetAt: z.number().optional(),
+})
+export type PersistedBookRun = z.infer<typeof PersistedBookRun>
+/** Parses settings `bookRuns`, dropping anything malformed (one bad entry never hides the others). */
+export function parseBookRuns(
+  value: unknown,
+): Record<string, PersistedBookRun> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  // `fromEntries` defines own properties, so a stored `__proto__` key stays an ordinary entry.
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([id, entry]) => {
+      const parsed = PersistedBookRun.safeParse(entry)
+      return parsed.success ? [[id, parsed.data] as const] : []
+    }),
+  )
+}
+
 export interface PaneState {
   open: boolean
   pinned: boolean
@@ -126,6 +215,10 @@ export interface PaneState {
   /** While `waiting`: when generation starts (epoch ms). */
   dwellUntil: number
   preferences: Preferences
+  /** The open book's whole-book run (ADR 0057). */
+  bookRun: BookRunState
+  /** Flow book ids whose saved run is `running`: the runtime stays alive for them with the pane closed. */
+  runningBooks: string[]
 }
 export function createPaneState(): PaneState {
   return {
@@ -155,6 +248,8 @@ export function createPaneState(): PaneState {
     overview: '',
     dwellUntil: 0,
     preferences: { ...DEFAULT_PREFERENCES, flags: resolveFlags() },
+    bookRun: createBookRunState(),
+    runningBooks: [],
   }
 }
 export const pane = proxy(createPaneState())

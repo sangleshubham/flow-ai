@@ -14,6 +14,8 @@ import {
   illustrateSelection,
   loadPreferences,
   networkChanged,
+  paneClosed,
+  paneOpened,
   reportError,
   requestVisual,
   setPinned,
@@ -38,15 +40,29 @@ export function IllustratePane() {
       pane.message = e.message
     })
   }, [])
+  // ADR 0057: the runtime lives while the pane is open, or while the focused book's whole-book run
+  // is running (even with the pane closed). Opening and closing the pane over it only resets the
+  // reader's own section work.
+  const focusedBookId = r.focusedBookTab?.book.id
+  const keepAlive =
+    s.open || (!!focusedBookId && s.runningBooks.includes(focusedBookId))
   useEffect(() => {
     const tab = reader.focusedBookTab
-    if (s.open && tab?.rendition && tab.epub) void activate(tab as any)
+    if (keepAlive && tab?.rendition && tab.epub) void activate(tab as any)
     else {
       deactivate()
       if (!pane.pinned) pane.status = 'idle'
     }
     return deactivate
-  }, [r.focusedBookTab?.id, r.focusedBookTab?.rendition, s.open])
+  }, [r.focusedBookTab?.id, r.focusedBookTab?.rendition, keepAlive])
+  useEffect(() => {
+    if (!s.open) return paneClosed()
+    // Over a live runtime this only reopens the pane (`activate` is idempotent per tab). It also retries
+    // an activation that failed while the pane was closed, which the effect above would not redo.
+    const tab = reader.focusedBookTab
+    if (tab?.rendition && tab.epub) void activate(tab as any)
+    else paneOpened()
+  }, [s.open])
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.altKey && e.key.toLowerCase() === 'i') {
