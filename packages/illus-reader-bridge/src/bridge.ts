@@ -64,7 +64,11 @@ export function createReaderBridge(o: BridgeOptions): ManagedReaderBridge {
       mono: 'ui-monospace, SFMono-Regular, Menlo, monospace', dark: root.classList.contains('dark'),
     }
   }
-  const onPage = (cfi: string) => !!current && !!currentEnd && cmp.compare(current, cfi) <= 0 && cmp.compare(cfi, currentEnd) <= 0
+  const onPage = (cfi: string) =>
+    !!current &&
+    !!currentEnd &&
+    cmp.compare(current, cfi) <= 0 &&
+    cmp.compare(cfi, currentEnd) <= 0
   const setTarget = (cfi: string) => {
     target = cfi
     targetSeen = false
@@ -75,9 +79,10 @@ export function createReaderBridge(o: BridgeOptions): ManagedReaderBridge {
   }
   const publish = () => {
     if (!current || disposed) return
-    let section = target && onPage(target)
-      ? getSectionAt(o.sections(), target)
-      : getSectionForPage(o.sections(), current, currentEnd)
+    let section =
+      target && onPage(target)
+        ? getSectionAt(o.sections(), target)
+        : getSectionForPage(o.sections(), current, currentEnd)
     const seen = new Set<string>()
     while (section?.mergedInto && !seen.has(section.sectionId)) {
       seen.add(section.sectionId)
@@ -88,7 +93,10 @@ export function createReaderBridge(o: BridgeOptions): ManagedReaderBridge {
     last = sectionId
     for (const cb of locations) cb({ bookId: o.bookId, cfi: current, sectionId })
   }
-  const relocated = (loc: { start?: { cfi?: string }; end?: { cfi?: string } }) => {
+  const relocated = (loc: {
+    start?: { cfi?: string }
+    end?: { cfi?: string }
+  }) => {
     if (!loc?.start?.cfi) return
     current = loc.start.cfi
     currentEnd = loc.end?.cfi
@@ -124,7 +132,9 @@ export function createReaderBridge(o: BridgeOptions): ManagedReaderBridge {
   o.rendition.on('illus:navigate', navigate)
   const refreshLocation = () => {
     last = undefined
-    Promise.resolve(o.rendition.currentLocation()).then((loc) => relocated(loc as { start?: { cfi?: string }; end?: { cfi?: string } }))
+    Promise.resolve(o.rendition.currentLocation()).then((loc) =>
+      relocated(loc as { start?: { cfi?: string }; end?: { cfi?: string } }),
+    )
   }
   const clearHighlights = (kind?: 'evidence' | 'step') => {
     for (const [cfi, ownKind] of highlights) if (!kind || ownKind === kind) {
@@ -133,8 +143,15 @@ export function createReaderBridge(o: BridgeOptions): ManagedReaderBridge {
     }
   }
   return {
-    onLocationChange(cb) { locations.add(cb); refreshLocation(); return () => void locations.delete(cb) },
-    async scrollTo(cfi) { setTarget(cfi); await o.rendition.display(cfi) },
+    onLocationChange(cb) {
+      locations.add(cb)
+      refreshLocation()
+      return () => void locations.delete(cb)
+    },
+    async scrollTo(cfi) {
+      setTarget(cfi)
+      await o.rendition.display(cfi)
+    },
     highlight(cfi, kind) {
       // epub.js keys marks by CFI, so one passage holds one mark: an explicit evidence click wins over a step.
       if (kind === 'step' && highlights.get(cfi) === 'evidence') return { remove() {} }
@@ -164,9 +181,15 @@ export function createReaderBridge(o: BridgeOptions): ManagedReaderBridge {
     setTarget,
     dispose() {
       disposed = true
-      clearTimeout(timer); clearHighlights(); observer.disconnect()
-      o.rendition.off('relocated', relocated); o.rendition.off('selected', selected); o.rendition.off('illus:navigate', navigate)
-      locations.clear(); selections.clear(); themes.clear()
+      clearTimeout(timer)
+      clearHighlights()
+      observer.disconnect()
+      o.rendition.off('relocated', relocated)
+      o.rendition.off('selected', selected)
+      o.rendition.off('illus:navigate', navigate)
+      locations.clear()
+      selections.clear()
+      themes.clear()
     },
   }
 }
