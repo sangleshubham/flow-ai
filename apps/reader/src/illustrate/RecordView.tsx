@@ -1,4 +1,4 @@
-import { Player, PlaybackControls } from '@illus/anim'
+import { Player, PlaybackControls, ScenePlayer } from '@illus/anim'
 import { conceptModelIdOf, sectionView } from '@illus/concepts'
 import type { SectionView } from '@illus/concepts'
 import { buildFrames, IR } from '@illus/core'
@@ -6,6 +6,7 @@ import type {
   Block,
   ConceptModel,
   FrameState,
+  GraphIR,
   LayoutGraphFn,
   LayoutGraphResult,
   ThemeTokens,
@@ -23,7 +24,8 @@ import {
 } from '@illus/render'
 import type { EvidenceEvent } from '@illus/render'
 import { TraceView } from '@illus/tracer'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 
 import { ConceptModelView } from './ConceptModelView'
 import {
@@ -147,6 +149,66 @@ const highlightStepEvidence = (evidence: EvidenceEvent['evidence'] | null) => {
   )
 }
 
+// The scene player's own handlers, module-level for the same reason as `highlightStepEvidence`: stable identities.
+const clickStepEvidence = (evidence: EvidenceEvent['evidence']) => {
+  void highlightEvidence(
+    { irId: 'step', target: 'step', label: 'Step', evidence },
+    true,
+    'step',
+  )
+}
+const rememberHighlightSteps = (on: boolean) => {
+  void savePreferences({ ...pane.preferences, highlightSteps: on })
+}
+
+/**
+ * The graph scene player (ADR 0050), mounted behind the `sceneAnimations` flag. ScenePlayer renders the
+ * scene once per `renderScene` identity and rebuilds its timeline when `ir` or `frames` change, so all
+ * three must be stable across the pane's re-renders. `renderFrame` is a fresh closure every render, so
+ * `sceneInputs` lists what it reads that can really change (the record, theme, expanded state, flags): the
+ * scene is drawn again exactly when one does, and with the closure of that render.
+ */
+function GraphScene({
+  ir,
+  frames,
+  renderFrame,
+  sceneInputs,
+}: {
+  ir: GraphIR
+  frames: readonly FrameState[]
+  renderFrame: (frame?: FrameState) => ReactNode
+  sceneInputs: readonly unknown[]
+}) {
+  // No frame: the complete, static visual that the scene timeline then animates.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const renderScene = useMemo(() => () => renderFrame(), sceneInputs)
+  const onStepChange = useCallback(
+    (index: number) => {
+      pane.announcement = frames[index]?.narration ?? ''
+    },
+    [frames],
+  )
+  return (
+    <ScenePlayer
+      ir={ir}
+      frames={frames}
+      renderScene={renderScene}
+      autoPlay
+      highlightWhilePlaying={pane.preferences.highlightSteps}
+      onHighlightWhilePlayingChange={rememberHighlightSteps}
+      defaultSpeed={pane.preferences.speed}
+      reducedMotion={
+        pane.preferences.reducedMotion === 'system'
+          ? undefined
+          : pane.preferences.reducedMotion === 'on'
+      }
+      onStepChange={onStepChange}
+      onEvidenceClick={clickStepEvidence}
+      onEvidenceHighlight={highlightStepEvidence}
+    />
+  )
+}
+
 function StaticRecordView({ record }: { record: VisualRecord }) {
   const [theme, setTheme] = useState<ThemeTokens>(() => readFlowTheme())
   const [instruction, setInstruction] = useState('')
@@ -241,6 +303,8 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
       </p>
     )
   const ir = parsed.data
+  // Saving a preference replaces the flags object even when no flag changed; compare by value instead.
+  const flagsKey = JSON.stringify(pane.preferences.flags)
   // Element feedback names what the reader sees: the model's view for concept items.
   const shownIr = conceptIr ?? ir
   const vote = async (value: 'up' | 'down') => {
@@ -362,6 +426,16 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
           },
           onEvidenceHighlight: highlightStepEvidence,
         }}
+      />
+    ) : pane.preferences.flags.animations &&
+      pane.preferences.flags.sceneAnimations &&
+      ir.type === 'graph' &&
+      frames.length > 1 ? (
+      <GraphScene
+        ir={ir}
+        frames={frames}
+        renderFrame={renderFrame}
+        sceneInputs={[record, theme, expanded, flagsKey, mathBlock]}
       />
     ) : pane.preferences.flags.animations && frames.length ? (
       <Player
