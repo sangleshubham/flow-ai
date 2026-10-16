@@ -109,3 +109,26 @@ test('configured reduced motion overrides OS and token goes immediately to endpo
   })
   expect(distance).toBeLessThan(2)
 })
+test('restyled graph nodes keep their layout positions while and after animating', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/?kind=graph-muted&motion=off')
+  const node = page.locator('[data-target="node:a"]')
+  await expect(node).toBeVisible()
+  const box = () =>
+    node.evaluate((el) => {
+      const r = el.getBoundingClientRect()
+      return { x: Math.round(r.x), y: Math.round(r.y) }
+    })
+  const start = await box()
+  for (const step of ['1', '2']) {
+    await page.getByLabel('Next step').click()
+    await expect(page.locator('html')).toHaveAttribute('data-step', step)
+    await page.waitForTimeout(100)
+    expect(await box()).toEqual(start)
+    await page.waitForTimeout(600)
+    expect(await box()).toEqual(start)
+  }
+  await expect(node).toHaveCSS('opacity', '1')
+})
