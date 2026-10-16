@@ -10,6 +10,12 @@ import type { Pipeline, SectionJob } from './pipeline.ts'
 export const BOOK_RUN_SECTIONS = 2
 /** Rough requests per uncached section: planner + ~2 items × (extractor + animator). Shown as "about". */
 export const REQUESTS_PER_SECTION = 5
+/** Sections in a row that may fail on `upstream` or `timeout` before the run pauses itself. */
+export const MAX_FAILED_IN_A_ROW = 3
+/** Errors that fail every later request too: the run pauses at the first one. */
+const STOP_CODES = new Set(['signin-required', 'auth'])
+/** Errors the gateway already retried: a few sections in a row means the server or network is down. */
+const TRANSIENT_CODES = new Set(['upstream', 'timeout'])
 
 export type BookRunStatus =
   | 'understanding'
@@ -33,6 +39,11 @@ export interface BookRunProgress {
   indexed?: { indexed: number; total: number }
   /** Set with `paused-limit` when the plan limit's reset is known. */
   retryAfterMs?: number
+  /**
+   * Set with `paused` when the run paused itself: sign-in failed, `MAX_FAILED_IN_A_ROW` sections failed
+   * on a transient error, or the concept pass stopped on an error. Absent when the user paused it.
+   */
+  stoppedBy?: { code: string; message: string }
 }
 
 export interface BookRun {
@@ -106,12 +117,16 @@ export function createBookRun(deps: BookRunDeps): BookRun {
   let halt = newHalt()
   const held = new Set<SectionJob>()
 
+  /** Sections that just failed on a transient error, in completion order; any healthy section resets it. */
+  let failedInARow = 0
+
   function newHalt(): {
     paused: boolean
     stopping: boolean
     limit: { retryAfterMs?: number } | null
+    error: { code: string; message: string } | null
   } {
-    return { paused: false, stopping: false, limit: null }
+    return { paused: false, stopping: false, limit: null, error: null }
   }
 
   function fresh(status: BookRunStatus): BookRunProgress {
@@ -129,6 +144,7 @@ export function createBookRun(deps: BookRunDeps): BookRun {
     ...state,
     inProgress: [...state.inProgress],
     ...(state.indexed && { indexed: { ...state.indexed } }),
+    ...(state.stoppedBy && { stoppedBy: { ...state.stoppedBy } }),
   })
 
   function report() {
@@ -145,6 +161,11 @@ export function createBookRun(deps: BookRunDeps): BookRun {
     stop()
   }
 
+  function hitError(e: { code: string; message: string }) {
+    halt.error ??= { code: e.code, message: e.message }
+    stop()
+  }
+
   async function illustrate(section: SectionNode) {
     const h = pipeline.requestSection(section.sectionId, {
       background: true,
@@ -153,21 +174,39 @@ export function createBookRun(deps: BookRunDeps): BookRun {
     held.add(h)
     state.inProgress.push(section.sectionId)
     report()
+    /** Something drew (or the planner said there is nothing to draw): the requests are getting through. */
+    let healthy = false
+    let transient: { code: string; message: string } | null = null
     // A section that could not plan counts as one failed item; its job still ends with `done`.
-    const failed = (e: { code: string; retryAfterMs?: number }) => {
+    const failed = (e: {
+      code: string
+      message: string
+      retryAfterMs?: number
+    }) => {
       if (e.code === 'plan-limit') return hitLimit(e.retryAfterMs)
+      if (STOP_CODES.has(e.code)) return hitError(e)
+      if (TRANSIENT_CODES.has(e.code)) transient = e
       state.failedItems++
       report()
     }
     const off = [
       h.on('no-visual', () => {
+        healthy = true
         state.noVisual++
         report()
+      }),
+      h.on('item-ready', () => {
+        healthy = true
       }),
       h.on('item-failed', failed),
       h.on('error', failed),
       h.on('done', ({ cancelled }) => {
-        if (!cancelled) state.finished++
+        if (!cancelled) {
+          state.finished++
+          failedInARow = healthy || !transient ? 0 : failedInARow + 1
+          if (transient && failedInARow >= MAX_FAILED_IN_A_ROW)
+            hitError(transient)
+        }
         state.inProgress = state.inProgress.filter(
           (id) => id !== section.sectionId,
         )
@@ -186,16 +225,24 @@ export function createBookRun(deps: BookRunDeps): BookRun {
     while (!halt.stopping && queue.length) await illustrate(queue.shift()!)
   }
 
-  function finish(status: BookRunStatus, retryAfterMs?: number) {
+  function finish(
+    status: BookRunStatus,
+    o: {
+      retryAfterMs?: number | undefined
+      stoppedBy?: { code: string; message: string }
+    } = {},
+  ) {
     state.status = status
     state.inProgress = []
-    if (retryAfterMs !== undefined) state.retryAfterMs = retryAfterMs
+    if (o.retryAfterMs !== undefined) state.retryAfterMs = o.retryAfterMs
+    if (o.stoppedBy) state.stoppedBy = o.stoppedBy
     report()
     return snapshot()
   }
 
   async function run(): Promise<BookRunProgress> {
     halt = newHalt()
+    failedInARow = 0
     state = fresh('understanding')
     report()
     try {
@@ -203,9 +250,14 @@ export function createBookRun(deps: BookRunDeps): BookRun {
       state.indexed = { indexed: pass.indexed, total: pass.total }
       if (halt.paused) return finish('paused')
       if (pass.error?.code === 'plan-limit')
-        return finish('paused-limit', pass.error.retryAfterMs)
-      // The concept pass retries its failed batches on the next `start()`.
-      if (pass.error || !pass.done) return finish('paused')
+        return finish('paused-limit', { retryAfterMs: pass.error.retryAfterMs })
+      if (pass.error)
+        return finish('paused', {
+          stoppedBy: { code: pass.error.code, message: pass.error.message },
+        })
+      // Batches that failed twice no longer keep the pass from completing (`pass.failed`); the pipeline
+      // plans those few sections with partial context. Not done here means the pass was paused.
+      if (!pass.done) return finish('paused')
     } catch (e) {
       finish('paused')
       throw e
@@ -228,7 +280,10 @@ export function createBookRun(deps: BookRunDeps): BookRun {
       finish('paused')
       throw thrown.reason
     }
-    if (halt.limit) return finish('paused-limit', halt.limit.retryAfterMs)
+    if (halt.limit)
+      return finish('paused-limit', { retryAfterMs: halt.limit.retryAfterMs })
+    if (halt.error && !halt.paused)
+      return finish('paused', { stoppedBy: halt.error })
     return finish(halt.paused ? 'paused' : 'done')
   }
 
