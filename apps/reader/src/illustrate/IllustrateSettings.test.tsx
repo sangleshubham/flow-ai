@@ -44,3 +44,29 @@ it('exposes the remembered step option independently of focus and hover highligh
     }),
   )
 })
+
+it('turns scene animations for graphs on through the saved feature flags only', () => {
+  Object.assign(pane, createPaneState())
+  render(<IllustrateSettings />)
+  const scene = screen.getByRole('checkbox', {
+    name: 'Scene animations for graphs (beta)',
+  }) as HTMLInputElement
+  // Off by default (ADR 0050); the step animations flag next to it is on.
+  expect(scene.checked).toBe(false)
+  expect(
+    (
+      screen.getByRole('checkbox', {
+        name: 'Step animations',
+      }) as HTMLInputElement
+    ).checked,
+  ).toBe(true)
+  fireEvent.click(scene)
+  expect(savePreferences).toHaveBeenCalledWith(
+    expect.objectContaining({
+      flags: expect.objectContaining({
+        sceneAnimations: true,
+        animations: true,
+      }),
+    }),
+  )
+})
