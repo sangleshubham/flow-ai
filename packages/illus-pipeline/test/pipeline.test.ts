@@ -5,11 +5,7 @@ import {
   defaultStoryboard,
   validateAnimation as validateCoreAnimation,
 } from '@illus/core'
-import type {
-  LlmCall,
-  TemplateRegistry,
-  VisualPlan,
-} from '@illus/core'
+import type { LlmCall, TemplateRegistry, VisualPlan } from '@illus/core'
 import { make } from '@illus/core/testing'
 import { describe, expect, test, vi } from 'vitest'
 
@@ -308,24 +304,30 @@ describe('requestSection', () => {
     const llm = fakeLlm(
       byRole({
         planner: () => plan(),
-        'extractor.graph': (c) => (c.ctx.body.includes('<validator_report') ? good : isolated),
+        'extractor.graph': (c) =>
+          c.ctx.body.includes('<validator_report') ? good : isolated,
       }),
     )
     const r = await collect(pipelineWith(repos, llm).requestSection(L))
     const ex = llm.calls.filter((c) => c.role === 'extractor.graph')
     expect(ex).toHaveLength(2)
     expect(ex[1]!.ctx.body).toContain('isolated-nodes')
-    expect(r.of('item-ready')[0]!.record).toMatchObject({ validation: { retried: true, escalated: false } })
+    expect(r.of('item-ready')[0]!.record).toMatchObject({
+      validation: { retried: true, escalated: false },
+    })
   })
 
   test('graph source lines that do not parse are dropped, counted and quoted back on a retry (ADR 0049)', async () => {
     const repos = await seededRepos()
     const good = make.graphSource()
-    const broken = { source: `${good.source}\nGhost @b99 "nothing here at all"\nLeader - Log @b0 "The leader accepts client requests"\nA [icon: server @b0 "x y z"` }
+    const broken = {
+      source: `${good.source}\nGhost @b99 "nothing here at all"\nLeader - Log @b0 "The leader accepts client requests"\nA [icon: server @b0 "x y z"`,
+    }
     const llm = fakeLlm(
       byRole({
         planner: () => plan(),
-        'extractor.graph': (c) => (c.ctx.body.includes('<validator_report') ? good : broken),
+        'extractor.graph': (c) =>
+          c.ctx.body.includes('<validator_report') ? good : broken,
       }),
     )
     const r = await collect(pipelineWith(repos, llm).requestSection(L))
@@ -333,8 +335,14 @@ describe('requestSection', () => {
     // 3 of 11 statements dropped (27%): kept without a retry, the drops recorded in the report.
     expect(ex).toHaveLength(1)
     const v = r.of('item-ready')[0]!.record.validation
-    expect(v).toMatchObject({ ok: true, retried: false, counts: { dropped: 3, total: 11 } })
-    expect(v.issues.filter((i) => i.code.startsWith('dsl-')).map((i) => i.code)).toEqual(['dsl-unknown-block', 'dsl-bad-connector', 'dsl-syntax'])
+    expect(v).toMatchObject({
+      ok: true,
+      retried: false,
+      counts: { dropped: 3, total: 11 },
+    })
+    expect(
+      v.issues.filter((i) => i.code.startsWith('dsl-')).map((i) => i.code),
+    ).toEqual(['dsl-unknown-block', 'dsl-bad-connector', 'dsl-syntax'])
     expect(reportBlock(v)).toContain('dsl-unknown-block')
   })
 
@@ -699,6 +707,53 @@ describe('requestSection', () => {
     expect(r.of('plan')[0]!.record.sectionId).toBe(job.sectionId)
   })
 
+  test('item-preview carries the validated IR before animation and review; item-ready supersedes it (ADR 0054)', async () => {
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphSource(),
+        animator: () => make.animationIR(),
+      }),
+    )
+    const repos = await seededRepos()
+    const order: string[] = []
+    const review: ReviewHook = async (record) => {
+      order.push('review')
+      return record
+    }
+    const job = pipelineWith(repos, llm, {
+      flags: flagsOff({ animations: true }),
+      validateAnimation: () => [],
+      review,
+    }).requestSection(L)
+    job.on('item-preview', () => order.push('preview'))
+    job.on('item-progress', (p) => order.push(p.stage))
+    const r = await collect(job)
+    const preview = r.of('item-preview')[0]!.record
+    const ready = r.of('item-ready')[0]!.record
+    expect(order.indexOf('preview')).toBeLessThan(order.indexOf('animating'))
+    expect(preview.animation).toBeUndefined()
+    expect(preview.ir).toEqual(ready.ir)
+    expect(preview.cacheKey).toBe(ready.cacheKey)
+    expect(ready.animation).toEqual(make.animationIR())
+    expect(await repos.visuals.get(ready.cacheKey)).toEqual(ready)
+
+    // Nothing left after extraction (no animation, no review): no preview, only item-ready.
+    const plain = await collect(
+      pipelineWith(await seededRepos(), llm).requestSection(L),
+    )
+    expect(plain.of('item-preview')).toEqual([])
+    expect(plain.of('item-ready')).toHaveLength(1)
+    // A cache hit never previews.
+    const cached = await collect(
+      pipelineWith(repos, llm, {
+        flags: flagsOff({ animations: true }),
+        review,
+      }).requestSection(L),
+    )
+    expect(cached.of('item-preview')).toEqual([])
+  })
+
   test('the animator gets the IR targets and supported actions', async () => {
     const llm = fakeLlm(
       byRole({
@@ -768,72 +823,123 @@ describe('requestSection', () => {
 
   test('stores a grounded flow-order fallback when the animator throws', async () => {
     const repos = await seededRepos()
-    const llm = fakeLlm(byRole({
-      planner: () => plan(),
-      'extractor.graph': () => make.graphSource(),
-      animator: () => { throw new Error('animator unavailable') },
-    }))
-    const validateAnimation = vi.fn<NonNullable<PipelineDeps['validateAnimation']>>((ir, candidate, { blocks }) => {
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphSource(),
+        animator: () => {
+          throw new Error('animator unavailable')
+        },
+      }),
+    )
+    const validateAnimation = vi.fn<
+      NonNullable<PipelineDeps['validateAnimation']>
+    >((ir, candidate, { blocks }) => {
       expect(blocks.has(`${L}#b0`)).toBe(true)
       expect(blocks.has(`${C}#b1`)).toBe(false)
-      const result = validateCoreAnimation(GraphIR.parse(ir), candidate, { grounding: { blocks } })
+      const result = validateCoreAnimation(GraphIR.parse(ir), candidate, {
+        grounding: { blocks },
+      })
       expect(result.ok).toBe(true)
       return result.issues
     })
-    const result = await collect(pipelineWith(repos, llm, {
-      flags: flagsOff({ animations: true }), validateAnimation,
-    }).requestSection(L))
+    const result = await collect(
+      pipelineWith(repos, llm, {
+        flags: flagsOff({ animations: true }),
+        validateAnimation,
+      }).requestSection(L),
+    )
     const record = result.of('item-ready')[0]!.record
-    expect(record.animation).toEqual(defaultStoryboard(record.ir as GraphIR, 'p1'))
+    expect(record.animation).toEqual(
+      defaultStoryboard(record.ir as GraphIR, 'p1'),
+    )
     expect(record.animation).toBeDefined()
     expect(validateAnimation).toHaveBeenCalledOnce()
     expect(record.validation.issues).toContainEqual({
-      layer: 'animation', severity: 'warning', code: 'animation-fallback',
-      message: 'Animator output was unusable; showed the graph in flow order instead.',
+      layer: 'animation',
+      severity: 'warning',
+      code: 'animation-fallback',
+      message:
+        'Animator output was unusable; showed the graph in flow order instead.',
     })
-    expect(record.validation.issues).toContainEqual(expect.objectContaining({ code: 'animation-failed' }))
+    expect(record.validation.issues).toContainEqual(
+      expect.objectContaining({ code: 'animation-failed' }),
+    )
     expect(await repos.visuals.get(record.cacheKey)).toEqual(record)
-    expect(llm.calls.map((c) => c.role)).toEqual(['planner', 'extractor.graph', 'animator'])
+    expect(llm.calls.map((c) => c.role)).toEqual([
+      'planner',
+      'extractor.graph',
+      'animator',
+    ])
   })
 
   test('keeps a valid animator animation and adds no fallback warning', async () => {
     const animation = make.animationIR()
-    const llm = fakeLlm(byRole({
-      planner: () => plan(),
-      'extractor.graph': () => make.graphSource(),
-      animator: () => animation,
-    }))
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphSource(),
+        animator: () => animation,
+      }),
+    )
     const validateAnimation = vi.fn(() => [])
-    const result = await collect(pipelineWith(await seededRepos(), llm, {
-      flags: flagsOff({ animations: true }), validateAnimation,
-    }).requestSection(L))
+    const result = await collect(
+      pipelineWith(await seededRepos(), llm, {
+        flags: flagsOff({ animations: true }),
+        validateAnimation,
+      }).requestSection(L),
+    )
     const record = result.of('item-ready')[0]!.record
     expect(record.animation).toEqual(animation)
     expect(validateAnimation).toHaveBeenCalledOnce()
-    expect(record.validation.issues.map((i) => i.code)).not.toContain('animation-fallback')
-    expect(llm.calls.map((c) => c.role)).toEqual(['planner', 'extractor.graph', 'animator'])
+    expect(record.validation.issues.map((i) => i.code)).not.toContain(
+      'animation-fallback',
+    )
+    expect(llm.calls.map((c) => c.role)).toEqual([
+      'planner',
+      'extractor.graph',
+      'animator',
+    ])
   })
 
   test('falls back after one unusable repair, reusing the exact evidence whitelist', async () => {
-    const llm = fakeLlm(byRole({
-      planner: () => plan(),
-      'extractor.graph': () => make.graphSource(),
-      animator: () => make.animationIR(), repair: () => make.animationIR(),
-    }))
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphSource(),
+        animator: () => make.animationIR(),
+        repair: () => make.animationIR(),
+      }),
+    )
     const whitelists: unknown[] = []
-    const result = await collect(pipelineWith(await seededRepos(), llm, {
-      flags: flagsOff({ animations: true }),
-      validateAnimation: (ir, candidate, { blocks }) => {
-        whitelists.push(blocks)
-        if (!candidate.steps[0]!.id.startsWith('storyboard-')) return [{
-          layer: 'animation', severity: 'error', code: 'animation-grounding', message: 'Ungrounded narration.',
-        }]
-        return validateCoreAnimation(GraphIR.parse(ir), candidate, { grounding: { blocks } }).issues
-      },
-    }).requestSection(L))
+    const result = await collect(
+      pipelineWith(await seededRepos(), llm, {
+        flags: flagsOff({ animations: true }),
+        validateAnimation: (ir, candidate, { blocks }) => {
+          whitelists.push(blocks)
+          if (!candidate.steps[0]!.id.startsWith('storyboard-'))
+            return [
+              {
+                layer: 'animation',
+                severity: 'error',
+                code: 'animation-grounding',
+                message: 'Ungrounded narration.',
+              },
+            ]
+          return validateCoreAnimation(GraphIR.parse(ir), candidate, {
+            grounding: { blocks },
+          }).issues
+        },
+      }).requestSection(L),
+    )
     const record = result.of('item-ready')[0]!.record
     expect(record.animation?.steps[0]!.id).toBe('storyboard-1')
-    expect(record.validation.issues).toContainEqual(expect.objectContaining({ code: 'animation-fallback', severity: 'warning' }))
+    expect(record.validation.issues).toContainEqual(
+      expect.objectContaining({
+        code: 'animation-fallback',
+        severity: 'warning',
+      }),
+    )
     expect(whitelists).toHaveLength(3)
     expect(whitelists.every((blocks) => blocks === whitelists[0])).toBe(true)
     expect(llm.calls.filter((c) => c.role === 'repair')).toHaveLength(1)
@@ -841,127 +947,225 @@ describe('requestSection', () => {
 
   test('keeps the static graph when fewer than three nodes can form a fallback', async () => {
     const graph = make.graphIR()
-    const small = make.graphIR({ nodes: graph.nodes.slice(0, 2), edges: graph.edges.slice(0, 1) })
-    const llm = fakeLlm(byRole({
-      planner: () => plan(), 'extractor.graph': () => make.graphSource(small),
-      animator: () => { throw new Error('animator unavailable') },
-    }))
+    const small = make.graphIR({
+      nodes: graph.nodes.slice(0, 2),
+      edges: graph.edges.slice(0, 1),
+    })
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphSource(small),
+        animator: () => {
+          throw new Error('animator unavailable')
+        },
+      }),
+    )
     const validateAnimation = vi.fn(() => [])
-    const result = await collect(pipelineWith(await seededRepos(), llm, {
-      flags: flagsOff({ animations: true }), validateAnimation,
-    }).requestSection(L))
+    const result = await collect(
+      pipelineWith(await seededRepos(), llm, {
+        flags: flagsOff({ animations: true }),
+        validateAnimation,
+      }).requestSection(L),
+    )
     const record = result.of('item-ready')[0]!.record
     expect(record.animation).toBeUndefined()
     expect(validateAnimation).not.toHaveBeenCalled()
-    expect(record.validation.issues.map((i) => i.code)).toContain('animation-failed')
-    expect(record.validation.issues.map((i) => i.code)).not.toContain('animation-fallback')
+    expect(record.validation.issues.map((i) => i.code)).toContain(
+      'animation-failed',
+    )
+    expect(record.validation.issues.map((i) => i.code)).not.toContain(
+      'animation-fallback',
+    )
   })
 
   test('rejects a fallback that fails animation validation and preserves the original warning', async () => {
-    const llm = fakeLlm(byRole({
-      planner: () => plan(), 'extractor.graph': () => make.graphSource(),
-      animator: () => { throw new Error('animator unavailable') },
-    }))
-    const validateAnimation = vi.fn(() => [{
-      layer: 'animation' as const, severity: 'error' as const,
-      code: 'animation-grounding', message: 'Evidence rejected.',
-    }])
-    const result = await collect(pipelineWith(await seededRepos(), llm, {
-      flags: flagsOff({ animations: true }), validateAnimation,
-    }).requestSection(L))
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphSource(),
+        animator: () => {
+          throw new Error('animator unavailable')
+        },
+      }),
+    )
+    const validateAnimation = vi.fn(() => [
+      {
+        layer: 'animation' as const,
+        severity: 'error' as const,
+        code: 'animation-grounding',
+        message: 'Evidence rejected.',
+      },
+    ])
+    const result = await collect(
+      pipelineWith(await seededRepos(), llm, {
+        flags: flagsOff({ animations: true }),
+        validateAnimation,
+      }).requestSection(L),
+    )
     const record = result.of('item-ready')[0]!.record
     expect(record.animation).toBeUndefined()
     expect(validateAnimation).toHaveBeenCalledOnce()
-    expect(record.validation.issues.map((i) => i.code)).toContain('animation-failed')
-    expect(record.validation.issues.map((i) => i.code)).not.toContain('animation-fallback')
+    expect(record.validation.issues.map((i) => i.code)).toContain(
+      'animation-failed',
+    )
+    expect(record.validation.issues.map((i) => i.code)).not.toContain(
+      'animation-fallback',
+    )
   })
 
   test('keeps the static visual if the fallback validator itself throws', async () => {
-    const llm = fakeLlm(byRole({
-      planner: () => plan(), 'extractor.graph': () => make.graphSource(),
-      animator: () => { throw new Error('animator unavailable') },
-    }))
-    const validateAnimation = vi.fn(() => { throw new Error('validator unavailable') })
-    const result = await collect(pipelineWith(await seededRepos(), llm, {
-      flags: flagsOff({ animations: true }), validateAnimation,
-    }).requestSection(L))
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphSource(),
+        animator: () => {
+          throw new Error('animator unavailable')
+        },
+      }),
+    )
+    const validateAnimation = vi.fn(() => {
+      throw new Error('validator unavailable')
+    })
+    const result = await collect(
+      pipelineWith(await seededRepos(), llm, {
+        flags: flagsOff({ animations: true }),
+        validateAnimation,
+      }).requestSection(L),
+    )
     expect(result.of('item-ready')[0]!.record.animation).toBeUndefined()
     expect(validateAnimation).toHaveBeenCalledOnce()
-    expect(result.of('item-ready')[0]!.record.validation.issues).toContainEqual(expect.objectContaining({ code: 'animation-failed' }))
+    expect(result.of('item-ready')[0]!.record.validation.issues).toContainEqual(
+      expect.objectContaining({ code: 'animation-failed' }),
+    )
   })
 
   test('keeps non-graph animator failures static', async () => {
-    const llm = fakeLlm(byRole({
-      planner: () => plan({ items: [make.planItem({ kind: 'sequence' })] }),
-      'extractor.mermaid': () => make.sequenceIR(),
-      animator: () => { throw new Error('animator unavailable') },
-    }))
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan({ items: [make.planItem({ kind: 'sequence' })] }),
+        'extractor.mermaid': () => make.sequenceIR(),
+        animator: () => {
+          throw new Error('animator unavailable')
+        },
+      }),
+    )
     const validateAnimation = vi.fn(() => [])
-    const result = await collect(pipelineWith(await seededRepos(), llm, {
-      flags: flagsOff({ animations: true }), validateAnimation,
-    }).requestSection(L))
+    const result = await collect(
+      pipelineWith(await seededRepos(), llm, {
+        flags: flagsOff({ animations: true }),
+        validateAnimation,
+      }).requestSection(L),
+    )
     const record = result.of('item-ready')[0]!.record
     expect(record.kind).toBe('sequence')
     expect(record.animation).toBeUndefined()
     expect(validateAnimation).not.toHaveBeenCalled()
-    expect(record.validation.issues.map((i) => i.code)).not.toContain('animation-fallback')
+    expect(record.validation.issues.map((i) => i.code)).not.toContain(
+      'animation-fallback',
+    )
   })
 
-  test.each([[false, true], [true, false]])('does not animate with flag=%s and plan animate=%s', async (enabled, animate) => {
-    const llm = fakeLlm(byRole({
-      planner: () => plan({ items: [make.planItem({ animate })] }),
-      'extractor.graph': () => make.graphSource(),
-    }))
-    const validateAnimation = vi.fn(() => [])
-    const result = await collect(pipelineWith(await seededRepos(), llm, {
-      flags: flagsOff({ animations: enabled }), validateAnimation,
-    }).requestSection(L))
-    expect(result.of('item-ready')[0]!.record.animation).toBeUndefined()
-    expect(llm.calls.map((c) => c.role)).toEqual(['planner', 'extractor.graph'])
-    expect(validateAnimation).not.toHaveBeenCalled()
-  })
+  test.each([
+    [false, true],
+    [true, false],
+  ])(
+    'does not animate with flag=%s and plan animate=%s',
+    async (enabled, animate) => {
+      const llm = fakeLlm(
+        byRole({
+          planner: () => plan({ items: [make.planItem({ animate })] }),
+          'extractor.graph': () => make.graphSource(),
+        }),
+      )
+      const validateAnimation = vi.fn(() => [])
+      const result = await collect(
+        pipelineWith(await seededRepos(), llm, {
+          flags: flagsOff({ animations: enabled }),
+          validateAnimation,
+        }).requestSection(L),
+      )
+      expect(result.of('item-ready')[0]!.record.animation).toBeUndefined()
+      expect(llm.calls.map((c) => c.role)).toEqual([
+        'planner',
+        'extractor.graph',
+      ])
+      expect(validateAnimation).not.toHaveBeenCalled()
+    },
+  )
 
   test('never requests animation for executed traces even when the plan asks', async () => {
-    const llm = fakeLlm(byRole({
-      planner: () => plan({ items: [make.planItem({ kind: 'trace', codeBlockId: TRACE_CODE_ID, animate: true })] }),
-      translator: () => make.translation(),
-    }))
+    const llm = fakeLlm(
+      byRole({
+        planner: () =>
+          plan({
+            items: [
+              make.planItem({
+                kind: 'trace',
+                codeBlockId: TRACE_CODE_ID,
+                animate: true,
+              }),
+            ],
+          }),
+        translator: () => make.translation(),
+      }),
+    )
     const validateAnimation = vi.fn(() => [])
-    const result = await collect(pipelineWith(await seededTraceRepos(), llm, {
-      flags: flagsOff({ animations: true, tracer: true }), validateAnimation,
-      traceRunner: { runTrace: async () => [make.scenarioTrace()] },
-    }).requestSection(L))
+    const result = await collect(
+      pipelineWith(await seededTraceRepos(), llm, {
+        flags: flagsOff({ animations: true, tracer: true }),
+        validateAnimation,
+        traceRunner: { runTrace: async () => [make.scenarioTrace()] },
+      }).requestSection(L),
+    )
     expect(result.of('item-ready')[0]!.record.kind).toBe('trace')
     expect(result.of('item-ready')[0]!.record.animation).toBeUndefined()
     expect(llm.calls.map((c) => c.role)).toEqual(['planner', 'translator'])
     expect(validateAnimation).not.toHaveBeenCalled()
   })
 
-  test.each(['aborted', 'plan-limit'] as const)('does not substitute a fallback for %s', async (code) => {
-    const repos = await seededRepos()
-    const llm = fakeLlm(byRole({
-      planner: () => plan(), 'extractor.graph': () => make.graphSource(),
-      animator: () => { throw new LlmError(code, 'stop') },
-    }))
-    const validateAnimation = vi.fn(() => [])
-    const result = await collect(pipelineWith(repos, llm, {
-      flags: flagsOff({ animations: true }), validateAnimation,
-    }).requestSection(L))
-    expect(result.of('item-ready')).toEqual([])
-    expect(await repos.visuals.listByPlanItem('p1')).toEqual([])
-    expect(validateAnimation).not.toHaveBeenCalled()
-  })
+  test.each(['aborted', 'plan-limit'] as const)(
+    'does not substitute a fallback for %s',
+    async (code) => {
+      const repos = await seededRepos()
+      const llm = fakeLlm(
+        byRole({
+          planner: () => plan(),
+          'extractor.graph': () => make.graphSource(),
+          animator: () => {
+            throw new LlmError(code, 'stop')
+          },
+        }),
+      )
+      const validateAnimation = vi.fn(() => [])
+      const result = await collect(
+        pipelineWith(repos, llm, {
+          flags: flagsOff({ animations: true }),
+          validateAnimation,
+        }).requestSection(L),
+      )
+      expect(result.of('item-ready')).toEqual([])
+      expect(await repos.visuals.listByPlanItem('p1')).toEqual([])
+      expect(validateAnimation).not.toHaveBeenCalled()
+    },
+  )
 
   test('does not build or store a fallback after cancellation during an animator failure', async () => {
     const repos = await seededRepos()
     const ref = {} as { job: SectionJob }
-    const llm = fakeLlm(byRole({
-      planner: () => plan(), 'extractor.graph': () => make.graphSource(),
-      animator: () => { ref.job.cancel(); throw new Error('late failure') },
-    }))
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphSource(),
+        animator: () => {
+          ref.job.cancel()
+          throw new Error('late failure')
+        },
+      }),
+    )
     const validateAnimation = vi.fn(() => [])
     ref.job = pipelineWith(repos, llm, {
-      flags: flagsOff({ animations: true }), validateAnimation,
+      flags: flagsOff({ animations: true }),
+      validateAnimation,
     }).requestSection(L)
     const result = await collect(ref.job)
     expect(result.of('done')).toEqual([{ cancelled: true }])
@@ -973,13 +1177,21 @@ describe('requestSection', () => {
   test('does not store a fallback when cancelled during its validation', async () => {
     const repos = await seededRepos()
     const ref = {} as { job: SectionJob }
-    const llm = fakeLlm(byRole({
-      planner: () => plan(), 'extractor.graph': () => make.graphSource(),
-      animator: () => { throw new Error('animator unavailable') },
-    }))
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphSource(),
+        animator: () => {
+          throw new Error('animator unavailable')
+        },
+      }),
+    )
     ref.job = pipelineWith(repos, llm, {
       flags: flagsOff({ animations: true }),
-      validateAnimation: () => { ref.job.cancel(); return [] },
+      validateAnimation: () => {
+        ref.job.cancel()
+        return []
+      },
     }).requestSection(L)
     const result = await collect(ref.job)
     expect(result.of('done')).toEqual([{ cancelled: true }])
@@ -1075,6 +1287,59 @@ describe('limits', () => {
     }
     await Promise.all([ps[0], ps[1], ps[3]])
     expect(peak).toBe(2)
+  })
+
+  test('every item starts at once; items on the same concept model run one after another (ADR 0054)', async () => {
+    const repos = await seededRepos()
+    const log: string[] = []
+    const gate = <T>(name: string, value: () => T) =>
+      new Promise<T>((r) => {
+        log.push(`start ${name}`)
+        setTimeout(() => {
+          log.push(`end ${name}`)
+          r(value())
+        }, 10)
+      })
+    const items = [
+      make.planItem({ planItemId: 'a', newConceptModel: 'c1', animate: false }),
+      make.planItem({
+        planItemId: 'b',
+        intent: 'A second view of the same model',
+        priority: 2,
+        newConceptModel: 'c1',
+        animate: false,
+      }),
+      make.planItem({ planItemId: 'c', priority: 3, animate: false }),
+    ]
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan({ items }),
+        'extractor.graph': () => gate('c', () => make.graphSource()),
+      }),
+    )
+    const r = await collect(
+      pipelineWith(repos, llm, {
+        flags: flagsOff({ conceptModels: true }),
+        conceptModels: ({ planItem }) =>
+          gate(planItem.planItemId, () => ({
+            kind: 'graph' as const,
+            ir: make.graphIR(),
+            report: make.validationReport(),
+            promptVersions: {},
+            models: {},
+            usageTokens: 0,
+          })),
+      }).requestSection(L),
+    )
+    expect(
+      r
+        .of('item-ready')
+        .map((e) => e.planItemId)
+        .sort(),
+    ).toEqual(['a', 'b', 'c'])
+    // c does not wait for a; b waits for a because both patch c1.
+    expect(log.indexOf('start c')).toBeLessThan(log.indexOf('end a'))
+    expect(log.indexOf('start b')).toBeGreaterThan(log.indexOf('end a'))
   })
 
   test('at most 4 LLM requests are in flight', async () => {
