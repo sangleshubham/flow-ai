@@ -9,7 +9,12 @@ import type { ReactNode } from 'react'
 import { animate } from 'motion'
 import { useReducedMotion } from 'motion/react'
 import type { Evidence, FrameState } from '@illus/core'
-import { HighlightToggle, useStepHighlight } from './highlight.tsx'
+import {
+  HighlightToggle,
+  Narration,
+  useHighlightOption,
+  useStepHighlight,
+} from './highlight.tsx'
 import { PlaybackControls, playbackKey, usePlayback } from './transport.tsx'
 
 export interface PlayerProps {
@@ -65,13 +70,10 @@ export function Player({
   onHighlightWhilePlayingChange,
 }: PlayerProps) {
   const [index, setIndex] = useState(0)
-  const [autoHighlight, setAutoHighlight] = useState(highlightWhilePlaying)
-  const checked = onHighlightWhilePlayingChange
-    ? highlightWhilePlaying
-    : autoHighlight
-  useEffect(() => {
-    setAutoHighlight(highlightWhilePlaying)
-  }, [highlightWhilePlaying])
+  const highlight = useHighlightOption({
+    value: highlightWhilePlaying,
+    onChange: onHighlightWhilePlayingChange,
+  })
   const root = useRef<HTMLDivElement>(null)
   const [surfaceVersion, setSurfaceVersion] = useState(0)
   const systemReduced = useReducedMotion()
@@ -120,7 +122,7 @@ export function Player({
   }, [safeIndex, onStepChange])
   useStepHighlight({
     evidence: frame?.evidence,
-    enabled: checked,
+    enabled: highlight.checked,
     onEvidenceHighlight,
   })
   const previous = useRef(
@@ -282,21 +284,10 @@ export function Player({
     >
       {renderFrame(frame)}
       <PlaybackControls {...controls} />
-      <div className="illus-narration" aria-live="polite" aria-atomic="true">
-        {frame.narration ? (
-          <button
-            type="button"
-            onClick={() => frame.evidence && onEvidenceClick?.(frame.evidence)}
-          >
-            {frame.narration}
-          </button>
-        ) : (
-          <span>Initial state</span>
-        )}
-      </div>
+      <Narration frame={frame} onEvidenceClick={onEvidenceClick} />
       <HighlightToggle
-        checked={checked}
-        onChange={onHighlightWhilePlayingChange ?? setAutoHighlight}
+        checked={highlight.checked}
+        onChange={highlight.onChange}
       />
     </div>
   )
