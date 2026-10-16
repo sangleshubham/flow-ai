@@ -23,24 +23,31 @@ export const SVG_CSS = `
 [data-ir-id] { transition: opacity 0.2s; }
 [data-ir-id].illus-hidden { opacity: 0 !important; pointer-events: none; }
 [data-ir-id].illus-removed { opacity: 0.15 !important; }
-.illus-tone-muted { opacity: 0.35; }
-.illus-tone-focus :is(rect, polygon, circle, ellipse, path.illus-shape):not(.illus-label-bg, .background, .illus-icon *), td.illus-tone-focus, tr.illus-tone-focus td { fill: var(--illus-highlight) !important; background: var(--illus-highlight); }
-.illus-tone-focus :is(rect, polygon, circle, ellipse, path, line):not(.illus-label-bg, .background, .illus-icon *), :is(path, line).illus-tone-focus { stroke: var(--illus-accent) !important; stroke-width: 2.5px !important; }
-.illus-tone-focus .illus-edge-head { fill: var(--illus-accent) !important; }
-.illus-tone-success :is(rect, polygon, circle, ellipse, path, line):not(.illus-label-bg, .background, .illus-icon *), :is(path, line).illus-tone-success { stroke: var(--illus-new) !important; stroke-width: 2.5px !important; }
-.illus-tone-success .illus-edge-head { fill: var(--illus-new) !important; }
-.illus-tone-warning :is(rect, polygon, circle, ellipse, path, line):not(.illus-label-bg, .background, .illus-icon *), :is(path, line).illus-tone-warning { stroke: var(--illus-fg) !important; stroke-width: 2.5px !important; stroke-dasharray: 3 2 !important; }
+:is(.illus-tone-muted, [data-tone="muted"]) { opacity: 0.35; }
+:is(.illus-tone-focus, [data-tone="focus"]) :is(rect, polygon, circle, ellipse, path.illus-shape):not(.illus-label-bg, .background, .illus-icon *), td:is(.illus-tone-focus, [data-tone="focus"]), tr:is(.illus-tone-focus, [data-tone="focus"]) td { fill: var(--illus-highlight) !important; background: var(--illus-highlight); }
+:is(.illus-tone-focus, [data-tone="focus"]) :is(rect, polygon, circle, ellipse, path, line):not(.illus-label-bg, .background, .illus-icon *), :is(path, line):is(.illus-tone-focus, [data-tone="focus"]) { stroke: var(--illus-accent) !important; stroke-width: 2.5px !important; }
+:is(.illus-tone-focus, [data-tone="focus"]) .illus-edge-head { fill: var(--illus-accent) !important; }
+:is(.illus-tone-success, [data-tone="success"]) :is(rect, polygon, circle, ellipse, path, line):not(.illus-label-bg, .background, .illus-icon *), :is(path, line):is(.illus-tone-success, [data-tone="success"]) { stroke: var(--illus-new) !important; stroke-width: 2.5px !important; }
+:is(.illus-tone-success, [data-tone="success"]) .illus-edge-head { fill: var(--illus-new) !important; }
+:is(.illus-tone-warning, [data-tone="warning"]) :is(rect, polygon, circle, ellipse, path, line):not(.illus-label-bg, .background, .illus-icon *), :is(path, line):is(.illus-tone-warning, [data-tone="warning"]) { stroke: var(--illus-fg) !important; stroke-width: 2.5px !important; stroke-dasharray: 3 2 !important; }
 .illus-new :is(rect, polygon, circle, ellipse, path.illus-shape, line):not(.illus-label-bg, .background, .illus-icon *), :is(path, line).illus-new { stroke: var(--illus-new) !important; stroke-width: 2px !important; }
 .illus-earlier { opacity: 0.6; }
 .illus-earlier :is(rect, polygon, circle, ellipse, path, line):not(.illus-label-bg, .background, .illus-icon *), :is(path, line).illus-earlier { stroke: var(--illus-earlier) !important; }
 .illus-icon { color: var(--illus-fg); overflow: visible; }
 .illus-icon * { transition: none; }
-${['blue:#2563eb', 'green:#16a34a', 'orange:#ea580c', 'red:#dc2626', 'purple:#9333ea', 'gray:#6b7280']
+${[
+  'blue:#2563eb',
+  'green:#16a34a',
+  'orange:#ea580c',
+  'red:#dc2626',
+  'purple:#9333ea',
+  'gray:#6b7280',
+]
   .map((pair) => {
     const [name, hex] = pair.split(':')
-    return `[data-color="${name}"] > .illus-shape { stroke: ${hex}; fill: color-mix(in srgb, ${hex} 12%, var(--illus-bg)); }
-[data-color="${name}"] > .illus-group-box { stroke: ${hex}; fill: color-mix(in srgb, ${hex} 5%, transparent); }
-.illus-svg [data-color="${name}"] > .illus-group-label { fill: ${hex}; }`
+    return `[data-color="${name}"] > .illus-shape, [data-color="${name}"] > .illus-node-body > .illus-shape { stroke: ${hex}; fill: color-mix(in srgb, ${hex} 12%, var(--illus-bg)); }
+[data-color="${name}"] > .illus-group-box, [data-color="${name}"] > .illus-group-body > .illus-group-box { stroke: ${hex}; fill: color-mix(in srgb, ${hex} 5%, transparent); }
+.illus-svg [data-color="${name}"] > .illus-group-label, .illus-svg [data-color="${name}"] > .illus-group-body > .illus-group-label { fill: ${hex}; }`
   })
   .join('\n')}
 .illus-term-active { color: var(--illus-accent); background: var(--illus-highlight); border-radius: 2px; }
