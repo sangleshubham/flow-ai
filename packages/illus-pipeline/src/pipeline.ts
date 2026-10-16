@@ -2,12 +2,14 @@
 import {
   COMPILER_VERSION,
   ConceptModelKind,
+  GraphIR,
   GraphSource,
   LlmError,
   ROLES,
   Translation,
   VisualKind,
   animationTargets,
+  defaultStoryboard,
   ground as defaultGround,
   needsReextract,
   parseGraphSource,
@@ -933,6 +935,43 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
               message: (e as Error).message,
             },
           ],
+        }
+      }
+      const fallbackGraph = !animation ? GraphIR.safeParse(ir) : undefined
+      if (fallbackGraph?.success) {
+        stopIfCancelled()
+        try {
+          const candidate = defaultStoryboard(
+            fallbackGraph.data,
+            item.planItemId,
+          )
+          const issues = candidate
+            ? deps.validateAnimation?.(ir, candidate, { blocks }) ?? []
+            : []
+          stopIfCancelled()
+          if (candidate && !issues.some((i) => i.severity === 'error')) {
+            animation = candidate
+            report = {
+              ...report,
+              issues: [
+                ...report.issues,
+                {
+                  layer: 'animation',
+                  severity: 'warning',
+                  code: 'animation-fallback',
+                  message:
+                    'Animator output was unusable; showed the graph in flow order instead.',
+                },
+              ],
+            }
+          }
+        } catch (error) {
+          if (
+            error instanceof LlmError &&
+            (error.code === 'aborted' || error.code === 'plan-limit')
+          )
+            throw error
+          // The fallback is best effort: keep the static visual and original animation warnings.
         }
       }
     }
