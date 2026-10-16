@@ -132,6 +132,9 @@ export function buildSceneTimeline(
     )
     return el && remember(el)
   }
+  /** The outer `[data-target]` `<g>`: GSAP may set its visibility, never its (React) transform. */
+  const outer = (el: SVGGElement) =>
+    remember(el.parentElement as unknown as SVGGElement)
   const edgeLine = (target: string) => {
     const line = body(target)?.querySelector<SVGPathElement>('.illus-edge-line')
     return line && remember(line)
@@ -189,6 +192,7 @@ export function buildSceneTimeline(
         },
         0,
       )
+      tl.set(outer(el), { visibility: initial ? 'visible' : 'hidden' }, 0)
     }
     applyCamera(plan.initialCamera)
     moveCamera(plan.initialCamera, plan.initialCamera, 0, 0)
@@ -231,6 +235,7 @@ export function buildSceneTimeline(
       duration: number,
     ) => {
       const was = opacity.get(target) ?? 0
+      tl.set(outer(el), { visibility: 'visible' }, at)
       tl.fromTo(
         el,
         was > 0
@@ -327,6 +332,9 @@ export function buildSceneTimeline(
         case 'hide':
         case 'fade': {
           const to = tween.kind === 'fade' ? 0.15 : 0
+          // An invisible element must not take hover, clicks or Tab focus: hide the outer <g> once the
+          // body has faded out (a faded body stays visible, like `.illus-removed`).
+          if (to) tl.set(outer(el), { visibility: 'visible' }, setAt(tween.at))
           // The start is the previous scene's opacity, never what the DOM happens to show now.
           tl.fromTo(
             el,
@@ -334,6 +342,12 @@ export function buildSceneTimeline(
             { opacity: to, duration: tween.duration, immediateRender: false },
             tween.at,
           )
+          if (!to)
+            tl.set(
+              outer(el),
+              { visibility: 'hidden' },
+              tween.at + tween.duration,
+            )
           opacity.set(tween.target, to)
           break
         }
@@ -345,6 +359,7 @@ export function buildSceneTimeline(
             break
           }
           tl.set(el, { opacity: 1 }, setAt(tween.at))
+          tl.set(outer(el), { visibility: 'visible' }, setAt(tween.at))
           tl.fromTo(
             line,
             { drawSVG: '0%' },

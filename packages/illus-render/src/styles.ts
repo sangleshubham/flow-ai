@@ -23,7 +23,9 @@ export const SVG_CSS = `
 [data-ir-id] { transition: opacity 0.2s; }
 [data-ir-id].illus-hidden { opacity: 0 !important; pointer-events: none; }
 [data-ir-id].illus-removed { opacity: 0.15 !important; }
-:is(.illus-tone-muted, [data-tone="muted"]) { opacity: 0.35; }
+.illus-tone-muted { opacity: 0.35; }
+/* Scene player: GSAP owns the body's inline opacity, so a muted tone dims the outer element instead. */
+[data-target]:has(> [data-anim-body][data-tone="muted"]) { opacity: 0.35; }
 :is(.illus-tone-focus, [data-tone="focus"]) :is(rect, polygon, circle, ellipse, path.illus-shape):not(.illus-label-bg, .background, .illus-icon *), td:is(.illus-tone-focus, [data-tone="focus"]), tr:is(.illus-tone-focus, [data-tone="focus"]) td { fill: var(--illus-highlight) !important; background: var(--illus-highlight); }
 :is(.illus-tone-focus, [data-tone="focus"]) :is(rect, polygon, circle, ellipse, path, line):not(.illus-label-bg, .background, .illus-icon *), :is(path, line):is(.illus-tone-focus, [data-tone="focus"]) { stroke: var(--illus-accent) !important; stroke-width: 2.5px !important; }
 :is(.illus-tone-focus, [data-tone="focus"]) .illus-edge-head { fill: var(--illus-accent) !important; }
