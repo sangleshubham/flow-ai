@@ -294,6 +294,39 @@ describe('concept pass', () => {
     ])
   })
 
+  test('a batch that fails twice does not block completion; the next start() retries only its sections (ADR 0057)', async () => {
+    const { repos } = await book()
+    let broken = true
+    const llm = fakeLlm((c) => {
+      // The batch holding S0 fails on both tiers while `broken`.
+      if (
+        c.role === 'indexer' &&
+        broken &&
+        [...c.ctx.body.matchAll(/<section id="([^"]+)"/g)].some((m) =>
+          /:0:s/.test(m[1]!),
+        )
+      )
+        throw new LlmError('upstream', 'down')
+      return answer(c)
+    })
+    const pass = createConceptPass({ bookId: BOOK, repos, llm })
+    const first = await pass.start()
+    // Batches here hold 4 sections (8,000 tokens of 2,000-token sections).
+    expect(first).toMatchObject({ done: true, failed: 4, indexed: N - 4 })
+    expect(first.error).toBeUndefined()
+    // The book context is finished without the failed batch.
+    expect(llm.calls.at(-1)?.role).toBe('book-summary')
+    expect((await repos.books.get(BOOK))?.indexStatus).toBe('complete')
+
+    broken = false
+    llm.calls.length = 0
+    const second = await pass.start()
+    expect(second).toMatchObject({ done: true, indexed: N })
+    expect(second.failed).toBeUndefined()
+    // Already complete: the retry indexes the gap without merging or summarising again.
+    expect(llm.calls.map((c) => c.role)).toEqual(['indexer'])
+  })
+
   test('pause() aborts the in-flight call and stops', async () => {
     const { repos } = await book()
     let release!: () => void

@@ -55,6 +55,11 @@ export interface ConceptPassProgress {
   done: boolean
   /** Set when the pass stopped on an error (e.g. `plan-limit`); `start()` resumes. */
   error?: LlmError
+  /**
+   * Sections whose batch failed twice in this run (ADR 0057). The pass still completes without them;
+   * they stay unindexed until a later `start()` or `indexNow` retries them.
+   */
+  failed?: number
 }
 
 export interface ConceptPass {
@@ -105,6 +110,7 @@ export function createConceptPass(deps: ConceptPassDeps): ConceptPass {
       total,
       done: book?.indexStatus === 'complete',
       ...(error && { error }),
+      ...(failed.size > 0 && { failed: failed.size }),
     }
   }
 
@@ -129,7 +135,9 @@ export function createConceptPass(deps: ConceptPassDeps): ConceptPass {
         )
         if (!pending.length) {
           const book = await repos.books.get(bookId)
-          if (book && book.indexStatus !== 'complete' && !failed.size) {
+          // Only sections whose batch failed twice may remain: finish the book context anyway, so one
+          // bad batch never keeps the whole book from completing (ADR 0057).
+          if (book && book.indexStatus !== 'complete') {
             await mergeGlossary(signal)
             await summarize(signal)
             await repos.books.put({
