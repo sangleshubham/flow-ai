@@ -435,3 +435,5 @@ export async function validateAnimationWithRepair(
 }
 
 export { withDerivedVisibility } from './visibility.ts'
+export { sceneOf, cameraBox } from './scene.ts'
+export type { Scene, SceneBox } from './scene.ts'
