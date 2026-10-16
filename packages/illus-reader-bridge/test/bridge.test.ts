@@ -27,6 +27,138 @@ describe('ReaderBridge lifecycle', () => {
     x.sections[1]!.mergedInto = 'a'; x.emit('relocated', { start: { cfi: 'epubcfi(/6/2!/4/4)' } }); await vi.advanceTimersByTimeAsync(400); expect(cb).toHaveBeenCalledTimes(1)
     x.bridge.dispose(); expect(x.events.size).toBe(0)
   })
+  it('uses the last heading that starts on the visible page', async () => {
+    vi.useFakeTimers()
+    const x = setup()
+    const cb = vi.fn()
+    x.bridge.onLocationChange(cb)
+    await Promise.resolve()
+    x.emit('relocated', {
+      start: { cfi: 'epubcfi(/6/2!/4/2/1:3)' },
+      end: { cfi: 'epubcfi(/6/2!/4/6)' },
+    })
+    await vi.advanceTimersByTimeAsync(400)
+    expect(cb).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sectionId: 'b' }),
+    )
+    x.bridge.dispose()
+  })
+  it.each(['setTarget', 'illus:navigate'])(
+    'honours %s until paging away and does not reuse it on return',
+    async (channel) => {
+      vi.useFakeTimers()
+      const x = setup()
+      const cb = vi.fn()
+      x.bridge.onLocationChange(cb)
+      await Promise.resolve()
+      await vi.advanceTimersByTimeAsync(400)
+      if (channel === 'setTarget') x.bridge.setTarget(x.sections[0]!.cfiStart)
+      else x.emit(channel, x.sections[0]!.cfiStart)
+      const page = {
+        start: { cfi: x.sections[0]!.cfiStart },
+        end: { cfi: 'epubcfi(/6/2!/4/6)' },
+      }
+      x.emit('relocated', page)
+      await vi.advanceTimersByTimeAsync(400)
+      expect(cb).toHaveBeenCalledTimes(2) // a repeated section is republished after explicit navigation
+      expect(cb).toHaveBeenLastCalledWith(
+        expect.objectContaining({ sectionId: 'a' }),
+      )
+      x.emit('relocated', {
+        start: { cfi: 'epubcfi(/6/2!/4/4/1:2)' },
+        end: { cfi: 'epubcfi(/6/2!/4/6)' },
+      })
+      await vi.advanceTimersByTimeAsync(400)
+      expect(cb).toHaveBeenLastCalledWith(
+        expect.objectContaining({ sectionId: 'b' }),
+      )
+      x.emit('relocated', page)
+      await vi.advanceTimersByTimeAsync(400)
+      expect(cb).toHaveBeenCalledTimes(3)
+      expect(cb).toHaveBeenLastCalledWith(
+        expect.objectContaining({ sectionId: 'b' }),
+      )
+      x.bridge.dispose()
+      expect(x.events.size).toBe(0)
+    },
+  )
+  it('sets the scroll target before display can emit a relocation', async () => {
+    vi.useFakeTimers()
+    const x = setup()
+    const cb = vi.fn()
+    x.bridge.onLocationChange(cb)
+    await Promise.resolve()
+    vi.mocked(x.rendition.display).mockImplementation(async (cfi) => {
+      x.emit('relocated', {
+        start: { cfi },
+        end: { cfi: 'epubcfi(/6/2!/4/6)' },
+      })
+    })
+    await x.bridge.scrollTo(x.sections[0]!.cfiStart)
+    await vi.advanceTimersByTimeAsync(400)
+    expect(cb).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sectionId: 'a' }),
+    )
+    x.bridge.dispose()
+  })
+  it('keeps an unseen target pending while other pages use the page rule', async () => {
+    vi.useFakeTimers()
+    const x = setup()
+    const cb = vi.fn()
+    x.bridge.onLocationChange(cb)
+    await Promise.resolve()
+    x.bridge.setTarget(x.sections[0]!.cfiStart)
+    x.emit('relocated', {
+      start: { cfi: 'epubcfi(/6/2!/4/4/1:2)' },
+      end: { cfi: 'epubcfi(/6/2!/4/6)' },
+    })
+    await vi.advanceTimersByTimeAsync(400)
+    expect(cb).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sectionId: 'b' }),
+    )
+    x.emit('relocated', {
+      start: { cfi: x.sections[0]!.cfiStart },
+      end: { cfi: 'epubcfi(/6/2!/4/6)' },
+    })
+    await vi.advanceTimersByTimeAsync(400)
+    expect(cb).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sectionId: 'a' }),
+    )
+    x.bridge.dispose()
+  })
+  it('preserves start-only resolution when a relocation has no page end', async () => {
+    vi.useFakeTimers()
+    const x = setup()
+    const cb = vi.fn()
+    x.bridge.onLocationChange(cb)
+    await Promise.resolve()
+    x.bridge.setTarget(x.sections[1]!.cfiStart)
+    x.emit('relocated', { start: { cfi: x.sections[0]!.cfiStart } })
+    await vi.advanceTimersByTimeAsync(400)
+    expect(cb).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sectionId: 'a' }),
+    )
+    x.bridge.dispose()
+  })
+  it('ignores navigation events that do not carry a CFI', async () => {
+    vi.useFakeTimers()
+    const x = setup()
+    const cb = vi.fn()
+    x.bridge.onLocationChange(cb)
+    await Promise.resolve()
+    x.bridge.setTarget(x.sections[0]!.cfiStart)
+    x.emit('illus:navigate', 'chapter.xhtml#b')
+    x.emit('illus:navigate', {})
+    x.emit('relocated', {
+      start: { cfi: x.sections[0]!.cfiStart },
+      end: { cfi: 'epubcfi(/6/2!/4/6)' },
+    })
+    await vi.advanceTimersByTimeAsync(400)
+    expect(cb).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sectionId: 'a' }),
+    )
+    x.bridge.dispose()
+  })
   it('returns a precise quotation CFI and keeps evidence/step marks separate on cleanup', async () => {
     const x = setup(); const cfi = await x.bridge.quoteToCfi(x.block.blockId, 'leader accepts client requests')
     expect(cfi).toBeTruthy(); expect(new EpubCFI(cfi!).toRange(document).toString()).toBe('leader accepts client requests')

@@ -1,8 +1,13 @@
 // §6 steps 3–5 and 11–13 on jsdom documents: sections, TOC alignment, splits, merges, cross-references.
-import { createMemoryRepos } from '@illus/core/testing'
+import { createMemoryRepos, make } from '@illus/core/testing'
 import { describe, expect, test } from 'vitest'
 
-import { buildLexicalIndex, getSectionAt, runInSlices } from '../src/index.ts'
+import {
+  buildLexicalIndex,
+  getSectionAt,
+  getSectionForPage,
+  runInSlices,
+} from '../src/index.ts'
 import { indexDocs, prose } from './helpers.ts'
 
 const titles = async (...args: Parameters<typeof indexDocs>) =>
@@ -268,6 +273,52 @@ describe('getSectionAt (§14)', () => {
     expect(getSectionAt(sections, 'epubcfi(/6/4!/4/1:0)')).toBe(c) // before the first heading of its spine item
     expect(getSectionAt(sections, 'epubcfi(/6/4!/4/4/1:0)')).toBe(c)
     expect(getSectionAt(sections, 'epubcfi(/6/8!/4/2)')).toBeNull()
+  })
+})
+
+describe('getSectionForPage (ADR 0053)', () => {
+  const sections = [2, 4, 8].map((offset, ordinal) =>
+    make.sectionNode({
+      sectionId: ['a', 'b', 'c'][ordinal],
+      spineIndex: 0,
+      ordinal,
+      cfiStart: `epubcfi(/6/2!/4/${offset})`,
+    }),
+  )
+  test.each([
+    ['/4/2/1:10', '/4/6', 'b'],
+    ['/4/2/1:10', '/4/8/1:3', 'c'],
+    ['/4/4/1:2', '/4/6', 'b'],
+    ['/4/4', '/4/6', 'b'],
+    ['/4/2/1:10', '/4/4', 'b'],
+  ])('page %s to %s belongs to %s', (start, end, sectionId) => {
+    expect(
+      getSectionForPage(
+        sections,
+        `epubcfi(/6/2!${start})`,
+        `epubcfi(/6/2!${end})`,
+      )?.sectionId,
+    ).toBe(sectionId)
+  })
+  test('without an end, uses the section containing the page start', () => {
+    const start = 'epubcfi(/6/2!/4/2/1:10)'
+    expect(getSectionForPage(sections, start)).toBe(
+      getSectionAt(sections, start),
+    )
+  })
+  test('does not choose a later spine item before its first heading', () => {
+    const next = make.sectionNode({
+      spineIndex: 1,
+      ordinal: 3,
+      cfiStart: 'epubcfi(/6/4!/4/4)',
+    })
+    expect(
+      getSectionForPage(
+        [...sections, next],
+        'epubcfi(/6/2!/4/8/1:3)',
+        'epubcfi(/6/4!/4/2)',
+      ),
+    ).toBe(sections[2])
   })
 })
 

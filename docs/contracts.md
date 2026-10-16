@@ -12,6 +12,16 @@ Test helpers (`@illus/core/testing`) are described in `packages/illus-core/READM
 
 ## Changelog
 
+### v1.4 addendum (2026-10-16, [ADR 0050](adr/0050-scene-player-for-graph-animations.md))
+
+Additive; `CONTRACTS_VERSION` stays `1.4.0` and every v1.4 producer and consumer stays valid. No schema, `Action` or model-output change: `AnimationIR`, `FrameState` and every `SchemaName` are as before.
+
+- `FlagName` gains `'sceneAnimations'` (owner W6, **off by default**), so `Flags`, `FlagOverrides` and `DEFAULT_FLAGS` gain the key; settings stored earlier inherit `false`. It selects the graph scene player only when `animations` is also on, and it changes presentation only, so it is deliberately not part of the plan-key `kinds` (switching players reuses the cached plan and illustration).
+- `withDerivedVisibility(ir, frame): FrameState` derives what is actually drawn: an edge (state transition, class relation, ER relationship or sequence message) is hidden or removed together with either endpoint node, a graph group is hidden when all its member nodes are hidden, and tokens travelling on a hidden edge are dropped. It returns the same frame when nothing changes and never mutates precomputed frames.
+- Scene API for the graph scene player, DOM-free and pure: `sceneOf(ir: GraphIR, frame): Scene` (a complete scene that does not depend on earlier frames), `cameraBox(scene, boxes, full, options?): SceneBox` (fits the visible nodes and groups, or an explicit focus), and `compileSceneTimeline(ir, frames, boxes, full): SceneTimeline` (deterministic choreography at speed 1). Types: `Scene`, `SceneBox`, `SceneStep`, `SceneTimeline` and `SceneTween` (`show`, `hide`, `fade`, `draw`, `tone`, `annotate`, `token`, `camera`).
+- `defaultStoryboard(ir: GraphIR, planItemId: string): AnimationIR | null`: a deterministic reveal-in-flow-order animation for a validated graph, used when the animator fails; `null` for graphs with fewer than 3 nodes. Each step cites its first node's grounded evidence, and callers validate it like any other animation.
+- GSAP 3.15.0 is a dependency of `@illus/anim` only, recorded in `docs/dependencies.md`; `@illus/core` gains no dependency.
+
 ### v1.4 (2026-10-12, [ADR 0049](adr/0049-graph-diagram-language-and-icons.md))
 
 Additive; every v1.3 producer and consumer stays valid. The sections below were patched by hand for these types; regenerate with `pnpm contracts` and re-apply Prettier when convenient.
@@ -50,6 +60,63 @@ Initial freeze.
 
 ## 1. Data types
 
+### `src/anim/scene-timeline.ts`
+
+```ts
+type SceneTween =
+  | {
+      kind: 'show'
+      target: string
+      at: number
+      duration: number
+    }
+  | {
+      kind: 'hide'
+      target: string
+      at: number
+      duration: number
+    }
+  | {
+      kind: 'fade'
+      target: string
+      at: number
+      duration: number
+    }
+  | {
+      kind: 'draw'
+      target: string
+      at: number
+      duration: number
+    }
+  | {
+      kind: 'tone'
+      target: string
+      tone: HighlightTone | null
+      at: number
+    }
+  | {
+      kind: 'annotate'
+      target: string
+      text: string | null
+      at: number
+    }
+  | {
+      kind: 'token'
+      id: string
+      label?: string
+      edges: string[]
+      at: number
+      duration: number
+    }
+  | {
+      kind: 'camera'
+      from: SceneBox
+      to: SceneBox
+      at: number
+      duration: number
+    }
+```
+
 ### `src/flags/index.ts`
 
 ```ts
@@ -57,6 +124,7 @@ type FlagName =
   | 'critic'
   | 'templates'
   | 'animations'
+  | 'sceneAnimations'
   | 'tracer'
   | 'conceptModels'
   | 'htmlFallback'
@@ -65,6 +133,7 @@ type Flags = {
   readonly critic: boolean
   readonly templates: boolean
   readonly animations: boolean
+  readonly sceneAnimations: boolean
   readonly tracer: boolean
   readonly conceptModels: boolean
   readonly htmlFallback: boolean
@@ -75,6 +144,7 @@ type FlagOverrides = {
   critic?: boolean | undefined
   templates?: boolean | undefined
   animations?: boolean | undefined
+  sceneAnimations?: boolean | undefined
   tracer?: boolean | undefined
   conceptModels?: boolean | undefined
   htmlFallback?: boolean | undefined
@@ -256,6 +326,7 @@ type Action =
 
 type ActionOp =
   | 'set'
+  | 'token'
   | 'focus'
   | 'highlight'
   | 'unhighlight'
@@ -269,7 +340,6 @@ type ActionOp =
   | 'dequeue'
   | 'add'
   | 'remove'
-  | 'token'
   | 'annotate'
 
 /** One step: narration ≤ 140 characters, grounded, ≤ 6 actions (§11). */
@@ -846,6 +916,15 @@ type PatchOp =
         }
         sublabel?: string | undefined
         group?: string | undefined
+        icon?: string | undefined
+        color?:
+          | 'blue'
+          | 'green'
+          | 'orange'
+          | 'red'
+          | 'purple'
+          | 'gray'
+          | undefined
       }
     }
   | {
@@ -878,6 +957,15 @@ type PatchOp =
           fuzzy?: boolean | undefined
         }
         parent?: string | undefined
+        icon?: string | undefined
+        color?:
+          | 'blue'
+          | 'green'
+          | 'orange'
+          | 'red'
+          | 'purple'
+          | 'gray'
+          | undefined
       }
     }
   | {
@@ -998,6 +1086,15 @@ type PatchOutput = {
           }
           sublabel?: string | undefined
           group?: string | undefined
+          icon?: string | undefined
+          color?:
+            | 'blue'
+            | 'green'
+            | 'orange'
+            | 'red'
+            | 'purple'
+            | 'gray'
+            | undefined
         }
       }
     | {
@@ -1030,6 +1127,15 @@ type PatchOutput = {
             fuzzy?: boolean | undefined
           }
           parent?: string | undefined
+          icon?: string | undefined
+          color?:
+            | 'blue'
+            | 'green'
+            | 'orange'
+            | 'red'
+            | 'purple'
+            | 'gray'
+            | undefined
         }
       }
     | {
@@ -1155,6 +1261,15 @@ type Patch = {
           }
           sublabel?: string | undefined
           group?: string | undefined
+          icon?: string | undefined
+          color?:
+            | 'blue'
+            | 'green'
+            | 'orange'
+            | 'red'
+            | 'purple'
+            | 'gray'
+            | undefined
         }
       }
     | {
@@ -1187,6 +1302,15 @@ type Patch = {
             fuzzy?: boolean | undefined
           }
           parent?: string | undefined
+          icon?: string | undefined
+          color?:
+            | 'blue'
+            | 'green'
+            | 'orange'
+            | 'red'
+            | 'purple'
+            | 'gray'
+            | undefined
         }
       }
     | {
@@ -1323,6 +1447,15 @@ type ConceptModel = {
             }
             sublabel?: string | undefined
             group?: string | undefined
+            icon?: string | undefined
+            color?:
+              | 'blue'
+              | 'green'
+              | 'orange'
+              | 'red'
+              | 'purple'
+              | 'gray'
+              | undefined
           }
         }
       | {
@@ -1355,6 +1488,15 @@ type ConceptModel = {
               fuzzy?: boolean | undefined
             }
             parent?: string | undefined
+            icon?: string | undefined
+            color?:
+              | 'blue'
+              | 'green'
+              | 'orange'
+              | 'red'
+              | 'purple'
+              | 'gray'
+              | undefined
           }
         }
       | {
@@ -1654,10 +1796,108 @@ type GlossaryOutput = {
 }
 ```
 
+### `src/schemas/icons.ts`
+
+```ts
+type GraphIconName =
+  | 'code'
+  | 'table'
+  | 'user'
+  | 'users'
+  | 'client'
+  | 'mobile'
+  | 'server'
+  | 'servers'
+  | 'database'
+  | 'disk'
+  | 'cold-storage'
+  | 'tape'
+  | 'document'
+  | 'documents'
+  | 'folder'
+  | 'logs'
+  | 'metrics'
+  | 'gear'
+  | 'application'
+  | 'stream'
+  | 'firewall'
+  | 'shield'
+  | 'lock'
+  | 'credentials'
+  | 'token'
+  | 'email'
+  | 'chat'
+  | 'forums'
+  | 'internet'
+  | 'globe'
+  | 'json'
+  | 'sdk'
+  | 'git'
+  | 'programming'
+  | 'alert'
+  | 'search'
+  | 'recover'
+  | 'toolkit'
+  | 'building'
+  | 'question'
+  | 'camera'
+  | 'multimedia'
+  | 'console'
+  | 'aws-lambda'
+  | 'aws-s3'
+  | 'aws-dynamodb'
+  | 'aws-rds'
+  | 'aws-aurora'
+  | 'aws-elasticache'
+  | 'aws-memorydb'
+  | 'aws-documentdb'
+  | 'aws-keyspaces'
+  | 'aws-neptune'
+  | 'aws-timestream'
+  | 'aws-redshift'
+  | 'aws-sqs'
+  | 'aws-sns'
+  | 'aws-kinesis'
+  | 'aws-msk'
+  | 'aws-eventbridge'
+  | 'aws-step-functions'
+  | 'aws-ec2'
+  | 'aws-ecs'
+  | 'aws-eks'
+  | 'aws-fargate'
+  | 'aws-batch'
+  | 'aws-api-gateway'
+  | 'aws-cloudfront'
+  | 'aws-elb'
+  | 'aws-route53'
+  | 'aws-vpc'
+  | 'aws-iam'
+  | 'aws-cognito'
+  | 'aws-kms'
+  | 'aws-secrets-manager'
+  | 'aws-waf'
+  | 'aws-shield'
+  | 'aws-cloudwatch'
+  | 'aws-athena'
+  | 'aws-glue'
+  | 'aws-emr'
+  | 'aws-opensearch'
+  | 'aws-sagemaker'
+  | 'aws-bedrock'
+  | 'aws-efs'
+  | 'aws-ebs'
+```
+
 ### `src/schemas/ir.ts`
 
 ```ts
 type GraphNodeShape = 'queue' | 'box' | 'store' | 'actor' | 'decision' | 'note'
+
+/** Icon drawn above a node's label or beside a group's (ADR 0049). One of `GRAPH_ICONS`; unknown names are not a schema error so an icon catalog change never invalidates stored visuals, the renderer skips them. */
+type GraphIcon = string
+
+/** Accent colour of a node or group (ADR 0049); themed by the renderer. */
+type GraphColor = 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'gray'
 
 type GraphNode = {
   id: string
@@ -1706,11 +1946,6 @@ type GraphGroup = {
   color?: 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'gray' | undefined
 }
 
-/** What the graph extractor returns (ADR 0049): the diagram in the graph diagram language. */
-type GraphSource = {
-  source: string
-}
-
 /** Components and what calls what; layered with ELK (§8, §10). ≤ 12 nodes, ≤ 18 edges. */
 type GraphIR = {
   type: 'graph'
@@ -1729,6 +1964,8 @@ type GraphIR = {
     }
     sublabel?: string | undefined
     group?: string | undefined
+    icon?: string | undefined
+    color?: 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'gray' | undefined
   }[]
   edges: {
     id: string
@@ -1755,7 +1992,14 @@ type GraphIR = {
       fuzzy?: boolean | undefined
     }
     parent?: string | undefined
+    icon?: string | undefined
+    color?: 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'gray' | undefined
   }[]
+}
+
+/** What the graph extractor returns (ADR 0049): the diagram as a short Eraser-style source text that `parseGraphSource` (@illus/core compile) turns into a `GraphIR`, which is then validated like any IR. */
+type GraphSource = {
+  source: string
 }
 
 type SequenceParticipant = {
@@ -2371,6 +2615,15 @@ type IR =
         }
         sublabel?: string | undefined
         group?: string | undefined
+        icon?: string | undefined
+        color?:
+          | 'blue'
+          | 'green'
+          | 'orange'
+          | 'red'
+          | 'purple'
+          | 'gray'
+          | undefined
       }[]
       edges: {
         id: string
@@ -2397,6 +2650,15 @@ type IR =
           fuzzy?: boolean | undefined
         }
         parent?: string | undefined
+        icon?: string | undefined
+        color?:
+          | 'blue'
+          | 'green'
+          | 'orange'
+          | 'red'
+          | 'purple'
+          | 'gray'
+          | undefined
       }[]
     }
   | {
@@ -2705,6 +2967,7 @@ type SchemaName =
   | 'GlossaryOutput'
   | 'BookSummary'
   | 'VisualPlan'
+  | 'GraphSource'
   | 'GraphIR'
   | 'SequenceIR'
   | 'StateIR'
@@ -2772,6 +3035,7 @@ type LlmRequest = {
     | 'GlossaryOutput'
     | 'BookSummary'
     | 'VisualPlan'
+    | 'GraphSource'
     | 'GraphIR'
     | 'SequenceIR'
     | 'StateIR'
@@ -2937,6 +3201,7 @@ type PlanItem = {
   codeBlockId?: string | undefined
   conceptModelId?: string | undefined
   newConceptModel?: string | undefined
+  caption?: string | undefined
 }
 
 /** Output of the `planner` role (§5, §8 stage 1): at most 3 items, none when no visual is needed. */
@@ -2983,7 +3248,9 @@ type VisualPlan = {
     codeBlockId?: string | undefined
     conceptModelId?: string | undefined
     newConceptModel?: string | undefined
+    caption?: string | undefined
   }[]
+  overview?: string | undefined
 }
 
 /** Record of the `plans` store (§5), keyed by the plan cache key. */
@@ -3034,7 +3301,9 @@ type PlanRecord = {
       codeBlockId?: string | undefined
       conceptModelId?: string | undefined
       newConceptModel?: string | undefined
+      caption?: string | undefined
     }[]
+    overview?: string | undefined
   }
   partialContext: boolean
   model: string
@@ -4171,7 +4440,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
           },
           "summary": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "At most 60 words."
           },
           "defines": {
             "type": "array",
@@ -4191,7 +4461,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                     },
                     "quote": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "description": "At most 30 words."
                     },
                     "start": {
                       "type": "integer",
@@ -4331,7 +4602,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
   "properties": {
     "summary": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "At most 150 words."
     },
     "conventions": {
       "type": "array",
@@ -4367,6 +4639,11 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
     "reason": {
       "type": "string",
       "minLength": 1
+    },
+    "overview": {
+      "type": "string",
+      "minLength": 1,
+      "description": "At most 120 words."
     },
     "items": {
       "maxItems": 3,
@@ -4417,7 +4694,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
           },
           "intent": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "At most 25 words."
           },
           "conceptIds": {
             "type": "array",
@@ -4444,6 +4722,11 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
           },
           "animate": {
             "type": "boolean"
+          },
+          "caption": {
+            "type": "string",
+            "minLength": 1,
+            "description": "At most 60 words."
           }
         },
         "required": [
@@ -4459,6 +4742,29 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
     }
   },
   "required": ["sectionId", "needsVisual", "reason", "items"],
+  "additionalProperties": false
+}
+```
+
+</details>
+
+### GraphSource
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8000,
+      "description": "The diagram in the graph diagram language, one statement per line."
+    }
+  },
+  "required": ["source"],
   "additionalProperties": false
 }
 ```
@@ -4514,6 +4820,14 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
             "type": "string",
             "enum": ["box", "store", "actor", "queue", "decision", "note"]
           },
+          "icon": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{1,40}$"
+          },
+          "color": {
+            "type": "string",
+            "enum": ["blue", "green", "orange", "red", "purple", "gray"]
+          },
           "evidence": {
             "type": "object",
             "properties": {
@@ -4523,7 +4837,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
               },
               "quote": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "At most 30 words."
               },
               "start": {
                 "type": "integer",
@@ -4583,7 +4898,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
               },
               "quote": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "At most 30 words."
               },
               "start": {
                 "type": "integer",
@@ -4625,6 +4941,14 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
             "type": "string",
             "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,47}$"
           },
+          "icon": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{1,40}$"
+          },
+          "color": {
+            "type": "string",
+            "enum": ["blue", "green", "orange", "red", "purple", "gray"]
+          },
           "evidence": {
             "type": "object",
             "properties": {
@@ -4634,7 +4958,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
               },
               "quote": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "At most 30 words."
               },
               "start": {
                 "type": "integer",
@@ -4707,7 +5032,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
               },
               "quote": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "At most 30 words."
               },
               "start": {
                 "type": "integer",
@@ -4767,7 +5093,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
               },
               "quote": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "At most 30 words."
               },
               "start": {
                 "type": "integer",
@@ -4851,7 +5178,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
               },
               "quote": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "At most 30 words."
               },
               "start": {
                 "type": "integer",
@@ -4911,7 +5239,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
               },
               "quote": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "At most 30 words."
               },
               "start": {
                 "type": "integer",
@@ -5011,7 +5340,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                     },
                     "quote": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "description": "At most 30 words."
                     },
                     "start": {
                       "type": "integer",
@@ -5074,7 +5404,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                     },
                     "quote": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "description": "At most 30 words."
                     },
                     "start": {
                       "type": "integer",
@@ -5107,7 +5438,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
               },
               "quote": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "At most 30 words."
               },
               "start": {
                 "type": "integer",
@@ -5182,7 +5514,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
               },
               "quote": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "At most 30 words."
               },
               "start": {
                 "type": "integer",
@@ -5275,7 +5608,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                     },
                     "quote": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "description": "At most 30 words."
                     },
                     "start": {
                       "type": "integer",
@@ -5308,7 +5642,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
               },
               "quote": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "At most 30 words."
               },
               "start": {
                 "type": "integer",
@@ -5385,7 +5720,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
               },
               "quote": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "At most 30 words."
               },
               "start": {
                 "type": "integer",
@@ -5479,7 +5815,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
               },
               "quote": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "At most 30 words."
               },
               "start": {
                 "type": "integer",
@@ -5602,7 +5939,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
               },
               "quote": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "At most 30 words."
               },
               "start": {
                 "type": "integer",
@@ -5678,7 +6016,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
               },
               "quote": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "At most 30 words."
               },
               "start": {
                 "type": "integer",
@@ -5781,7 +6120,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
               },
               "quote": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "At most 30 words."
               },
               "start": {
                 "type": "integer",
@@ -5911,7 +6251,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
               },
               "quote": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "At most 30 words."
               },
               "start": {
                 "type": "integer",
@@ -6698,6 +7039,14 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       "note"
                     ]
                   },
+                  "icon": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9-]{1,40}$"
+                  },
+                  "color": {
+                    "type": "string",
+                    "enum": ["blue", "green", "orange", "red", "purple", "gray"]
+                  },
                   "evidence": {
                     "type": "object",
                     "properties": {
@@ -6707,7 +7056,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       },
                       "quote": {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "description": "At most 30 words."
                       },
                       "start": {
                         "type": "integer",
@@ -6774,7 +7124,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       },
                       "quote": {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "description": "At most 30 words."
                       },
                       "start": {
                         "type": "integer",
@@ -6824,6 +7175,14 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                     "type": "string",
                     "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,47}$"
                   },
+                  "icon": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9-]{1,40}$"
+                  },
+                  "color": {
+                    "type": "string",
+                    "enum": ["blue", "green", "orange", "red", "purple", "gray"]
+                  },
                   "evidence": {
                     "type": "object",
                     "properties": {
@@ -6833,7 +7192,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       },
                       "quote": {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "description": "At most 30 words."
                       },
                       "start": {
                         "type": "integer",
@@ -6888,7 +7248,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       },
                       "quote": {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "description": "At most 30 words."
                       },
                       "start": {
                         "type": "integer",
@@ -6955,7 +7316,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       },
                       "quote": {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "description": "At most 30 words."
                       },
                       "start": {
                         "type": "integer",
@@ -7010,7 +7372,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       },
                       "quote": {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "description": "At most 30 words."
                       },
                       "start": {
                         "type": "integer",
@@ -7078,7 +7441,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                       },
                       "quote": {
                         "type": "string",
-                        "minLength": 1
+                        "minLength": 1,
+                        "description": "At most 30 words."
                       },
                       "start": {
                         "type": "integer",
@@ -7139,7 +7503,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                   },
                   "quote": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "At most 30 words."
                   },
                   "start": {
                     "type": "integer",
@@ -7182,7 +7547,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                   },
                   "quote": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "At most 30 words."
                   },
                   "start": {
                     "type": "integer",
@@ -7230,7 +7596,8 @@ Every `SchemaName` resolved by `/api/llm`. Properties missing from `required` ar
                   },
                   "quote": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "At most 30 words."
                   },
                   "start": {
                     "type": "integer",
@@ -8822,10 +9189,10 @@ call<R, S>(
 
 ####### Type Parameters
 
-| Type Parameter                                                                                                                                                                                                                                                                                                                                        | Default type                               |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| `R` _extends_ \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"` | -                                          |
-| `S` _extends_ \| `"IndexerOutput"` \| `"GlossaryOutput"` \| `"BookSummary"` \| `"VisualPlan"` \| `"GraphIR"` \| `"SequenceIR"` \| `"StateIR"` \| `"ClassIR"` \| `"ErIR"` \| `"TemplateIR"` \| `"ChartIR"` \| `"MathIR"` \| `"TimelineIR"` \| `"HtmlIR"` \| `"AnimationIR"` \| `"Translation"` \| `"PatchOutput"` \| `"CriticReport"`                  | [`RoleSchemaName`](#roleschemaname)\<`R`\> |
+| Type Parameter                                                                                                                                                                                                                                                                                                                                          | Default type                               |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `R` _extends_ \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"`   | -                                          |
+| `S` _extends_ \| `"IndexerOutput"` \| `"GlossaryOutput"` \| `"BookSummary"` \| `"VisualPlan"` \| `"GraphSource"` \| `"GraphIR"` \| `"SequenceIR"` \| `"StateIR"` \| `"ClassIR"` \| `"ErIR"` \| `"TemplateIR"` \| `"ChartIR"` \| `"MathIR"` \| `"TimelineIR"` \| `"HtmlIR"` \| `"AnimationIR"` \| `"Translation"` \| `"PatchOutput"` \| `"CriticReport"` | [`RoleSchemaName`](#roleschemaname)\<`R`\> |
 
 ####### Parameters
 
@@ -8978,6 +9345,17 @@ Normalised text plus, for each UTF-16 unit `i` of `text`, the original range `[s
 
 ---
 
+#### ParsedGraphSource
+
+##### Properties
+
+| Property                                | Type                                                                                                                                                         | Description                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| <a id="property-ir-1"></a> `ir`         | \| \{ `direction`: `"LR"` \| `"TB"`; `edges`: `object`[]; `groups`: `object`[]; `nodes`: `object`[]; `title`: `string`; `type`: `"graph"`; \} \| `undefined` | The candidate IR (not yet validated), or undefined when the source has no nodes. |
+| <a id="property-issues-1"></a> `issues` | `object`[]                                                                                                                                                   | -                                                                                |
+
+---
+
 #### ParsedSectionId
 
 ##### Properties
@@ -9031,13 +9409,14 @@ deleteByBook(bookId): Promise<void>;
 
 ##### Properties
 
-| Property                                              | Type                  |
-| ----------------------------------------------------- | --------------------- |
-| <a id="property-bookid-2"></a> `bookId`               | `string`              |
-| <a id="property-contenthash"></a> `contentHash`       | `string`              |
-| <a id="property-contextversion"></a> `contextVersion` | `string` \| `number`  |
-| <a id="property-planner"></a> `planner`               | [`RoleRun`](#rolerun) |
-| <a id="property-sectionid-1"></a> `sectionId`         | `string`              |
+| Property                                              | Type                  | Description                                                                                             |
+| ----------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------- |
+| <a id="property-bookid-2"></a> `bookId`               | `string`              | -                                                                                                       |
+| <a id="property-contenthash"></a> `contentHash`       | `string`              | -                                                                                                       |
+| <a id="property-contextversion"></a> `contextVersion` | `string` \| `number`  | -                                                                                                       |
+| <a id="property-kinds"></a> `kinds?`                  | `string`              | Sorted, comma-joined enabled flag-gated kinds; appended only when present, so older keys are unchanged. |
+| <a id="property-planner"></a> `planner`               | [`RoleRun`](#rolerun) | -                                                                                                       |
+| <a id="property-sectionid-1"></a> `sectionId`         | `string`              | -                                                                                                       |
 
 ---
 
@@ -9065,6 +9444,7 @@ bulkGet(keys): Promise<(
   plan: {
      items: object[];
      needsVisual: boolean;
+     overview?: string;
      reason: string;
      sectionId: string;
   };
@@ -9095,6 +9475,7 @@ bulkGet(keys): Promise<(
 `plan`: \{
 `items`: `object`[];
 `needsVisual`: `boolean`;
+`overview?`: `string`;
 `reason`: `string`;
 `sectionId`: `string`;
 \};
@@ -9183,6 +9564,7 @@ get(key): Promise<
   plan: {
      items: object[];
      needsVisual: boolean;
+     overview?: string;
      reason: string;
      sectionId: string;
   };
@@ -9213,6 +9595,7 @@ get(key): Promise<
 `plan`: \{
 `items`: `object`[];
 `needsVisual`: `boolean`;
+`overview?`: `string`;
 `reason`: `string`;
 `sectionId`: `string`;
 \};
@@ -9252,24 +9635,25 @@ put(value): Promise<void>;
 
 ####### Parameters
 
-| Parameter                | Type                                                                                                                                                                                                                                                                                                                                                                        | Description                                                                                    |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `value`                  | \{ `bookId`: `string`; `cacheKey`: `string`; `createdAt`: `number`; `effort`: `"low"` \| `"medium"` \| `"high"`; `model`: `string`; `partialContext`: `boolean`; `plan`: \{ `items`: `object`[]; `needsVisual`: `boolean`; `reason`: `string`; `sectionId`: `string`; \}; `promptVersion`: `string`; `sectionId`: `string`; `stale`: `boolean`; `usageTokens`: `number`; \} | -                                                                                              |
-| `value.bookId`           | `string`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
-| `value.cacheKey`         | `string`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
-| `value.createdAt`        | `number`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
-| `value.effort`           | `"low"` \| `"medium"` \| `"high"`                                                                                                                                                                                                                                                                                                                                           | -                                                                                              |
-| `value.model`            | `string`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
-| `value.partialContext`   | `boolean`                                                                                                                                                                                                                                                                                                                                                                   | The concept index was still missing after 20 s, so the plan used partial context (§15 step 2). |
-| `value.plan`             | \{ `items`: `object`[]; `needsVisual`: `boolean`; `reason`: `string`; `sectionId`: `string`; \}                                                                                                                                                                                                                                                                             | -                                                                                              |
-| `value.plan.items`       | `object`[]                                                                                                                                                                                                                                                                                                                                                                  | -                                                                                              |
-| `value.plan.needsVisual` | `boolean`                                                                                                                                                                                                                                                                                                                                                                   | -                                                                                              |
-| `value.plan.reason`      | `string`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
-| `value.plan.sectionId`   | `string`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
-| `value.promptVersion`    | `string`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
-| `value.sectionId`        | `string`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
-| `value.stale`            | `boolean`                                                                                                                                                                                                                                                                                                                                                                   | -                                                                                              |
-| `value.usageTokens`      | `number`                                                                                                                                                                                                                                                                                                                                                                    | -                                                                                              |
+| Parameter                | Type                                                                                                                                                                                                                                                                                                                                                                                               | Description                                                                                                                    |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `value`                  | \{ `bookId`: `string`; `cacheKey`: `string`; `createdAt`: `number`; `effort`: `"low"` \| `"medium"` \| `"high"`; `model`: `string`; `partialContext`: `boolean`; `plan`: \{ `items`: `object`[]; `needsVisual`: `boolean`; `overview?`: `string`; `reason`: `string`; `sectionId`: `string`; \}; `promptVersion`: `string`; `sectionId`: `string`; `stale`: `boolean`; `usageTokens`: `number`; \} | -                                                                                                                              |
+| `value.bookId`           | `string`                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                                              |
+| `value.cacheKey`         | `string`                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                                              |
+| `value.createdAt`        | `number`                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                                              |
+| `value.effort`           | `"low"` \| `"medium"` \| `"high"`                                                                                                                                                                                                                                                                                                                                                                  | -                                                                                                                              |
+| `value.model`            | `string`                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                                              |
+| `value.partialContext`   | `boolean`                                                                                                                                                                                                                                                                                                                                                                                          | The concept index was still missing after 20 s, so the plan used partial context (§15 step 2).                                 |
+| `value.plan`             | \{ `items`: `object`[]; `needsVisual`: `boolean`; `overview?`: `string`; `reason`: `string`; `sectionId`: `string`; \}                                                                                                                                                                                                                                                                             | -                                                                                                                              |
+| `value.plan.items`       | `object`[]                                                                                                                                                                                                                                                                                                                                                                                         | -                                                                                                                              |
+| `value.plan.needsVisual` | `boolean`                                                                                                                                                                                                                                                                                                                                                                                          | -                                                                                                                              |
+| `value.plan.overview?`   | `string`                                                                                                                                                                                                                                                                                                                                                                                           | 2-4 plain sentences giving the big idea of the section for a reader who has not read it, only from facts in the provided text. |
+| `value.plan.reason`      | `string`                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                                              |
+| `value.plan.sectionId`   | `string`                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                                              |
+| `value.promptVersion`    | `string`                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                                              |
+| `value.sectionId`        | `string`                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                                              |
+| `value.stale`            | `boolean`                                                                                                                                                                                                                                                                                                                                                                                          | -                                                                                                                              |
+| `value.usageTokens`      | `number`                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                                              |
 
 ####### Returns
 
@@ -9525,7 +9909,7 @@ scrollTo(cfi): Promise<void>;
 | <a id="property-bookid-4"></a> `bookId?`       | `string`                                                                                                                  | -                                                                                     |
 | <a id="property-context"></a> `context`        | [`LlmContext`](#llmcontext)                                                                                               | The same packed context the extractor saw: the repair may re-quote only these blocks. |
 | <a id="property-findings"></a> `findings`      | readonly [`RepairFinding`](#repairfinding)[]                                                                              | -                                                                                     |
-| <a id="property-ir-1"></a> `ir`                | `unknown`                                                                                                                 | The IR to fix (the validated one, or the last attempt).                               |
+| <a id="property-ir-2"></a> `ir`                | `unknown`                                                                                                                 | The IR to fix (the validated one, or the last attempt).                               |
 | <a id="property-kind-1"></a> `kind`            | \| `"math"` \| `"graph"` \| `"sequence"` \| `"state"` \| `"class"` \| `"er"` \| `"template"` \| `"chart"` \| `"timeline"` | -                                                                                     |
 | <a id="property-sectionid-3"></a> `sectionId?` | `string`                                                                                                                  | -                                                                                     |
 | <a id="property-signal-1"></a> `signal?`       | `AbortSignal`                                                                                                             | -                                                                                     |
@@ -9551,13 +9935,70 @@ The prompt version, model and effort that produced a result; all three are key p
 
 ##### Properties
 
-| Property                                               | Modifier   | Type                                                                                                                                                                                                                                                                                                                                 | Description                                                                         |
-| ------------------------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| <a id="property-effort-2"></a> `effort`                | `readonly` | `"low"` \| `"medium"` \| `"high"`                                                                                                                                                                                                                                                                                                    | Default reasoning effort (§9 roles table; overridable through `ILLUS_MODELS_JSON`). |
-| <a id="property-escalationtier"></a> `escalationTier?` | `readonly` | `"fast"` \| `"standard"` \| `"deep"`                                                                                                                                                                                                                                                                                                 | Tier used when `escalate: true`; absent when the role never escalates.              |
-| <a id="property-image-1"></a> `image?`                 | `readonly` | `boolean`                                                                                                                                                                                                                                                                                                                            | The role sends an image (critic only).                                              |
-| <a id="property-schemas"></a> `schemas`                | `readonly` | readonly ( \| `"IndexerOutput"` \| `"GlossaryOutput"` \| `"BookSummary"` \| `"VisualPlan"` \| `"GraphIR"` \| `"SequenceIR"` \| `"StateIR"` \| `"ClassIR"` \| `"ErIR"` \| `"TemplateIR"` \| `"ChartIR"` \| `"MathIR"` \| `"TimelineIR"` \| `"HtmlIR"` \| `"AnimationIR"` \| `"Translation"` \| `"PatchOutput"` \| `"CriticReport"`)[] | Output schemas the role may be asked for; the first is the default.                 |
-| <a id="property-tier"></a> `tier`                      | `readonly` | `"fast"` \| `"standard"` \| `"deep"`                                                                                                                                                                                                                                                                                                 | Tier the role runs on.                                                              |
+| Property                                               | Modifier   | Type                                                                                                                                                                                                                                                                                                                                                    | Description                                                                         |
+| ------------------------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| <a id="property-effort-2"></a> `effort`                | `readonly` | `"low"` \| `"medium"` \| `"high"`                                                                                                                                                                                                                                                                                                                       | Default reasoning effort (§9 roles table; overridable through `ILLUS_MODELS_JSON`). |
+| <a id="property-escalationtier"></a> `escalationTier?` | `readonly` | `"fast"` \| `"standard"` \| `"deep"`                                                                                                                                                                                                                                                                                                                    | Tier used when `escalate: true`; absent when the role never escalates.              |
+| <a id="property-image-1"></a> `image?`                 | `readonly` | `boolean`                                                                                                                                                                                                                                                                                                                                               | The role sends an image (critic only).                                              |
+| <a id="property-schemas"></a> `schemas`                | `readonly` | readonly ( \| `"IndexerOutput"` \| `"GlossaryOutput"` \| `"BookSummary"` \| `"VisualPlan"` \| `"GraphSource"` \| `"GraphIR"` \| `"SequenceIR"` \| `"StateIR"` \| `"ClassIR"` \| `"ErIR"` \| `"TemplateIR"` \| `"ChartIR"` \| `"MathIR"` \| `"TimelineIR"` \| `"HtmlIR"` \| `"AnimationIR"` \| `"Translation"` \| `"PatchOutput"` \| `"CriticReport"`)[] | Output schemas the role may be asked for; the first is the default.                 |
+| <a id="property-tier"></a> `tier`                      | `readonly` | `"fast"` \| `"standard"` \| `"deep"`                                                                                                                                                                                                                                                                                                                    | Tier the role runs on.                                                              |
+
+---
+
+#### Scene
+
+##### Properties
+
+| Property                                        | Type                                                                  | Description                                                                 |
+| ----------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| <a id="property-annotations"></a> `annotations` | `Readonly`\<`Record`\<`string`, `string`\>\>                          | -                                                                           |
+| <a id="property-faded"></a> `faded`             | `ReadonlySet`\<`string`\>                                             | Removed, non-hidden targets drawn faded (opacity 0.15). Hidden always wins. |
+| <a id="property-focus"></a> `focus`             | `string` \| `null`                                                    | Frame focus, with 'all' mapped to null.                                     |
+| <a id="property-step"></a> `step`               | `number`                                                              | -                                                                           |
+| <a id="property-tokens"></a> `tokens`           | `object`[]                                                            | -                                                                           |
+| <a id="property-tones"></a> `tones`             | `Readonly`\<`Record`\<`string`, [`HighlightTone`](#highlighttone)\>\> | -                                                                           |
+| <a id="property-visible"></a> `visible`         | `ReadonlySet`\<`string`\>                                             | node:/edge:/group: targets drawn at full opacity.                           |
+
+---
+
+#### SceneBox
+
+##### Properties
+
+| Property                                | Type     |
+| --------------------------------------- | -------- |
+| <a id="property-height-1"></a> `height` | `number` |
+| <a id="property-width-1"></a> `width`   | `number` |
+| <a id="property-x-1"></a> `x`           | `number` |
+| <a id="property-y-1"></a> `y`           | `number` |
+
+---
+
+#### SceneStep
+
+One transition, indexed 1…N; the initial scene is separate at time zero.
+
+##### Properties
+
+| Property                              | Type                          |
+| ------------------------------------- | ----------------------------- |
+| <a id="property-end-2"></a> `end`     | `number`                      |
+| <a id="property-index"></a> `index`   | `number`                      |
+| <a id="property-start-2"></a> `start` | `number`                      |
+| <a id="property-tweens"></a> `tweens` | [`SceneTween`](#scenetween)[] |
+
+---
+
+#### SceneTimeline
+
+##### Properties
+
+| Property                                            | Type                        |
+| --------------------------------------------------- | --------------------------- |
+| <a id="property-duration"></a> `duration`           | `number`                    |
+| <a id="property-initial"></a> `initial`             | [`Scene`](#scene)           |
+| <a id="property-initialcamera"></a> `initialCamera` | [`SceneBox`](#scenebox)     |
+| <a id="property-steps"></a> `steps`                 | [`SceneStep`](#scenestep)[] |
 
 ---
 
@@ -10275,7 +10716,7 @@ The DOM-free part of a template (§10). `@illus/render` extends it with `layout(
 | <a id="property-example"></a> `example`                   | `P`                                                                                                                                                                                                                                        |
 | <a id="property-id"></a> `id`                             | \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"` |
 | <a id="property-propsschema"></a> `propsSchema`           | `ZodType`\<`P`\>                                                                                                                                                                                                                           |
-| <a id="property-supportedactions"></a> `supportedActions` | readonly ( \| `"set"` \| `"focus"` \| `"highlight"` \| `"unhighlight"` \| `"reveal"` \| `"hide"` \| `"swap"` \| `"pointer"` \| `"push"` \| `"enqueue"` \| `"pop"` \| `"dequeue"` \| `"add"` \| `"remove"` \| `"token"` \| `"annotate"`)[]  |
+| <a id="property-supportedactions"></a> `supportedActions` | readonly ( \| `"set"` \| `"token"` \| `"focus"` \| `"highlight"` \| `"unhighlight"` \| `"reveal"` \| `"hide"` \| `"swap"` \| `"pointer"` \| `"push"` \| `"enqueue"` \| `"pop"` \| `"dequeue"` \| `"add"` \| `"remove"` \| `"annotate"`)[]  |
 | <a id="property-whentouse"></a> `whenToUse`               | `string`                                                                                                                                                                                                                                   |
 
 ##### Methods
@@ -10708,7 +11149,7 @@ put(value): Promise<void>;
 
 | Property                              | Type       | Description                                                                  |
 | ------------------------------------- | ---------- | ---------------------------------------------------------------------------- |
-| <a id="property-ir-2"></a> `ir`       | `T`        | The IR after dropping ungrounded/dangling elements and safe auto-fixes.      |
+| <a id="property-ir-3"></a> `ir`       | `T`        | The IR after dropping ungrounded/dangling elements and safe auto-fixes.      |
 | <a id="property-report"></a> `report` | `object`   | -                                                                            |
 | `report.counts`                       | `object`   | -                                                                            |
 | `report.counts.dropped`               | `number`   | -                                                                            |
@@ -11553,6 +11994,16 @@ Output of the `glossary` role (`ConceptMerge[]` wrapped in an object, ADR 0003).
 
 ---
 
+#### GraphColor
+
+```ts
+type GraphColor = z.infer<typeof GraphColor>
+```
+
+Accent colour of a node or group (ADR 0049); themed by the renderer.
+
+---
+
 #### GraphEdge
 
 ```ts
@@ -11565,6 +12016,25 @@ type GraphEdge = z.infer<typeof GraphEdge>
 
 ```ts
 type GraphGroup = z.infer<typeof GraphGroup>
+```
+
+---
+
+#### GraphIcon
+
+```ts
+type GraphIcon = z.infer<typeof GraphIcon>
+```
+
+Icon drawn above a node's label or beside a group's (ADR 0049). One of `GRAPH_ICONS`; unknown names are
+not a schema error so an icon catalog change never invalidates stored visuals, the renderer skips them.
+
+---
+
+#### GraphIconName
+
+```ts
+type GraphIconName = keyof typeof GRAPH_ICONS
 ```
 
 ---
@@ -11592,6 +12062,17 @@ type GraphNode = z.infer<typeof GraphNode>
 ```ts
 type GraphNodeShape = z.infer<typeof GraphNodeShape>
 ```
+
+---
+
+#### GraphSource
+
+```ts
+type GraphSource = z.infer<typeof GraphSource>
+```
+
+What the graph extractor returns (ADR 0049): the diagram as a short Eraser-style source text that
+`parseGraphSource` (@illus/core compile) turns into a `GraphIR`, which is then validated like any IR.
 
 ---
 
@@ -11978,6 +12459,65 @@ type ScenarioTrace = z.infer<typeof ScenarioTrace>
 ```
 
 A trace with the label of the scenario it ran (scenario tabs in the trace view).
+
+---
+
+#### SceneTween
+
+```ts
+type SceneTween =
+  | {
+      at: number
+      duration: number
+      kind: 'show'
+      target: string
+    }
+  | {
+      at: number
+      duration: number
+      kind: 'hide'
+      target: string
+    }
+  | {
+      at: number
+      duration: number
+      kind: 'fade'
+      target: string
+    }
+  | {
+      at: number
+      duration: number
+      kind: 'draw'
+      target: string
+    }
+  | {
+      at: number
+      kind: 'tone'
+      target: string
+      tone: HighlightTone | null
+    }
+  | {
+      at: number
+      kind: 'annotate'
+      target: string
+      text: string | null
+    }
+  | {
+      at: number
+      duration: number
+      edges: string[]
+      id: string
+      kind: 'token'
+      label?: string
+    }
+  | {
+      at: number
+      duration: number
+      from: SceneBox
+      kind: 'camera'
+      to: SceneBox
+    }
+```
 
 ---
 
@@ -13173,7 +13713,7 @@ Kinds that may extend or start a concept model in v1 (§13).
 #### CONTRACTS_VERSION
 
 ```ts
-const CONTRACTS_VERSION: '1.3.0' = '1.3.0'
+const CONTRACTS_VERSION: '1.4.0' = '1.4.0'
 ```
 
 Version of the published contracts (docs/contracts.md).
@@ -13505,6 +14045,7 @@ const FlagName: ZodEnum<{
   conceptModels: 'conceptModels'
   critic: 'critic'
   htmlFallback: 'htmlFallback'
+  sceneAnimations: 'sceneAnimations'
   templates: 'templates'
   tracer: 'tracer'
 }>
@@ -13521,6 +14062,7 @@ const FlagOverrides: ZodRecord<
     conceptModels: 'conceptModels'
     critic: 'critic'
     htmlFallback: 'htmlFallback'
+    sceneAnimations: 'sceneAnimations'
     templates: 'templates'
     tracer: 'tracer'
   }> &
@@ -13711,6 +14253,646 @@ Output of the `glossary` role (`ConceptMerge[]` wrapped in an object, ADR 0003).
 
 ---
 
+#### GRAPH_ICON_NAMES
+
+```ts
+const GRAPH_ICON_NAMES: (
+  | 'code'
+  | 'table'
+  | 'user'
+  | 'users'
+  | 'client'
+  | 'mobile'
+  | 'server'
+  | 'servers'
+  | 'database'
+  | 'disk'
+  | 'cold-storage'
+  | 'tape'
+  | 'document'
+  | 'documents'
+  | 'folder'
+  | 'logs'
+  | 'metrics'
+  | 'gear'
+  | 'application'
+  | 'stream'
+  | 'firewall'
+  | 'shield'
+  | 'lock'
+  | 'credentials'
+  | 'token'
+  | 'email'
+  | 'chat'
+  | 'forums'
+  | 'internet'
+  | 'globe'
+  | 'json'
+  | 'sdk'
+  | 'git'
+  | 'programming'
+  | 'alert'
+  | 'search'
+  | 'recover'
+  | 'toolkit'
+  | 'building'
+  | 'question'
+  | 'camera'
+  | 'multimedia'
+  | 'console'
+  | 'aws-lambda'
+  | 'aws-s3'
+  | 'aws-dynamodb'
+  | 'aws-rds'
+  | 'aws-aurora'
+  | 'aws-elasticache'
+  | 'aws-memorydb'
+  | 'aws-documentdb'
+  | 'aws-keyspaces'
+  | 'aws-neptune'
+  | 'aws-timestream'
+  | 'aws-redshift'
+  | 'aws-sqs'
+  | 'aws-sns'
+  | 'aws-kinesis'
+  | 'aws-msk'
+  | 'aws-eventbridge'
+  | 'aws-step-functions'
+  | 'aws-ec2'
+  | 'aws-ecs'
+  | 'aws-eks'
+  | 'aws-fargate'
+  | 'aws-batch'
+  | 'aws-api-gateway'
+  | 'aws-cloudfront'
+  | 'aws-elb'
+  | 'aws-route53'
+  | 'aws-vpc'
+  | 'aws-iam'
+  | 'aws-cognito'
+  | 'aws-kms'
+  | 'aws-secrets-manager'
+  | 'aws-waf'
+  | 'aws-shield'
+  | 'aws-cloudwatch'
+  | 'aws-athena'
+  | 'aws-glue'
+  | 'aws-emr'
+  | 'aws-opensearch'
+  | 'aws-sagemaker'
+  | 'aws-bedrock'
+  | 'aws-efs'
+  | 'aws-ebs'
+)[]
+```
+
+---
+
+#### GRAPH_ICONS
+
+```ts
+const GRAPH_ICONS: object
+```
+
+Icon name → what it depicts. The extractor prompt lists these; `@illus/render` has one glyph per name.
+
+##### Type Declaration
+
+###### alert
+
+```ts
+readonly alert: "an alert, an alarm, an event" = 'an alert, an alarm, an event';
+```
+
+###### application
+
+```ts
+readonly application: "an application, a service" = 'an application, a service';
+```
+
+###### aws-api-gateway
+
+```ts
+readonly aws-api-gateway: "Amazon API Gateway" = 'Amazon API Gateway';
+```
+
+###### aws-athena
+
+```ts
+readonly aws-athena: "Amazon Athena" = 'Amazon Athena';
+```
+
+###### aws-aurora
+
+```ts
+readonly aws-aurora: "Amazon Aurora" = 'Amazon Aurora';
+```
+
+###### aws-batch
+
+```ts
+readonly aws-batch: "AWS Batch" = 'AWS Batch';
+```
+
+###### aws-bedrock
+
+```ts
+readonly aws-bedrock: "Amazon Bedrock" = 'Amazon Bedrock';
+```
+
+###### aws-cloudfront
+
+```ts
+readonly aws-cloudfront: "Amazon CloudFront" = 'Amazon CloudFront';
+```
+
+###### aws-cloudwatch
+
+```ts
+readonly aws-cloudwatch: "Amazon CloudWatch" = 'Amazon CloudWatch';
+```
+
+###### aws-cognito
+
+```ts
+readonly aws-cognito: "Amazon Cognito" = 'Amazon Cognito';
+```
+
+###### aws-documentdb
+
+```ts
+readonly aws-documentdb: "Amazon DocumentDB" = 'Amazon DocumentDB';
+```
+
+###### aws-dynamodb
+
+```ts
+readonly aws-dynamodb: "Amazon DynamoDB" = 'Amazon DynamoDB';
+```
+
+###### aws-ebs
+
+```ts
+readonly aws-ebs: "Amazon EBS" = 'Amazon EBS';
+```
+
+###### aws-ec2
+
+```ts
+readonly aws-ec2: "Amazon EC2" = 'Amazon EC2';
+```
+
+###### aws-ecs
+
+```ts
+readonly aws-ecs: "Amazon ECS" = 'Amazon ECS';
+```
+
+###### aws-efs
+
+```ts
+readonly aws-efs: "Amazon EFS" = 'Amazon EFS';
+```
+
+###### aws-eks
+
+```ts
+readonly aws-eks: "Amazon EKS" = 'Amazon EKS';
+```
+
+###### aws-elasticache
+
+```ts
+readonly aws-elasticache: "Amazon ElastiCache" = 'Amazon ElastiCache';
+```
+
+###### aws-elb
+
+```ts
+readonly aws-elb: "Elastic Load Balancing" = 'Elastic Load Balancing';
+```
+
+###### aws-emr
+
+```ts
+readonly aws-emr: "Amazon EMR" = 'Amazon EMR';
+```
+
+###### aws-eventbridge
+
+```ts
+readonly aws-eventbridge: "Amazon EventBridge" = 'Amazon EventBridge';
+```
+
+###### aws-fargate
+
+```ts
+readonly aws-fargate: "AWS Fargate" = 'AWS Fargate';
+```
+
+###### aws-glue
+
+```ts
+readonly aws-glue: "AWS Glue" = 'AWS Glue';
+```
+
+###### aws-iam
+
+```ts
+readonly aws-iam: "AWS IAM" = 'AWS IAM';
+```
+
+###### aws-keyspaces
+
+```ts
+readonly aws-keyspaces: "Amazon Keyspaces" = 'Amazon Keyspaces';
+```
+
+###### aws-kinesis
+
+```ts
+readonly aws-kinesis: "Amazon Kinesis Data Streams" = 'Amazon Kinesis Data Streams';
+```
+
+###### aws-kms
+
+```ts
+readonly aws-kms: "AWS KMS" = 'AWS KMS';
+```
+
+###### aws-lambda
+
+```ts
+readonly aws-lambda: "AWS Lambda" = 'AWS Lambda';
+```
+
+###### aws-memorydb
+
+```ts
+readonly aws-memorydb: "Amazon MemoryDB" = 'Amazon MemoryDB';
+```
+
+###### aws-msk
+
+```ts
+readonly aws-msk: "Amazon MSK (Kafka)" = 'Amazon MSK (Kafka)';
+```
+
+###### aws-neptune
+
+```ts
+readonly aws-neptune: "Amazon Neptune" = 'Amazon Neptune';
+```
+
+###### aws-opensearch
+
+```ts
+readonly aws-opensearch: "Amazon OpenSearch Service" = 'Amazon OpenSearch Service';
+```
+
+###### aws-rds
+
+```ts
+readonly aws-rds: "Amazon RDS" = 'Amazon RDS';
+```
+
+###### aws-redshift
+
+```ts
+readonly aws-redshift: "Amazon Redshift" = 'Amazon Redshift';
+```
+
+###### aws-route53
+
+```ts
+readonly aws-route53: "Amazon Route 53" = 'Amazon Route 53';
+```
+
+###### aws-s3
+
+```ts
+readonly aws-s3: "Amazon S3" = 'Amazon S3';
+```
+
+###### aws-sagemaker
+
+```ts
+readonly aws-sagemaker: "Amazon SageMaker" = 'Amazon SageMaker';
+```
+
+###### aws-secrets-manager
+
+```ts
+readonly aws-secrets-manager: "AWS Secrets Manager" = 'AWS Secrets Manager';
+```
+
+###### aws-shield
+
+```ts
+readonly aws-shield: "AWS Shield" = 'AWS Shield';
+```
+
+###### aws-sns
+
+```ts
+readonly aws-sns: "Amazon SNS" = 'Amazon SNS';
+```
+
+###### aws-sqs
+
+```ts
+readonly aws-sqs: "Amazon SQS" = 'Amazon SQS';
+```
+
+###### aws-step-functions
+
+```ts
+readonly aws-step-functions: "AWS Step Functions" = 'AWS Step Functions';
+```
+
+###### aws-timestream
+
+```ts
+readonly aws-timestream: "Amazon Timestream" = 'Amazon Timestream';
+```
+
+###### aws-vpc
+
+```ts
+readonly aws-vpc: "Amazon VPC" = 'Amazon VPC';
+```
+
+###### aws-waf
+
+```ts
+readonly aws-waf: "AWS WAF" = 'AWS WAF';
+```
+
+###### building
+
+```ts
+readonly building: "an organisation, a data centre, an office" = 'an organisation, a data centre, an office';
+```
+
+###### camera
+
+```ts
+readonly camera: "a camera, an image source" = 'a camera, an image source';
+```
+
+###### chat
+
+```ts
+readonly chat: "chat, a conversation" = 'chat, a conversation';
+```
+
+###### client
+
+```ts
+readonly client: "a client computer, a browser" = 'a client computer, a browser';
+```
+
+###### code
+
+```ts
+readonly code: "source code, a program" = 'source code, a program';
+```
+
+###### cold-storage
+
+```ts
+readonly cold-storage: "archival or cold storage" = 'archival or cold storage';
+```
+
+###### console
+
+```ts
+readonly console: "a management console, an admin UI" = 'a management console, an admin UI';
+```
+
+###### credentials
+
+```ts
+readonly credentials: "credentials, a key, a password" = 'credentials, a key, a password';
+```
+
+###### database
+
+```ts
+readonly database: "a database" = 'a database';
+```
+
+###### disk
+
+```ts
+readonly disk: "a disk, local storage" = 'a disk, local storage';
+```
+
+###### document
+
+```ts
+readonly document: "a document, a file, a record" = 'a document, a file, a record';
+```
+
+###### documents
+
+```ts
+readonly documents: "several documents or files" = 'several documents or files';
+```
+
+###### email
+
+```ts
+readonly email: "email, a message" = 'email, a message';
+```
+
+###### firewall
+
+```ts
+readonly firewall: "a firewall" = 'a firewall';
+```
+
+###### folder
+
+```ts
+readonly folder: "a folder, a directory" = 'a folder, a directory';
+```
+
+###### forums
+
+```ts
+readonly forums: "a forum, discussion" = 'a forum, discussion';
+```
+
+###### gear
+
+```ts
+readonly gear: "a process, a worker, configuration" = 'a process, a worker, configuration';
+```
+
+###### git
+
+```ts
+readonly git: "a git repository, version control" = 'a git repository, version control';
+```
+
+###### globe
+
+```ts
+readonly globe: "the web, a global or public network" = 'the web, a global or public network';
+```
+
+###### internet
+
+```ts
+readonly internet: "the internet, a network" = 'the internet, a network';
+```
+
+###### json
+
+```ts
+readonly json: "JSON, a script, a config file" = 'JSON, a script, a config file';
+```
+
+###### lock
+
+```ts
+readonly lock: "encryption, TLS, a lock" = 'encryption, TLS, a lock';
+```
+
+###### logs
+
+```ts
+readonly logs: "a log, a log file" = 'a log, a log file';
+```
+
+###### metrics
+
+```ts
+readonly metrics: "metrics, monitoring, a dashboard" = 'metrics, monitoring, a dashboard';
+```
+
+###### mobile
+
+```ts
+readonly mobile: "a mobile client, a phone" = 'a mobile client, a phone';
+```
+
+###### multimedia
+
+```ts
+readonly multimedia: "media, video, audio" = 'media, video, audio';
+```
+
+###### programming
+
+```ts
+readonly programming: "a programming language, a compiler" = 'a programming language, a compiler';
+```
+
+###### question
+
+```ts
+readonly question: "an unknown, a question" = 'an unknown, a question';
+```
+
+###### recover
+
+```ts
+readonly recover: "recovery, retry, a backup restore" = 'recovery, retry, a backup restore';
+```
+
+###### sdk
+
+```ts
+readonly sdk: "an SDK, a library" = 'an SDK, a library';
+```
+
+###### search
+
+```ts
+readonly search: "search, lookup, an index" = 'search, lookup, an index';
+```
+
+###### server
+
+```ts
+readonly server: "a server, a node, a machine" = 'a server, a node, a machine';
+```
+
+###### servers
+
+```ts
+readonly servers: "several servers, a cluster" = 'several servers, a cluster';
+```
+
+###### shield
+
+```ts
+readonly shield: "protection, security" = 'protection, security';
+```
+
+###### stream
+
+```ts
+readonly stream: "a data stream, a channel" = 'a data stream, a channel';
+```
+
+###### table
+
+```ts
+readonly table: "a table, rows of data" = 'a table, rows of data';
+```
+
+###### tape
+
+```ts
+readonly tape: "tape or backup storage" = 'tape or backup storage';
+```
+
+###### token
+
+```ts
+readonly token: "a token, a certificate" = 'a token, a certificate';
+```
+
+###### toolkit
+
+```ts
+readonly toolkit: "tools, a toolkit" = 'tools, a toolkit';
+```
+
+###### user
+
+```ts
+readonly user: "a person, a user" = 'a person, a user';
+```
+
+###### users
+
+```ts
+readonly users: "a group of users" = 'a group of users';
+```
+
+---
+
+#### GraphColor
+
+```ts
+const GraphColor: ZodEnum<{
+  blue: 'blue'
+  gray: 'gray'
+  green: 'green'
+  orange: 'orange'
+  purple: 'purple'
+  red: 'red'
+}>
+```
+
+Accent colour of a node or group (ADR 0049); themed by the renderer.
+
+---
+
 #### GraphEdge
 
 ```ts
@@ -13746,6 +14928,16 @@ const GraphEdge: ZodObject<
 ```ts
 const GraphGroup: ZodObject<
   {
+    color: ZodOptional<
+      ZodEnum<{
+        blue: 'blue'
+        gray: 'gray'
+        green: 'green'
+        orange: 'orange'
+        purple: 'purple'
+        red: 'red'
+      }>
+    >
     evidence: ZodObject<
       {
         blockId: ZodString
@@ -13756,6 +14948,7 @@ const GraphGroup: ZodObject<
       },
       $strip
     >
+    icon: ZodOptional<ZodString>
     id: ZodString
     label: ZodString
     parent: ZodOptional<ZodString>
@@ -13763,6 +14956,17 @@ const GraphGroup: ZodObject<
   $strip
 >
 ```
+
+---
+
+#### GraphIcon
+
+```ts
+const GraphIcon: ZodString
+```
+
+Icon drawn above a node's label or beside a group's (ADR 0049). One of `GRAPH_ICONS`; unknown names are
+not a schema error so an icon catalog change never invalidates stored visuals, the renderer skips them.
 
 ---
 
@@ -13803,6 +15007,16 @@ const GraphIR: ZodObject<
     groups: ZodArray<
       ZodObject<
         {
+          color: ZodOptional<
+            ZodEnum<{
+              blue: 'blue'
+              gray: 'gray'
+              green: 'green'
+              orange: 'orange'
+              purple: 'purple'
+              red: 'red'
+            }>
+          >
           evidence: ZodObject<
             {
               blockId: ZodString
@@ -13813,6 +15027,7 @@ const GraphIR: ZodObject<
             },
             $strip
           >
+          icon: ZodOptional<ZodString>
           id: ZodString
           label: ZodString
           parent: ZodOptional<ZodString>
@@ -13823,6 +15038,16 @@ const GraphIR: ZodObject<
     nodes: ZodArray<
       ZodObject<
         {
+          color: ZodOptional<
+            ZodEnum<{
+              blue: 'blue'
+              gray: 'gray'
+              green: 'green'
+              orange: 'orange'
+              purple: 'purple'
+              red: 'red'
+            }>
+          >
           evidence: ZodObject<
             {
               blockId: ZodString
@@ -13834,6 +15059,7 @@ const GraphIR: ZodObject<
             $strip
           >
           group: ZodOptional<ZodString>
+          icon: ZodOptional<ZodString>
           id: ZodString
           label: ZodString
           shape: ZodEnum<{
@@ -13865,6 +15091,16 @@ Components and what calls what; layered with ELK (§8, §10). ≤ 12 nodes, ≤ 
 ```ts
 const GraphNode: ZodObject<
   {
+    color: ZodOptional<
+      ZodEnum<{
+        blue: 'blue'
+        gray: 'gray'
+        green: 'green'
+        orange: 'orange'
+        purple: 'purple'
+        red: 'red'
+      }>
+    >
     evidence: ZodObject<
       {
         blockId: ZodString
@@ -13876,6 +15112,7 @@ const GraphNode: ZodObject<
       $strip
     >
     group: ZodOptional<ZodString>
+    icon: ZodOptional<ZodString>
     id: ZodString
     label: ZodString
     shape: ZodEnum<{
@@ -13906,6 +15143,22 @@ const GraphNodeShape: ZodEnum<{
   store: 'store'
 }>
 ```
+
+---
+
+#### GraphSource
+
+```ts
+const GraphSource: ZodObject<
+  {
+    source: ZodString
+  },
+  $strip
+>
+```
+
+What the graph extractor returns (ADR 0049): the diagram as a short Eraser-style source text that
+`parseGraphSource` (@illus/core compile) turns into a `GraphIR`, which is then validated like any IR.
 
 ---
 
@@ -14083,6 +15336,16 @@ const IR: ZodDiscriminatedUnion<
         groups: ZodArray<
           ZodObject<
             {
+              color: ZodOptional<
+                ZodEnum<{
+                  blue: 'blue'
+                  gray: 'gray'
+                  green: 'green'
+                  orange: 'orange'
+                  purple: 'purple'
+                  red: 'red'
+                }>
+              >
               evidence: ZodObject<
                 {
                   blockId: ZodString
@@ -14093,6 +15356,7 @@ const IR: ZodDiscriminatedUnion<
                 },
                 $strip
               >
+              icon: ZodOptional<ZodString>
               id: ZodString
               label: ZodString
               parent: ZodOptional<ZodString>
@@ -14103,6 +15367,16 @@ const IR: ZodDiscriminatedUnion<
         nodes: ZodArray<
           ZodObject<
             {
+              color: ZodOptional<
+                ZodEnum<{
+                  blue: 'blue'
+                  gray: 'gray'
+                  green: 'green'
+                  orange: 'orange'
+                  purple: 'purple'
+                  red: 'red'
+                }>
+              >
               evidence: ZodObject<
                 {
                   blockId: ZodString
@@ -14114,6 +15388,7 @@ const IR: ZodDiscriminatedUnion<
                 $strip
               >
               group: ZodOptional<ZodString>
+              icon: ZodOptional<ZodString>
               id: ZodString
               label: ZodString
               shape: ZodEnum<{
@@ -14413,6 +15688,7 @@ const LlmRequest: ZodObject<{
      ErIR: "ErIR";
      GlossaryOutput: "GlossaryOutput";
      GraphIR: "GraphIR";
+     GraphSource: "GraphSource";
      HtmlIR: "HtmlIR";
      IndexerOutput: "IndexerOutput";
      MathIR: "MathIR";
@@ -14591,6 +15867,7 @@ const Patch: ZodObject<{
   }, $strip>;
   ops: ZodArray<ZodDiscriminatedUnion<[ZodObject<{
      node: ZodObject<{
+        color: ZodOptional<ZodEnum<...>>;
         evidence: ZodObject<{
            blockId: ...;
            end: ...;
@@ -14599,6 +15876,7 @@ const Patch: ZodObject<{
            start: ...;
         }, $strip>;
         group: ZodOptional<ZodString>;
+        icon: ZodOptional<ZodString>;
         id: ZodString;
         label: ZodString;
         shape: ZodEnum<{
@@ -14633,6 +15911,7 @@ const Patch: ZodObject<{
      op: ZodLiteral<"addEdge">;
    }, $strip>, ZodObject<{
      group: ZodObject<{
+        color: ZodOptional<ZodEnum<...>>;
         evidence: ZodObject<{
            blockId: ...;
            end: ...;
@@ -14640,6 +15919,7 @@ const Patch: ZodObject<{
            quote: ...;
            start: ...;
         }, $strip>;
+        icon: ZodOptional<ZodString>;
         id: ZodString;
         label: ZodString;
         parent: ZodOptional<ZodString>;
@@ -14667,6 +15947,16 @@ const PatchOp: ZodDiscriminatedUnion<
       {
         node: ZodObject<
           {
+            color: ZodOptional<
+              ZodEnum<{
+                blue: 'blue'
+                gray: 'gray'
+                green: 'green'
+                orange: 'orange'
+                purple: 'purple'
+                red: 'red'
+              }>
+            >
             evidence: ZodObject<
               {
                 blockId: ZodString
@@ -14678,6 +15968,7 @@ const PatchOp: ZodDiscriminatedUnion<
               $strip
             >
             group: ZodOptional<ZodString>
+            icon: ZodOptional<ZodString>
             id: ZodString
             label: ZodString
             shape: ZodEnum<{
@@ -14729,6 +16020,16 @@ const PatchOp: ZodDiscriminatedUnion<
       {
         group: ZodObject<
           {
+            color: ZodOptional<
+              ZodEnum<{
+                blue: 'blue'
+                gray: 'gray'
+                green: 'green'
+                orange: 'orange'
+                purple: 'purple'
+                red: 'red'
+              }>
+            >
             evidence: ZodObject<
               {
                 blockId: ZodString
@@ -14739,6 +16040,7 @@ const PatchOp: ZodDiscriminatedUnion<
               },
               $strip
             >
+            icon: ZodOptional<ZodString>
             id: ZodString
             label: ZodString
             parent: ZodOptional<ZodString>
@@ -14764,6 +16066,7 @@ One patch operation (§13). The spec's `item: unknown` add-ops are typed per kin
 const PatchOutput: ZodObject<{
   ops: ZodArray<ZodDiscriminatedUnion<[ZodObject<{
      node: ZodObject<{
+        color: ZodOptional<ZodEnum<...>>;
         evidence: ZodObject<{
            blockId: ...;
            end: ...;
@@ -14772,6 +16075,7 @@ const PatchOutput: ZodObject<{
            start: ...;
         }, $strip>;
         group: ZodOptional<ZodString>;
+        icon: ZodOptional<ZodString>;
         id: ZodString;
         label: ZodString;
         shape: ZodEnum<{
@@ -14806,6 +16110,7 @@ const PatchOutput: ZodObject<{
      op: ZodLiteral<"addEdge">;
    }, $strip>, ZodObject<{
      group: ZodObject<{
+        color: ZodOptional<ZodEnum<...>>;
         evidence: ZodObject<{
            blockId: ...;
            end: ...;
@@ -14813,6 +16118,7 @@ const PatchOutput: ZodObject<{
            quote: ...;
            start: ...;
         }, $strip>;
+        icon: ZodOptional<ZodString>;
         id: ZodString;
         label: ZodString;
         parent: ZodOptional<ZodString>;
@@ -14831,6 +16137,7 @@ Output of the `patcher` role: at most 8 ops for one section (§13).
 ```ts
 const PlanItem: ZodObject<{
   animate: ZodBoolean;
+  caption: ZodOptional<ZodString>;
   codeBlockId: ZodOptional<ZodString>;
   conceptIds: ZodArray<ZodString>;
   conceptModelId: ZodOptional<ZodString>;
@@ -14893,6 +16200,7 @@ const PlanRecord: ZodObject<{
   plan: ZodObject<{
      items: ZodArray<ZodObject<{
         animate: ZodBoolean;
+        caption: ZodOptional<ZodString>;
         codeBlockId: ZodOptional<ZodString>;
         conceptIds: ZodArray<ZodString>;
         conceptModelId: ZodOptional<ZodString>;
@@ -14933,6 +16241,7 @@ const PlanRecord: ZodObject<{
         }>>;
      }, $strip>>;
      needsVisual: ZodBoolean;
+     overview: ZodOptional<ZodString>;
      reason: ZodString;
      sectionId: ZodString;
   }, $strip>;
@@ -15104,7 +16413,7 @@ readonly book-summary: object;
 ####### book-summary.effort
 
 ```ts
-readonly effort: "low" = 'low';
+readonly effort: "medium" = 'medium';
 ```
 
 ####### book-summary.schemas
@@ -15194,7 +16503,7 @@ readonly escalationTier: "deep" = 'deep';
 ####### extractor.graph.schemas
 
 ```ts
-readonly schemas: readonly ["GraphIR"];
+readonly schemas: readonly ["GraphSource", "GraphIR"];
 ```
 
 ####### extractor.graph.tier
@@ -15374,7 +16683,7 @@ readonly indexer: object;
 ####### indexer.effort
 
 ```ts
-readonly effort: "medium" = 'medium';
+readonly effort: "low" = 'low';
 ```
 
 ####### indexer.escalationTier
@@ -15610,6 +16919,7 @@ const SchemaName: ZodEnum<{
   ErIR: 'ErIR'
   GlossaryOutput: 'GlossaryOutput'
   GraphIR: 'GraphIR'
+  GraphSource: 'GraphSource'
   HtmlIR: 'HtmlIR'
   IndexerOutput: 'IndexerOutput'
   MathIR: 'MathIR'
@@ -15934,6 +17244,14 @@ GraphIR: ZodObject<{
      to: ZodString;
   }, $strip>>;
   groups: ZodArray<ZodObject<{
+     color: ZodOptional<ZodEnum<{
+        blue: "blue";
+        gray: "gray";
+        green: "green";
+        orange: "orange";
+        purple: "purple";
+        red: "red";
+     }>>;
      evidence: ZodObject<{
         blockId: ZodString;
         end: ZodOptional<ZodNumber>;
@@ -15941,11 +17259,20 @@ GraphIR: ZodObject<{
         quote: ZodString;
         start: ZodOptional<ZodNumber>;
      }, $strip>;
+     icon: ZodOptional<ZodString>;
      id: ZodString;
      label: ZodString;
      parent: ZodOptional<ZodString>;
   }, $strip>>;
   nodes: ZodArray<ZodObject<{
+     color: ZodOptional<ZodEnum<{
+        blue: "blue";
+        gray: "gray";
+        green: "green";
+        orange: "orange";
+        purple: "purple";
+        red: "red";
+     }>>;
      evidence: ZodObject<{
         blockId: ZodString;
         end: ZodOptional<ZodNumber>;
@@ -15954,6 +17281,7 @@ GraphIR: ZodObject<{
         start: ZodOptional<ZodNumber>;
      }, $strip>;
      group: ZodOptional<ZodString>;
+     icon: ZodOptional<ZodString>;
      id: ZodString;
      label: ZodString;
      shape: ZodEnum<{
@@ -15972,6 +17300,17 @@ GraphIR: ZodObject<{
 ```
 
 Components and what calls what; layered with ELK (§8, §10). ≤ 12 nodes, ≤ 18 edges.
+
+###### GraphSource
+
+```ts
+GraphSource: ZodObject<{
+  source: ZodString;
+}, $strip>;
+```
+
+What the graph extractor returns (ADR 0049): the diagram as a short Eraser-style source text that
+`parseGraphSource` (@illus/core compile) turns into a `GraphIR`, which is then validated like any IR.
 
 ###### HtmlIR
 
@@ -16050,8 +17389,10 @@ Term meanings for a formula; the formula itself always comes from the book block
 PatchOutput: ZodObject<{
   ops: ZodArray<ZodDiscriminatedUnion<[ZodObject<{
      node: ZodObject<{
+        color: ZodOptional<...>;
         evidence: ZodObject<..., ...>;
         group: ZodOptional<...>;
+        icon: ZodOptional<...>;
         id: ZodString;
         label: ZodString;
         shape: ZodEnum<...>;
@@ -16070,7 +17411,9 @@ PatchOutput: ZodObject<{
      op: ZodLiteral<"addEdge">;
    }, $strip>, ZodObject<{
      group: ZodObject<{
+        color: ZodOptional<...>;
         evidence: ZodObject<..., ...>;
+        icon: ZodOptional<...>;
         id: ZodString;
         label: ZodString;
         parent: ZodOptional<...>;
@@ -16282,6 +17625,7 @@ Output of the `translator` and `trace-fixer` roles (§12).
 VisualPlan: ZodObject<{
   items: ZodArray<ZodObject<{
      animate: ZodBoolean;
+     caption: ZodOptional<ZodString>;
      codeBlockId: ZodOptional<ZodString>;
      conceptIds: ZodArray<ZodString>;
      conceptModelId: ZodOptional<ZodString>;
@@ -16322,6 +17666,7 @@ VisualPlan: ZodObject<{
      }>>;
   }, $strip>>;
   needsVisual: ZodBoolean;
+  overview: ZodOptional<ZodString>;
   reason: ZodString;
   sectionId: ZodString;
 }, $strip>;
@@ -17632,6 +18977,7 @@ The visual families a plan item can request (§5, kind guide in §8).
 const VisualPlan: ZodObject<{
   items: ZodArray<ZodObject<{
      animate: ZodBoolean;
+     caption: ZodOptional<ZodString>;
      codeBlockId: ZodOptional<ZodString>;
      conceptIds: ZodArray<ZodString>;
      conceptModelId: ZodOptional<ZodString>;
@@ -17672,6 +19018,7 @@ const VisualPlan: ZodObject<{
      }>>;
   }, $strip>>;
   needsVisual: ZodBoolean;
+  overview: ZodOptional<ZodString>;
   reason: ZodString;
   sectionId: ZodString;
 }, $strip>;
@@ -17914,6 +19261,39 @@ retried: boolean
 ```
 
 The extractor was re-run once with this report attached (§8 stage 3 step 3).
+
+---
+
+#### animationTargets()
+
+```ts
+function animationTargets(ir, options?): object
+```
+
+Valid targets (sorted, deduplicated) and supported actions for an IR; what the animator may reference.
+
+##### Parameters
+
+| Parameter | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ir`      | \| \{ `direction`: `"LR"` \| `"TB"`; `edges`: `object`[]; `groups`: `object`[]; `nodes`: `object`[]; `title`: `string`; `type`: `"graph"`; \} \| \{ `messages`: `object`[]; `participants`: `object`[]; `title`: `string`; `type`: `"sequence"`; \} \| \{ `final`: `string`[]; `initial`: `string`; `states`: `object`[]; `title`: `string`; `transitions`: `object`[]; `type`: `"state"`; \} \| \{ `classes`: `object`[]; `relations`: `object`[]; `title`: `string`; `type`: `"class"`; \} \| \{ `entities`: `object`[]; `relationships`: `object`[]; `title`: `string`; `type`: `"er"`; \} \| \{ `evidence`: `object`[]; `props`: `unknown`; `templateId`: \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"`; `type`: `"template"`; \} \| \{ `domain`: \[`number`, `number`\]; `logY`: `boolean`; `series`: `object`[]; `title`: `string`; `type`: `"chart"`; `xLabel`: `string`; `yLabel`: `string`; \} \| \{ `sourceBlockId`: `string`; `terms`: `object`[]; `type`: `"math"`; \} \| \{ `events`: `object`[]; `lanes`: `object`[]; `simulated`: `true`; `type`: `"timeline"`; \} \| \{ `html`: `string`; `reason`: `string`; `type`: `"html"`; \} |
+| `options` | [`AnimationOptions`](#animationoptions)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+
+##### Returns
+
+`object`
+
+###### supportedActions
+
+```ts
+supportedActions: string[];
+```
+
+###### targets
+
+```ts
+targets: string[];
+```
 
 ---
 
@@ -18164,6 +19544,60 @@ Builds validated frame states, including frame zero; never mutates the IR or tem
 
 ---
 
+#### cameraBox()
+
+```ts
+function cameraBox(scene, boxes, full, o?): SceneBox
+```
+
+Fit visible nodes/groups (or explicit focus) while keeping a stable minimum view and full bounds.
+
+##### Parameters
+
+| Parameter        | Type                                                        |
+| ---------------- | ----------------------------------------------------------- |
+| `scene`          | [`Scene`](#scene)                                           |
+| `boxes`          | `Readonly`\<`Record`\<`string`, [`SceneBox`](#scenebox)\>\> |
+| `full`           | [`SceneBox`](#scenebox)                                     |
+| `o`              | \{ `minFraction?`: `number`; `padding?`: `number`; \}       |
+| `o.minFraction?` | `number`                                                    |
+| `o.padding?`     | `number`                                                    |
+
+##### Returns
+
+[`SceneBox`](#scenebox)
+
+---
+
+#### compileSceneTimeline()
+
+```ts
+function compileSceneTimeline(ir, frames, boxes, full): SceneTimeline
+```
+
+Compile complete graph scenes into deterministic choreography at speed 1, without DOM access.
+
+##### Parameters
+
+| Parameter      | Type                                                                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ir`           | \{ `direction`: `"LR"` \| `"TB"`; `edges`: `object`[]; `groups`: `object`[]; `nodes`: `object`[]; `title`: `string`; `type`: `"graph"`; \} |
+| `ir.direction` | `"LR"` \| `"TB"`                                                                                                                           |
+| `ir.edges`     | `object`[]                                                                                                                                 |
+| `ir.groups`    | `object`[]                                                                                                                                 |
+| `ir.nodes`     | `object`[]                                                                                                                                 |
+| `ir.title`     | `string`                                                                                                                                   |
+| `ir.type`      | `"graph"`                                                                                                                                  |
+| `frames`       | readonly `object`[]                                                                                                                        |
+| `boxes`        | `Readonly`\<`Record`\<`string`, [`SceneBox`](#scenebox)\>\>                                                                                |
+| `full`         | [`SceneBox`](#scenebox)                                                                                                                    |
+
+##### Returns
+
+[`SceneTimeline`](#scenetimeline)
+
+---
+
 #### criticBody()
 
 ```ts
@@ -18269,6 +19703,92 @@ Calls the `critic` role once. `pass` is recomputed with the §16 rule (every sco
 \};
 \}\>;
 \}\>
+
+---
+
+#### defaultStoryboard()
+
+```ts
+function defaultStoryboard(
+  ir,
+  planItemId,
+): {
+  initialHidden: (
+    | `node:${string}`
+    | `edge:${string}`
+    | `group:${string}`
+    | `msg:${string}`
+    | `cell:${string}[${number}]`
+    | `item:${string}`
+  )[]
+  planItemId: string
+  steps: object[]
+} | null
+```
+
+A deterministic reveal-in-flow-order animation for a validated graph, used when the animator fails
+(ADR 0050). Null for graphs with fewer than 3 nodes. Each step cites its first node's grounded evidence.
+
+##### Parameters
+
+| Parameter      | Type                                                                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ir`           | \{ `direction`: `"LR"` \| `"TB"`; `edges`: `object`[]; `groups`: `object`[]; `nodes`: `object`[]; `title`: `string`; `type`: `"graph"`; \} |
+| `ir.direction` | `"LR"` \| `"TB"`                                                                                                                           |
+| `ir.edges`     | `object`[]                                                                                                                                 |
+| `ir.groups`    | `object`[]                                                                                                                                 |
+| `ir.nodes`     | `object`[]                                                                                                                                 |
+| `ir.title`     | `string`                                                                                                                                   |
+| `ir.type`      | `"graph"`                                                                                                                                  |
+| `planItemId`   | `string`                                                                                                                                   |
+
+##### Returns
+
+###### Type Literal
+
+```ts
+{
+  initialHidden: (
+     | `node:${string}`
+     | `edge:${string}`
+     | `group:${string}`
+     | `msg:${string}`
+     | `cell:${string}[${number}]`
+    | `item:${string}`)[];
+  planItemId: string;
+  steps: object[];
+}
+```
+
+####### initialHidden
+
+```ts
+initialHidden: (
+  | `node:${string}`
+  | `edge:${string}`
+  | `group:${string}`
+  | `msg:${string}`
+  | `cell:${string}[${number}]`
+  | `item:${string}`)[];
+```
+
+Elements revealed by later steps (progressive build-up).
+
+####### planItemId
+
+```ts
+planItemId: string
+```
+
+####### steps
+
+```ts
+steps: object[];
+```
+
+---
+
+`null`
 
 ---
 
@@ -18477,16 +19997,16 @@ Values written by `set` (target → displayed value).
 #### escalationEffort()
 
 ```ts
-function escalationEffort(role): 'low' | 'medium' | 'high'
+function escalationEffort(_role): 'low' | 'medium' | 'high'
 ```
 
-Effort of escalated calls: `deep` tier at `medium`, or `high` for `translator` (§9).
+Effort of escalated calls: `deep` tier at `high` for every role (§9, ADR 0046).
 
 ##### Parameters
 
 | Parameter | Type                                                                                                                                                                                                                                                                                                                                    |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `role`    | \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"` |
+| `_role`   | \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"` |
 
 ##### Returns
 
@@ -18574,6 +20094,112 @@ function headingSlugPath(headingPath): string
 ##### Returns
 
 `string`
+
+---
+
+#### isGraphIcon()
+
+```ts
+function isGraphIcon(
+  name,
+): name is
+  | 'code'
+  | 'table'
+  | 'user'
+  | 'users'
+  | 'client'
+  | 'mobile'
+  | 'server'
+  | 'servers'
+  | 'database'
+  | 'disk'
+  | 'cold-storage'
+  | 'tape'
+  | 'document'
+  | 'documents'
+  | 'folder'
+  | 'logs'
+  | 'metrics'
+  | 'gear'
+  | 'application'
+  | 'stream'
+  | 'firewall'
+  | 'shield'
+  | 'lock'
+  | 'credentials'
+  | 'token'
+  | 'email'
+  | 'chat'
+  | 'forums'
+  | 'internet'
+  | 'globe'
+  | 'json'
+  | 'sdk'
+  | 'git'
+  | 'programming'
+  | 'alert'
+  | 'search'
+  | 'recover'
+  | 'toolkit'
+  | 'building'
+  | 'question'
+  | 'camera'
+  | 'multimedia'
+  | 'console'
+  | 'aws-lambda'
+  | 'aws-s3'
+  | 'aws-dynamodb'
+  | 'aws-rds'
+  | 'aws-aurora'
+  | 'aws-elasticache'
+  | 'aws-memorydb'
+  | 'aws-documentdb'
+  | 'aws-keyspaces'
+  | 'aws-neptune'
+  | 'aws-timestream'
+  | 'aws-redshift'
+  | 'aws-sqs'
+  | 'aws-sns'
+  | 'aws-kinesis'
+  | 'aws-msk'
+  | 'aws-eventbridge'
+  | 'aws-step-functions'
+  | 'aws-ec2'
+  | 'aws-ecs'
+  | 'aws-eks'
+  | 'aws-fargate'
+  | 'aws-batch'
+  | 'aws-api-gateway'
+  | 'aws-cloudfront'
+  | 'aws-elb'
+  | 'aws-route53'
+  | 'aws-vpc'
+  | 'aws-iam'
+  | 'aws-cognito'
+  | 'aws-kms'
+  | 'aws-secrets-manager'
+  | 'aws-waf'
+  | 'aws-shield'
+  | 'aws-cloudwatch'
+  | 'aws-athena'
+  | 'aws-glue'
+  | 'aws-emr'
+  | 'aws-opensearch'
+  | 'aws-sagemaker'
+  | 'aws-bedrock'
+  | 'aws-efs'
+  | 'aws-ebs'
+```
+
+##### Parameters
+
+| Parameter | Type     |
+| --------- | -------- |
+| `name`    | `string` |
+
+##### Returns
+
+name is "code" \| "table" \| "user" \| "users" \| "client" \| "mobile" \| "server" \| "servers" \| "database" \| "disk" \| "cold-storage" \| "tape" \| "document" \| "documents" \| "folder" \| "logs" \| "metrics" \| "gear" \| "application" \| "stream" \| "firewall" \| "shield" \| "lock" \| "credentials" \| "token" \| "email" \| "chat" \| "forums" \| "internet" \| "globe" \| "json" \| "sdk" \| "git" \| "programming" \| "alert" \| "search" \| "recover" \| "toolkit" \| "building" \| "question" \| "camera" \| "multimedia" \| "console" \| "aws-lambda" \| "aws-s3" \| "aws-dynamodb" \| "aws-rds" \| "aws-aurora" \| "aws-elasticache" \| "aws-memorydb" \| "aws-documentdb" \| "aws-keyspaces" \| "aws-neptune" \| "aws-timestream" \| "aws-redshift" \| "aws-sqs" \| "aws-sns" \| "aws-kinesis" \| "aws-msk" \| "aws-eventbridge" \| "aws-step-functions" \| "aws-ec2" \| "aws-ecs" \| "aws-eks" \| "aws-fargate" \| "aws-batch" \| "aws-api-gateway" \| "aws-cloudfront" \| "aws-elb" \| "aws-route53" \| "aws-vpc" \| "aws-iam" \| "aws-cognito" \| "aws-kms" \| "aws-secrets-manager" \| "aws-waf" \| "aws-shield" \| "aws-cloudwatch" \| "aws-athena" \| "aws-glue" \| "aws-emr" \| "aws-opensearch" \| "aws-sagemaker" \| "aws-bedrock" \| "aws-efs" \| "aws-ebs"
 
 ---
 
@@ -18833,6 +20459,28 @@ Parses a comma list such as `NEXT_PUBLIC_ILLUS_FLAGS="templates,critic,-tracer"`
 
 ---
 
+#### parseGraphSource()
+
+```ts
+function parseGraphSource(source, blocks): ParsedGraphSource
+```
+
+Parses the graph diagram language into a candidate `GraphIR`. `blocks` (the validation context's
+blocks) resolve `@b0`-style refs; an ambiguous suffix picks the block whose text holds the quote.
+
+##### Parameters
+
+| Parameter | Type                                               |
+| --------- | -------------------------------------------------- |
+| `source`  | `string`                                           |
+| `blocks`  | `ReadonlyMap`\<`string`, \{ `text`: `string`; \}\> |
+
+##### Returns
+
+[`ParsedGraphSource`](#parsedgraphsource)
+
+---
+
 #### parseSectionId()
 
 ```ts
@@ -18857,7 +20505,7 @@ function parseSectionId(sectionId): ParsedSectionId | null
 function planKey(i): Promise<string>
 ```
 
-`sha256([bookId, sectionId, contentHash, CONTEXT_VERSION, planner.promptVersion, planner.model, planner.effort])`
+`sha256([bookId, sectionId, contentHash, CONTEXT_VERSION, planner.promptVersion, planner.model, planner.effort, kinds?])`
 
 ##### Parameters
 
@@ -18868,6 +20516,33 @@ function planKey(i): Promise<string>
 ##### Returns
 
 `Promise`\<`string`\>
+
+---
+
+#### printGraphSource()
+
+```ts
+function printGraphSource(ir): string
+```
+
+Writes a `GraphIR` in the graph diagram language, with full block ids. The inverse of
+`parseGraphSource` when labels are unique and ids are the slugs of the labels (test fixtures, repair).
+
+##### Parameters
+
+| Parameter      | Type                                                                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ir`           | \{ `direction`: `"LR"` \| `"TB"`; `edges`: `object`[]; `groups`: `object`[]; `nodes`: `object`[]; `title`: `string`; `type`: `"graph"`; \} |
+| `ir.direction` | `"LR"` \| `"TB"`                                                                                                                           |
+| `ir.edges`     | `object`[]                                                                                                                                 |
+| `ir.groups`    | `object`[]                                                                                                                                 |
+| `ir.nodes`     | `object`[]                                                                                                                                 |
+| `ir.title`     | `string`                                                                                                                                   |
+| `ir.type`      | `"graph"`                                                                                                                                  |
+
+##### Returns
+
+`string`
 
 ---
 
@@ -18943,14 +20618,62 @@ True when `schemaName` is one the role may return.
 
 ##### Parameters
 
-| Parameter    | Type                                                                                                                                                                                                                                                                                                                                    |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `role`       | \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"` |
-| `schemaName` | \| `"IndexerOutput"` \| `"GlossaryOutput"` \| `"BookSummary"` \| `"VisualPlan"` \| `"GraphIR"` \| `"SequenceIR"` \| `"StateIR"` \| `"ClassIR"` \| `"ErIR"` \| `"TemplateIR"` \| `"ChartIR"` \| `"MathIR"` \| `"TimelineIR"` \| `"HtmlIR"` \| `"AnimationIR"` \| `"Translation"` \| `"PatchOutput"` \| `"CriticReport"`                  |
+| Parameter    | Type                                                                                                                                                                                                                                                                                                                                      |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `role`       | \| `"indexer"` \| `"glossary"` \| `"book-summary"` \| `"planner"` \| `"extractor.graph"` \| `"extractor.mermaid"` \| `"extractor.template"` \| `"extractor.chart"` \| `"extractor.math"` \| `"extractor.timeline"` \| `"animator"` \| `"translator"` \| `"trace-fixer"` \| `"patcher"` \| `"critic"` \| `"repair"` \| `"html-fallback"`   |
+| `schemaName` | \| `"IndexerOutput"` \| `"GlossaryOutput"` \| `"BookSummary"` \| `"VisualPlan"` \| `"GraphSource"` \| `"GraphIR"` \| `"SequenceIR"` \| `"StateIR"` \| `"ClassIR"` \| `"ErIR"` \| `"TemplateIR"` \| `"ChartIR"` \| `"MathIR"` \| `"TimelineIR"` \| `"HtmlIR"` \| `"AnimationIR"` \| `"Translation"` \| `"PatchOutput"` \| `"CriticReport"` |
 
 ##### Returns
 
 `boolean`
+
+---
+
+#### sceneOf()
+
+```ts
+function sceneOf(ir, frame): Scene
+```
+
+A complete scene independent of the animation's prior frames.
+
+##### Parameters
+
+| Parameter                | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Description                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `ir`                     | \{ `direction`: `"LR"` \| `"TB"`; `edges`: `object`[]; `groups`: `object`[]; `nodes`: `object`[]; `title`: `string`; `type`: `"graph"`; \}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | -                                                                                                           |
+| `ir.direction`           | `"LR"` \| `"TB"`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | -                                                                                                           |
+| `ir.edges`               | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | -                                                                                                           |
+| `ir.groups`              | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | -                                                                                                           |
+| `ir.nodes`               | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | -                                                                                                           |
+| `ir.title`               | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                           |
+| `ir.type`                | `"graph"`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | -                                                                                                           |
+| `frame`                  | \{ `added`: `object`[]; `annotations`: `Record`\<`string`, `string`\>; `containers`: `Record`\<`string`, `object`[]\>; `evidence?`: \{ `blockId`: `string`; `end?`: `number`; `fuzzy?`: `boolean`; `quote`: `string`; `start?`: `number`; \}; `focus`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `"all"` \| `null`; `hidden`: ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]; `highlights`: `Record`\<`string`, `"success"` \| `"focus"` \| `"warning"` \| `"muted"`\>; `narration?`: `string`; `pointers`: `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\>; `relayout`: `boolean`; `removed`: ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]; `slots`: `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\>; `step`: `number`; `stepId?`: `string`; `tokens`: `object`[]; `values`: `Record`\<`string`, `string` \| `number`\>; \} | -                                                                                                           |
+| `frame.added`            | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Elements created by `add`, in order.                                                                        |
+| `frame.annotations`      | `Record`\<`string`, `string`\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Annotations of the current step only.                                                                       |
+| `frame.containers`       | `Record`\<`string`, `object`[]\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Container id → current items, for containers touched by `push`/`pop`/`enqueue`/`dequeue`.                   |
+| `frame.evidence?`        | \{ `blockId`: `string`; `end?`: `number`; `fuzzy?`: `boolean`; `quote`: `string`; `start?`: `number`; \}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                           |
+| `frame.evidence.blockId` | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                           |
+| `frame.evidence.end?`    | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                           |
+| `frame.evidence.fuzzy?`  | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | -                                                                                                           |
+| `frame.evidence.quote`   | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                           |
+| `frame.evidence.start?`  | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                           |
+| `frame.focus`            | \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `"all"` \| `null`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Camera target; `null` means the default framing.                                                            |
+| `frame.hidden`           | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Hidden elements: `initialHidden` plus `hide`, minus `reveal`.                                               |
+| `frame.highlights`       | `Record`\<`string`, `"success"` \| `"focus"` \| `"warning"` \| `"muted"`\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | -                                                                                                           |
+| `frame.narration?`       | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                           |
+| `frame.pointers`         | `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Pointer name → target it points at.                                                                         |
+| `frame.relayout`         | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | True when this step changed structure (`add`, `remove`, `push`, `pop`, node `reveal`): re-run layout (§11). |
+| `frame.removed`          | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Elements removed by `remove`, `pop` or `dequeue`; renderers fade them out.                                  |
+| `frame.slots`            | `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Element → slot it currently occupies after `swap`s (only moved elements are listed).                        |
+| `frame.step`             | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Number of steps applied (0 = base frame).                                                                   |
+| `frame.stepId?`          | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Id of the step that produced this frame; absent on the base frame.                                          |
+| `frame.tokens`           | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Tokens of the current step only.                                                                            |
+| `frame.values`           | `Record`\<`string`, `string` \| `number`\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Values written by `set` (target → displayed value).                                                         |
+
+##### Returns
+
+[`Scene`](#scene)
 
 ---
 
@@ -19179,6 +20902,231 @@ function visualKey(i): Promise<string>
 ##### Returns
 
 `Promise`\<`string`\>
+
+---
+
+#### withDerivedVisibility()
+
+```ts
+function withDerivedVisibility(ir, frame): object
+```
+
+Derive the drawn visibility of endpoint edges/messages, graph groups, and travelling tokens.
+Keeps the original frame identity when nothing changes; never mutates precomputed frames.
+
+##### Parameters
+
+| Parameter                | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Description                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `ir`                     | \| \{ `direction`: `"LR"` \| `"TB"`; `edges`: `object`[]; `groups`: `object`[]; `nodes`: `object`[]; `title`: `string`; `type`: `"graph"`; \} \| \{ `messages`: `object`[]; `participants`: `object`[]; `title`: `string`; `type`: `"sequence"`; \} \| \{ `final`: `string`[]; `initial`: `string`; `states`: `object`[]; `title`: `string`; `transitions`: `object`[]; `type`: `"state"`; \} \| \{ `classes`: `object`[]; `relations`: `object`[]; `title`: `string`; `type`: `"class"`; \} \| \{ `entities`: `object`[]; `relationships`: `object`[]; `title`: `string`; `type`: `"er"`; \} \| \{ `evidence`: `object`[]; `props`: `unknown`; `templateId`: \| `"array"` \| `"linked-list"` \| `"stack"` \| `"queue"` \| `"hash-table"` \| `"tree"` \| `"graph-ds"` \| `"grid"` \| `"memory"` \| `"bits"` \| `"call-tree"` \| `"pipeline"` \| `"layers"` \| `"cache"` \| `"comparison"` \| `"set-ops"`; `type`: `"template"`; \} \| \{ `domain`: \[`number`, `number`\]; `logY`: `boolean`; `series`: `object`[]; `title`: `string`; `type`: `"chart"`; `xLabel`: `string`; `yLabel`: `string`; \} \| \{ `sourceBlockId`: `string`; `terms`: `object`[]; `type`: `"math"`; \} \| \{ `events`: `object`[]; `lanes`: `object`[]; `simulated`: `true`; `type`: `"timeline"`; \} \| \{ `html`: `string`; `reason`: `string`; `type`: `"html"`; \}                                                                                                                                                                    | -                                                                                                           |
+| `frame`                  | \{ `added`: `object`[]; `annotations`: `Record`\<`string`, `string`\>; `containers`: `Record`\<`string`, `object`[]\>; `evidence?`: \{ `blockId`: `string`; `end?`: `number`; `fuzzy?`: `boolean`; `quote`: `string`; `start?`: `number`; \}; `focus`: \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `"all"` \| `null`; `hidden`: ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]; `highlights`: `Record`\<`string`, `"success"` \| `"focus"` \| `"warning"` \| `"muted"`\>; `narration?`: `string`; `pointers`: `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\>; `relayout`: `boolean`; `removed`: ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]; `slots`: `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\>; `step`: `number`; `stepId?`: `string`; `tokens`: `object`[]; `values`: `Record`\<`string`, `string` \| `number`\>; \} | -                                                                                                           |
+| `frame.added`            | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Elements created by `add`, in order.                                                                        |
+| `frame.annotations`      | `Record`\<`string`, `string`\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Annotations of the current step only.                                                                       |
+| `frame.containers`       | `Record`\<`string`, `object`[]\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Container id → current items, for containers touched by `push`/`pop`/`enqueue`/`dequeue`.                   |
+| `frame.evidence?`        | \{ `blockId`: `string`; `end?`: `number`; `fuzzy?`: `boolean`; `quote`: `string`; `start?`: `number`; \}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                           |
+| `frame.evidence.blockId` | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                           |
+| `frame.evidence.end?`    | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                           |
+| `frame.evidence.fuzzy?`  | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | -                                                                                                           |
+| `frame.evidence.quote`   | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                           |
+| `frame.evidence.start?`  | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                           |
+| `frame.focus`            | \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` `` \| `"all"` \| `null`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Camera target; `null` means the default framing.                                                            |
+| `frame.hidden`           | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Hidden elements: `initialHidden` plus `hide`, minus `reveal`.                                               |
+| `frame.highlights`       | `Record`\<`string`, `"success"` \| `"focus"` \| `"warning"` \| `"muted"`\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | -                                                                                                           |
+| `frame.narration?`       | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | -                                                                                                           |
+| `frame.pointers`         | `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Pointer name → target it points at.                                                                         |
+| `frame.relayout`         | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | True when this step changed structure (`add`, `remove`, `push`, `pop`, node `reveal`): re-run layout (§11). |
+| `frame.removed`          | ( \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``)[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Elements removed by `remove`, `pop` or `dequeue`; renderers fade them out.                                  |
+| `frame.slots`            | `Record`\<`string`, \| `` `node:${string}` `` \| `` `edge:${string}` `` \| `` `group:${string}` `` \| `` `msg:${string}` `` \| `` `cell:${string}[${number}]` `` \| `` `item:${string}` ``\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Element → slot it currently occupies after `swap`s (only moved elements are listed).                        |
+| `frame.step`             | `number`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Number of steps applied (0 = base frame).                                                                   |
+| `frame.stepId?`          | `string`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Id of the step that produced this frame; absent on the base frame.                                          |
+| `frame.tokens`           | `object`[]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Tokens of the current step only.                                                                            |
+| `frame.values`           | `Record`\<`string`, `string` \| `number`\>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Values written by `set` (target → displayed value).                                                         |
+
+##### Returns
+
+###### added
+
+```ts
+added: object[];
+```
+
+Elements created by `add`, in order.
+
+###### annotations
+
+```ts
+annotations: Record<string, string>;
+```
+
+Annotations of the current step only.
+
+###### containers
+
+```ts
+containers: Record<string, object[]>;
+```
+
+Container id → current items, for containers touched by `push`/`pop`/`enqueue`/`dequeue`.
+
+###### evidence?
+
+```ts
+optional evidence?: object;
+```
+
+####### evidence.blockId
+
+```ts
+blockId: string
+```
+
+####### evidence.end?
+
+```ts
+optional end?: number;
+```
+
+####### evidence.fuzzy?
+
+```ts
+optional fuzzy?: boolean;
+```
+
+####### evidence.quote
+
+```ts
+quote: string
+```
+
+####### evidence.start?
+
+```ts
+optional start?: number;
+```
+
+###### focus
+
+```ts
+focus:
+  | `node:${string}`
+  | `edge:${string}`
+  | `group:${string}`
+  | `msg:${string}`
+  | `cell:${string}[${number}]`
+  | `item:${string}`
+  | "all"
+  | null;
+```
+
+Camera target; `null` means the default framing.
+
+###### hidden
+
+```ts
+hidden: (
+  | `node:${string}`
+  | `edge:${string}`
+  | `group:${string}`
+  | `msg:${string}`
+  | `cell:${string}[${number}]`
+  | `item:${string}`)[];
+```
+
+Hidden elements: `initialHidden` plus `hide`, minus `reveal`.
+
+###### highlights
+
+```ts
+highlights: Record<string, "success" | "focus" | "warning" | "muted">;
+```
+
+###### narration?
+
+```ts
+optional narration?: string;
+```
+
+###### pointers
+
+```ts
+pointers: Record<string,
+  | `node:${string}`
+  | `edge:${string}`
+  | `group:${string}`
+  | `msg:${string}`
+  | `cell:${string}[${number}]`
+| `item:${string}`>;
+```
+
+Pointer name → target it points at.
+
+###### relayout
+
+```ts
+relayout: boolean
+```
+
+True when this step changed structure (`add`, `remove`, `push`, `pop`, node `reveal`): re-run layout (§11).
+
+###### removed
+
+```ts
+removed: (
+  | `node:${string}`
+  | `edge:${string}`
+  | `group:${string}`
+  | `msg:${string}`
+  | `cell:${string}[${number}]`
+  | `item:${string}`)[];
+```
+
+Elements removed by `remove`, `pop` or `dequeue`; renderers fade them out.
+
+###### slots
+
+```ts
+slots: Record<string,
+  | `node:${string}`
+  | `edge:${string}`
+  | `group:${string}`
+  | `msg:${string}`
+  | `cell:${string}[${number}]`
+| `item:${string}`>;
+```
+
+Element → slot it currently occupies after `swap`s (only moved elements are listed).
+
+###### step
+
+```ts
+step: number
+```
+
+Number of steps applied (0 = base frame).
+
+###### stepId?
+
+```ts
+optional stepId?: string;
+```
+
+Id of the step that produced this frame; absent on the base frame.
+
+###### tokens
+
+```ts
+tokens: object[];
+```
+
+Tokens of the current step only.
+
+###### values
+
+```ts
+values: Record<string, string | number>;
+```
+
+Values written by `set` (target → displayed value).
 
 ---
 

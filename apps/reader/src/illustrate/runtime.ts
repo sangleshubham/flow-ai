@@ -116,6 +116,7 @@ export async function loadPreferences() {
   pane.preferences = {
     enabled: p.enabled === true,
     autoHighlight: p.autoHighlight !== false,
+    highlightSteps: p.highlightSteps !== false,
     speed:
       typeof p.speed === 'number' && [0.5, 1, 1.5, 2].includes(p.speed)
         ? p.speed
@@ -500,7 +501,7 @@ export async function highlightEvidence(
     evidenceAction({
       hasEvent: !!event,
       click,
-      autoHighlight: pane.preferences.autoHighlight,
+      autoHighlight: kind === 'step' ? true : pane.preferences.autoHighlight,
       pinned: pinnedEvidence[kind],
     }) === 'ignore'
   )
@@ -518,9 +519,13 @@ export async function highlightEvidence(
     return
   }
   let cfi = await runtime.bridge.quoteToCfi(block.blockId, event.evidence.quote)
-  if (!cfi && click) {
-    await runtime.bridge.scrollTo(block.cfiRange)
-    cfi = await runtime.bridge.quoteToCfi(block.blockId, event.evidence.quote)
+  if (seq !== evidenceGeneration[kind] || active !== runtime) return
+  if (click) {
+    // Decision 2026-10-16: playback never moves the book; an explicit click always shows the passage.
+    await runtime.bridge.scrollTo(cfi ?? block.cfiRange)
+    if (seq !== evidenceGeneration[kind] || active !== runtime) return
+    if (!cfi)
+      cfi = await runtime.bridge.quoteToCfi(block.blockId, event.evidence.quote)
   }
   if (seq !== evidenceGeneration[kind] || active !== runtime) return
   if (cfi) runtime.bridge.highlight(cfi, kind)

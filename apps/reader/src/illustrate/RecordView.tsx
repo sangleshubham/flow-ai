@@ -1,4 +1,4 @@
-import { Player, PlaybackControls } from '@illus/anim'
+import { Player, PlaybackControls, ScenePlayer } from '@illus/anim'
 import { conceptModelIdOf, sectionView } from '@illus/concepts'
 import type { SectionView } from '@illus/concepts'
 import { buildFrames, IR } from '@illus/core'
@@ -6,6 +6,7 @@ import type {
   Block,
   ConceptModel,
   FrameState,
+  GraphIR,
   LayoutGraphFn,
   LayoutGraphResult,
   ThemeTokens,
@@ -23,7 +24,8 @@ import {
 } from '@illus/render'
 import type { EvidenceEvent } from '@illus/render'
 import { TraceView } from '@illus/tracer'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 
 import { ConceptModelView } from './ConceptModelView'
 import {
@@ -34,6 +36,7 @@ import {
   parsedVisual,
   requestVisual,
   saveConceptLayout,
+  savePreferences,
   updateRecord,
 } from './runtime'
 import { pane } from './state'
@@ -146,6 +149,66 @@ const highlightStepEvidence = (evidence: EvidenceEvent['evidence'] | null) => {
   )
 }
 
+// The scene player's own handlers, module-level for the same reason as `highlightStepEvidence`: stable identities.
+const clickStepEvidence = (evidence: EvidenceEvent['evidence']) => {
+  void highlightEvidence(
+    { irId: 'step', target: 'step', label: 'Step', evidence },
+    true,
+    'step',
+  )
+}
+const rememberHighlightSteps = (on: boolean) => {
+  void savePreferences({ ...pane.preferences, highlightSteps: on })
+}
+
+/**
+ * The graph scene player (ADR 0050), mounted behind the `sceneAnimations` flag. ScenePlayer renders the
+ * scene once per `renderScene` identity and rebuilds its timeline when `ir` or `frames` change, so all
+ * three must be stable across the pane's re-renders. `renderFrame` is a fresh closure every render, so
+ * `sceneInputs` lists what it reads that can really change (the record, theme, expanded state, flags): the
+ * scene is drawn again exactly when one does, and with the closure of that render.
+ */
+function GraphScene({
+  ir,
+  frames,
+  renderFrame,
+  sceneInputs,
+}: {
+  ir: GraphIR
+  frames: readonly FrameState[]
+  renderFrame: (frame?: FrameState) => ReactNode
+  sceneInputs: readonly unknown[]
+}) {
+  // No frame: the complete, static visual that the scene timeline then animates.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const renderScene = useMemo(() => () => renderFrame(), sceneInputs)
+  const onStepChange = useCallback(
+    (index: number) => {
+      pane.announcement = frames[index]?.narration ?? ''
+    },
+    [frames],
+  )
+  return (
+    <ScenePlayer
+      ir={ir}
+      frames={frames}
+      renderScene={renderScene}
+      autoPlay
+      highlightWhilePlaying={pane.preferences.highlightSteps}
+      onHighlightWhilePlayingChange={rememberHighlightSteps}
+      defaultSpeed={pane.preferences.speed}
+      reducedMotion={
+        pane.preferences.reducedMotion === 'system'
+          ? undefined
+          : pane.preferences.reducedMotion === 'on'
+      }
+      onStepChange={onStepChange}
+      onEvidenceClick={clickStepEvidence}
+      onEvidenceHighlight={highlightStepEvidence}
+    />
+  )
+}
+
 function StaticRecordView({ record }: { record: VisualRecord }) {
   const [theme, setTheme] = useState<ThemeTokens>(() => readFlowTheme())
   const [instruction, setInstruction] = useState('')
@@ -240,6 +303,8 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
       </p>
     )
   const ir = parsed.data
+  // Saving a preference replaces the flags object even when no flag changed; compare by value instead.
+  const flagsKey = JSON.stringify(pane.preferences.flags)
   // Element feedback names what the reader sees: the model's view for concept items.
   const shownIr = conceptIr ?? ir
   const vote = async (value: 'up' | 'down') => {
@@ -362,12 +427,25 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
           onEvidenceHighlight: highlightStepEvidence,
         }}
       />
+    ) : pane.preferences.flags.animations &&
+      pane.preferences.flags.sceneAnimations &&
+      ir.type === 'graph' &&
+      frames.length > 1 ? (
+      <GraphScene
+        ir={ir}
+        frames={frames}
+        renderFrame={renderFrame}
+        sceneInputs={[record, theme, expanded, flagsKey, mathBlock]}
+      />
     ) : pane.preferences.flags.animations && frames.length ? (
       <Player
         frames={frames}
         renderFrame={renderFrame}
         autoPlay
-        highlightWhilePlaying={false}
+        highlightWhilePlaying={pane.preferences.highlightSteps}
+        onHighlightWhilePlayingChange={(on) =>
+          void savePreferences({ ...pane.preferences, highlightSteps: on })
+        }
         defaultSpeed={pane.preferences.speed}
         reducedMotion={
           pane.preferences.reducedMotion === 'system'
@@ -391,162 +469,165 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
     )
   return (
     <>
-    {expanded && (
-      <div
-        className="illus-backdrop"
-        aria-hidden="true"
-        onClick={() => setExpanded(false)}
-      />
-    )}
-    <div
-      className="illus-record"
-      data-expanded={expanded || undefined}
-      role={expanded ? 'dialog' : undefined}
-      aria-modal={expanded || undefined}
-      aria-label={expanded ? item?.intent ?? 'Illustration' : undefined}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape' && expanded) {
-          // Close the large view only; the pane's own Escape handler checks defaultPrevented.
-          e.preventDefault()
-          setExpanded(false)
-        }
-      }}
-      onContextMenu={(e) => {
-        const element = (e.target as Element).closest('[data-ir-id]')
-        if (!element) return
-        e.preventDefault()
-        const id = element.getAttribute('data-ir-id')!
-        setWrong({
-          irId: id,
-          evidence: irElements(shownIr).find((el) => el.id === id)?.evidence,
-        })
-        setNote('')
-      }}
-    >
-      {record.stale && (
-        <p role="status">
-          This saved illustration is from an earlier version. Regenerate to
-          update it.
-        </p>
-      )}
-      {simulated && (
-        <p role="status">Simulated illustration: {simulated.message}</p>
-      )}
-      {body}
-      {regenerate && (
-        <form
-          className="illus-inline-form"
-          onSubmit={(e) => {
-            e.preventDefault()
-            requestVisual({ instruction, planItemId: record.planItemId })
-            setRegenerate(false)
-          }}
-        >
-          <label>
-            Instruction{' '}
-            <textarea
-              maxLength={300}
-              value={instruction}
-              onChange={(e) => setInstruction(e.target.value)}
-            />
-          </label>
-          <small>{instruction.length}/300</small>
-          <button type="submit">Regenerate with instruction</button>
-          <button type="button" onClick={() => setRegenerate(false)}>
-            Cancel
-          </button>
-        </form>
-      )}
-      {feedbackOpen && (
-        <form
-          className="illus-inline-form"
-          onSubmit={(e) => {
-            e.preventDefault()
-            void updateRecord({
-              ...record,
-              feedback: { vote: 'down', note },
-            }).then(() => {
-              setFeedbackOpen(false)
-              pane.announcement = 'Feedback saved.'
-            })
-          }}
-        >
-          <label>
-            Feedback note (optional)
-            <textarea value={note} onChange={(e) => setNote(e.target.value)} />
-          </label>
-          <button>Save feedback</button>
-        </form>
-      )}
-      {reporting && !wrong && (
+      {expanded && (
         <div
-          className="illus-inline-form"
-          role="group"
-          aria-label="Element feedback"
-        >
-          <h3>Which element is wrong?</h3>
-          <p className="illus-hint">
-            Tip: right-click an element in the diagram to report it directly.
-          </p>
-          <div className="illus-element-list">
-            {irElements(shownIr).map((el) => (
-              <button
-                key={el.id}
-                onClick={() => {
-                  setWrong({ irId: el.id, evidence: el.evidence })
-                  setNote('')
-                  setReporting(false)
-                }}
-              >
-                {el.label}
-              </button>
-            ))}
-          </div>
-          <button type="button" onClick={() => setReporting(false)}>
-            Cancel
-          </button>
-        </div>
+          className="illus-backdrop"
+          aria-hidden="true"
+          onClick={() => setExpanded(false)}
+        />
       )}
-      {wrong && (
-        <form
-          className="illus-inline-form"
-          aria-label="Element report"
-          onSubmit={(e) => {
+      <div
+        className="illus-record"
+        data-expanded={expanded || undefined}
+        role={expanded ? 'dialog' : undefined}
+        aria-modal={expanded || undefined}
+        aria-label={expanded ? item?.intent ?? 'Illustration' : undefined}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && expanded) {
+            // Close the large view only; the pane's own Escape handler checks defaultPrevented.
             e.preventDefault()
-            void updateRecord({
-              ...record,
-              elementReports: [
-                ...(record.elementReports ?? []),
-                {
-                  elementId: wrong.irId,
-                  evidence: wrong.evidence,
-                  note,
-                  createdAt: Date.now(),
-                },
-              ],
-            }).then(() => {
-              setWrong(null)
-              pane.announcement = 'Element report saved.'
-            })
-          }}
-        >
-          <h3>This is wrong</h3>
-          <p>{wrong.evidence?.quote}</p>
-          <label>
-            What should change?
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              required
-            />
-          </label>
-          <button>Save report</button>
-          <button type="button" onClick={() => setWrong(null)}>
-            Cancel
-          </button>
-        </form>
-      )}
-    </div>
+            setExpanded(false)
+          }
+        }}
+        onContextMenu={(e) => {
+          const element = (e.target as Element).closest('[data-ir-id]')
+          if (!element) return
+          e.preventDefault()
+          const id = element.getAttribute('data-ir-id')!
+          setWrong({
+            irId: id,
+            evidence: irElements(shownIr).find((el) => el.id === id)?.evidence,
+          })
+          setNote('')
+        }}
+      >
+        {record.stale && (
+          <p role="status">
+            This saved illustration is from an earlier version. Regenerate to
+            update it.
+          </p>
+        )}
+        {simulated && (
+          <p role="status">Simulated illustration: {simulated.message}</p>
+        )}
+        {body}
+        {regenerate && (
+          <form
+            className="illus-inline-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              requestVisual({ instruction, planItemId: record.planItemId })
+              setRegenerate(false)
+            }}
+          >
+            <label>
+              Instruction{' '}
+              <textarea
+                maxLength={300}
+                value={instruction}
+                onChange={(e) => setInstruction(e.target.value)}
+              />
+            </label>
+            <small>{instruction.length}/300</small>
+            <button type="submit">Regenerate with instruction</button>
+            <button type="button" onClick={() => setRegenerate(false)}>
+              Cancel
+            </button>
+          </form>
+        )}
+        {feedbackOpen && (
+          <form
+            className="illus-inline-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void updateRecord({
+                ...record,
+                feedback: { vote: 'down', note },
+              }).then(() => {
+                setFeedbackOpen(false)
+                pane.announcement = 'Feedback saved.'
+              })
+            }}
+          >
+            <label>
+              Feedback note (optional)
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
+            </label>
+            <button>Save feedback</button>
+          </form>
+        )}
+        {reporting && !wrong && (
+          <div
+            className="illus-inline-form"
+            role="group"
+            aria-label="Element feedback"
+          >
+            <h3>Which element is wrong?</h3>
+            <p className="illus-hint">
+              Tip: right-click an element in the diagram to report it directly.
+            </p>
+            <div className="illus-element-list">
+              {irElements(shownIr).map((el) => (
+                <button
+                  key={el.id}
+                  onClick={() => {
+                    setWrong({ irId: el.id, evidence: el.evidence })
+                    setNote('')
+                    setReporting(false)
+                  }}
+                >
+                  {el.label}
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={() => setReporting(false)}>
+              Cancel
+            </button>
+          </div>
+        )}
+        {wrong && (
+          <form
+            className="illus-inline-form"
+            aria-label="Element report"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void updateRecord({
+                ...record,
+                elementReports: [
+                  ...(record.elementReports ?? []),
+                  {
+                    elementId: wrong.irId,
+                    evidence: wrong.evidence,
+                    note,
+                    createdAt: Date.now(),
+                  },
+                ],
+              }).then(() => {
+                setWrong(null)
+                pane.announcement = 'Element report saved.'
+              })
+            }}
+          >
+            <h3>This is wrong</h3>
+            <p>{wrong.evidence?.quote}</p>
+            <label>
+              What should change?
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                required
+              />
+            </label>
+            <button>Save report</button>
+            <button type="button" onClick={() => setWrong(null)}>
+              Cancel
+            </button>
+          </form>
+        )}
+      </div>
     </>
   )
 }
