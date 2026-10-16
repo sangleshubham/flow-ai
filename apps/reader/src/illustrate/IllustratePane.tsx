@@ -9,6 +9,8 @@ import { RecordView } from './RecordView'
 import {
   activate,
   approveIndexing,
+  cancelBookRunConfirm,
+  confirmBookRun,
   deactivate,
   goPrevious,
   illustrateSelection,
@@ -16,9 +18,12 @@ import {
   networkChanged,
   paneClosed,
   paneOpened,
+  pauseBookRun,
   reportError,
   requestVisual,
+  resumeBookRun,
   setPinned,
+  startBookRun,
   togglePane,
 } from './runtime'
 import { pane } from './state'
@@ -96,19 +101,48 @@ export function IllustratePane() {
     }
   }, [r.focusedBookTab?.rendition])
   // Closed, the toggle is an in-flow rail beside the book, so it never covers Flow's own top-bar buttons.
-  if (!s.open)
-    return r.focusedBookTab ? (
-      <div className="illus-rail">
+  if (!s.open) {
+    if (!r.focusedBookTab) return null
+    const b = s.bookRun
+    const running =
+      s.preferences.flags.wholeBook &&
+      (b.status === 'understanding' || b.status === 'illustrating')
+    const paused =
+      s.preferences.flags.wholeBook &&
+      (b.status === 'paused' || b.status === 'paused-limit')
+    const label = running
+      ? b.status === 'understanding'
+        ? 'Open Illustrate. Understanding the book'
+        : `Open Illustrate. Illustrating book ${b.finished} of ${b.total}`
+      : paused
+      ? 'Open Illustrate. Book illustration paused'
+      : 'Open Illustrate'
+    return (
+      <div
+        className="illus-rail"
+        data-running={running || undefined}
+        style={
+          running
+            ? ({
+                '--illus-run-progress': `${
+                  b.total ? Math.min(100, (b.finished / b.total) * 100) : 0
+                }%`,
+              } as React.CSSProperties)
+            : undefined
+        }
+      >
         <button
           className="illus-toggle"
           onClick={togglePane}
-          aria-label="Open Illustrate"
+          aria-label={label}
+          title={running || paused ? label : undefined}
           aria-keyshortcuts="Alt+I"
         >
           Illustrate
         </button>
       </div>
-    ) : null
+    )
+  }
   return (
     <div className="illus-pane-slot" style={{ width: size }}>
       <PaneContent
@@ -134,6 +168,17 @@ export function IllustratePane() {
             pane.selectedItem = id
           },
           now: () => requestVisual(),
+          bookConfirm: () => {
+            void confirmBookRun()
+          },
+          bookStart: () => {
+            void startBookRun()
+          },
+          bookCancel: cancelBookRunConfirm,
+          bookPause: pauseBookRun,
+          bookResume: () => {
+            void resumeBookRun()
+          },
         }}
         renderVisual={(record) => (
           <RecordView key={record.cacheKey} record={record} />

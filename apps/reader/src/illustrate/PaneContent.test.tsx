@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 import { make } from '@illus/core/testing'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
 import React from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -20,6 +27,11 @@ const commands = (): PaneCommands => ({
   selection: vi.fn(),
   select: vi.fn(),
   now: vi.fn(),
+  bookConfirm: vi.fn(),
+  bookStart: vi.fn(),
+  bookCancel: vi.fn(),
+  bookPause: vi.fn(),
+  bookResume: vi.fn(),
 })
 describe('every Illustrate pane state', () => {
   const expected = {
@@ -325,5 +337,169 @@ describe('stage text, overview and caption', () => {
     })
     expect(document.querySelector('.illus-overview')).toBeNull()
     expect(document.querySelector('.illus-caption')).toBeNull()
+  })
+})
+
+describe('whole-book bar (ADR 0057)', () => {
+  const bar = (
+    edit: (s: ReturnType<typeof createPaneState>) => void,
+    c = commands(),
+  ) => {
+    const s = createPaneState()
+    s.bookId = 'book'
+    s.signedIn = true
+    s.bookRun.total = 12
+    s.bookRun.cachedCount = 3
+    edit(s)
+    render(<PaneContent state={s} commands={c} renderVisual={() => null} />)
+    return c
+  }
+  const region = () => screen.getByRole('region', { name: 'Whole book' })
+  const press = (name: string) =>
+    fireEvent.click(within(region()).getByRole('button', { name }))
+  const idleButton = () =>
+    within(region()).getByRole('button', {
+      name: 'Illustrate whole book',
+    }) as HTMLButtonElement
+
+  it('sits between the header and the meta line, and is hidden without a book or with the flag off', () => {
+    bar(() => {})
+    const pane = screen.getByRole('region', { name: 'Illustrate' })
+    const kids = Array.from(pane.children)
+    expect(kids.indexOf(region())).toBe(1)
+    expect(kids[2]!.className).toBe('illus-meta')
+    cleanup()
+    bar((s) => {
+      s.preferences.flags = { ...s.preferences.flags, wholeBook: false }
+    })
+    expect(screen.queryByRole('region', { name: 'Whole book' })).toBeNull()
+    cleanup()
+    bar((s) => {
+      s.bookId = null
+    })
+    expect(screen.queryByRole('region', { name: 'Whole book' })).toBeNull()
+  })
+  it('idle: shows the count and asks for confirmation', () => {
+    const c = bar(() => {})
+    expect(
+      within(region()).getByText('3 of 12 sections illustrated'),
+    ).toBeDefined()
+    press('Illustrate whole book')
+    expect(c.bookConfirm).toHaveBeenCalledOnce()
+  })
+  it('idle: the button is disabled offline and when signed out with sign-in configured', () => {
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    bar(() => {})
+    expect(idleButton().disabled).toBe(true)
+    online.mockRestore()
+    cleanup()
+    bar((s) => {
+      s.signedIn = false
+      s.signinConfigured = true
+    })
+    expect(idleButton().disabled).toBe(true)
+    cleanup()
+    bar((s) => {
+      s.signedIn = false
+      s.signinConfigured = false
+    })
+    expect(idleButton().disabled).toBe(false)
+  })
+  it('confirm: explains the cost and offers Start and Cancel', () => {
+    const c = bar((s) => {
+      s.bookRun.status = 'confirm'
+      s.bookRun.estimate = 27
+    })
+    expect(region().textContent).toContain(
+      'Illustrate the remaining 9 sections?',
+    )
+    expect(region().textContent).toContain('about 27 requests')
+    expect(region().textContent).toContain('even with this pane closed')
+    press('Start')
+    expect(c.bookStart).toHaveBeenCalledOnce()
+    press('Cancel')
+    expect(c.bookCancel).toHaveBeenCalledOnce()
+  })
+  it('understanding: shows concept-pass progress and pauses', () => {
+    const c = bar((s) => {
+      s.bookRun.status = 'understanding'
+      s.bookRun.indexed = { indexed: 4, total: 12 }
+    })
+    expect(
+      within(region()).getByText('Understanding the book: 4 of 12 sections'),
+    ).toBeDefined()
+    const progress = region().querySelector('progress')!
+    expect(progress.value).toBe(4)
+    expect(progress.max).toBe(12)
+    press('Pause')
+    expect(c.bookPause).toHaveBeenCalledOnce()
+  })
+  it('illustrating: shows finished, failed items and pauses', () => {
+    const c = bar((s) => {
+      s.bookRun.status = 'illustrating'
+      s.bookRun.finished = 5
+      s.bookRun.failedItems = 2
+    })
+    expect(
+      within(region()).getByText('Illustrating book: 5 / 12 · 2 failed'),
+    ).toBeDefined()
+    expect(region().querySelector('progress')!.value).toBe(5)
+    expect(region().querySelector('[aria-live="polite"]')).not.toBeNull()
+    press('Pause')
+    expect(c.bookPause).toHaveBeenCalledOnce()
+  })
+  it('paused: resumes', () => {
+    const c = bar((s) => {
+      s.bookRun.status = 'paused'
+      s.bookRun.finished = 5
+    })
+    expect(within(region()).getByText('Paused at 5 / 12')).toBeDefined()
+    press('Resume')
+    expect(c.bookResume).toHaveBeenCalledOnce()
+  })
+  it('paused-limit: says why, when the limit resets, and resumes', () => {
+    const resetAt = new Date(2030, 0, 1, 14, 5).getTime()
+    const c = bar((s) => {
+      s.bookRun.status = 'paused-limit'
+      s.bookRun.resetAt = resetAt
+      s.bookRun.message = 'Still paused by the ChatGPT plan limit.'
+    })
+    const text = region().textContent!
+    expect(text).toContain('Paused: ChatGPT plan limit reached. Resets at')
+    expect(text).toContain(
+      new Date(resetAt).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    )
+    expect(text).toContain('Resume when you’re ready.')
+    expect(text).toContain('Still paused by the ChatGPT plan limit.')
+    press('Resume')
+    expect(c.bookResume).toHaveBeenCalledOnce()
+  })
+  it('paused-limit without a known reset omits the time', () => {
+    bar((s) => {
+      s.bookRun.status = 'paused-limit'
+    })
+    expect(region().textContent).toContain(
+      'Paused: ChatGPT plan limit reached. Resume when you’re ready.',
+    )
+  })
+  it('done: reports completion, and retries failed items only when some failed', () => {
+    bar((s) => {
+      s.bookRun.status = 'done'
+    })
+    expect(within(region()).getByText('Book illustrated')).toBeDefined()
+    expect(within(region()).queryByRole('button')).toBeNull()
+    cleanup()
+    const c = bar((s) => {
+      s.bookRun.status = 'done'
+      s.bookRun.failedItems = 3
+    })
+    expect(
+      within(region()).getByText('Book illustrated · 3 items failed'),
+    ).toBeDefined()
+    press('Retry failed')
+    expect(c.bookStart).toHaveBeenCalledOnce()
   })
 })

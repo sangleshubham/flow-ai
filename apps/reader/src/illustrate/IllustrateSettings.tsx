@@ -3,10 +3,21 @@ import React, { useState } from 'react'
 import { useSnapshot } from 'valtio'
 
 import {
+  BookRunProgress,
+  bookRunText,
+  canStartBookRun,
+  useOnline,
+} from './PaneContent'
+import {
+  cancelBookRunConfirm,
   clearVisuals,
+  confirmBookRun,
   downloadCache,
+  pauseBookRun,
   reindex,
+  resumeBookRun,
   savePreferences,
+  startBookRun,
   togglePane,
   uploadCache,
 } from './runtime'
@@ -150,6 +161,7 @@ export function IllustrateSettings() {
         Save full prompts locally for debugging
       </label>
       <h3>Current book’s illustrations</h3>
+      {s.bookId && s.preferences.flags.wholeBook && <BookRunSetting s={s} />}
       <button disabled={!s.bookId} onClick={() => setConfirm('reindex')}>
         Re-index book
       </button>
@@ -191,5 +203,63 @@ export function IllustrateSettings() {
       )}
       <p role="status">{message}</p>
     </section>
+  )
+}
+
+/** The whole-book status line and its one button; the pane shows the confirm card (ADR 0057). */
+function BookRunSetting({ s }: { s: PaneState }) {
+  const b = s.bookRun
+  const online = useOnline()
+  return (
+    <div className="illus-book-run" data-run={b.status}>
+      <p className="illus-book-run-status">
+        {b.status === 'confirm'
+          ? 'Confirm the whole-book run in the Illustrate pane.'
+          : bookRunText(b)}
+        {b.message ? (
+          <span className="illus-book-run-note"> {b.message}</span>
+        ) : null}
+      </p>
+      <BookRunProgress bookRun={b} />
+      {b.status === 'idle' && (
+        <button
+          disabled={!canStartBookRun(s, online)}
+          onClick={() => {
+            // The confirm card lives in the pane.
+            if (!pane.open) togglePane()
+            void confirmBookRun()
+          }}
+        >
+          Illustrate whole book
+        </button>
+      )}
+      {b.status === 'confirm' &&
+        (s.open ? (
+          <button onClick={cancelBookRunConfirm}>Cancel</button>
+        ) : (
+          <button onClick={togglePane}>Open Illustrate pane</button>
+        ))}
+      {(b.status === 'understanding' || b.status === 'illustrating') && (
+        <button onClick={pauseBookRun}>Pause</button>
+      )}
+      {(b.status === 'paused' || b.status === 'paused-limit') && (
+        <button
+          onClick={() => {
+            void resumeBookRun()
+          }}
+        >
+          Resume
+        </button>
+      )}
+      {b.status === 'done' && b.failedItems > 0 && (
+        <button
+          onClick={() => {
+            void startBookRun()
+          }}
+        >
+          Retry failed
+        </button>
+      )}
+    </div>
   )
 }

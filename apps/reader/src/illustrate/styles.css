@@ -348,6 +348,7 @@
   background: var(--illus-bg);
 }
 .illus-rail {
+  position: relative;
   flex-shrink: 0;
   width: 32px;
   height: 100%;
@@ -430,4 +431,87 @@
   align-items: center;
   margin: 0 12px 8px 0;
   font-size: 13px;
+}
+
+/* Whole-book run (ADR 0057): a compact bar under the header, and a thin fill on the closed rail. */
+.illus-book-run {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  padding: 6px 16px;
+  font-size: 12px;
+  color: var(--illus-muted);
+  border-bottom: 1px solid var(--illus-line);
+}
+.illus-settings .illus-book-run {
+  padding: 4px 0;
+  border-bottom: 0;
+  font-size: 13px;
+}
+.illus-book-run p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.illus-book-run-status {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.illus-book-run-note {
+  color: var(--illus-fg);
+}
+.illus-book-run-confirm {
+  flex: 1 1 100%;
+  padding: 8px 10px;
+  color: var(--illus-fg);
+  border: 1px solid var(--illus-line);
+  border-radius: 6px;
+}
+.illus-book-run-confirm p {
+  margin: 0 0 6px;
+}
+.illus-book-run-actions {
+  flex: 0 0 auto;
+}
+.illus-book-run progress {
+  flex: 1 1 100%;
+  width: 100%;
+  height: 4px;
+  border: 0;
+  border-radius: 2px;
+  overflow: hidden;
+  appearance: none;
+  background: var(--illus-line);
+  accent-color: var(--illus-accent);
+}
+.illus-book-run progress::-webkit-progress-bar {
+  background: var(--illus-line);
+}
+.illus-book-run progress::-webkit-progress-value {
+  background: var(--illus-accent);
+}
+.illus-book-run progress::-moz-progress-bar {
+  background: var(--illus-accent);
+}
+.illus-pane .illus-book-run button,
+.illus-settings .illus-book-run button {
+  margin: 0;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+.illus-rail[data-running]::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 3px;
+  height: var(--illus-run-progress, 0%);
+  background: rgb(var(--md-sys-color-primary));
+  pointer-events: none;
+  transition: height 0.3s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .illus-rail[data-running]::after {
+    transition: none;
+  }
 }
