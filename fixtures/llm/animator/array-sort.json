@@ -1,7 +1,7 @@
 {
   "source": "handwritten",
   "role": "animator",
-  "promptVersion": "1.0.0",
+  "promptVersion": "2.0.0",
   "model": "gpt-6.1-sol",
   "effort": "medium",
   "schemaName": "AnimationIR",
@@ -52,5 +52,6 @@
       }
     ]
   },
-  "note": "Original synthetic adjacent-swap worked example."
+  "note": "Original synthetic adjacent-swap worked example.",
+  "key": "1b43b639cae9aff37dc6403959b0d7750b402374e14acf35dd8216fbd856929b"
 }
