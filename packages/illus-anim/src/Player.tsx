@@ -27,6 +27,27 @@ export interface PlayerProps {
   highlightWhilePlaying?: boolean
 }
 
+/** A screen-pixel offset in the element's own coordinates (SVG viewBox scaling, pane zoom). */
+function localDelta(element: Element, dx: number, dy: number) {
+  if (!dx && !dy) return { x: 0, y: 0 }
+  const parent = element.parentElement
+  const matrix =
+    element instanceof SVGElement && parent instanceof SVGGraphicsElement
+      ? parent.getScreenCTM()
+      : null
+  if (matrix) {
+    const inverse = matrix.inverse()
+    return {
+      x: inverse.a * dx + inverse.c * dy,
+      y: inverse.b * dx + inverse.d * dy,
+    }
+  }
+  const scale = Number(
+    element.closest('[data-zoom]')?.getAttribute('data-zoom') ?? 1,
+  )
+  return { x: dx / scale, y: dy / scale }
+}
+
 /** Precomputed frame player. The caller gates mounting with featureFlags.animation. */
 export function Player({
   frames,
@@ -136,27 +157,30 @@ export function Player({
       }
       const before = previous.current.get(target)
       next.set(target, now)
-      if (!reduced && before) {
-        const dx = before.x - now.x,
-          dy = before.y - now.y
+      if (!reduced && before && typeof element.animate === 'function') {
+        const offset = localDelta(element, before.x - now.x, before.y - now.y)
         if (
-          dx ||
-          dy ||
+          offset.x ||
+          offset.y ||
           before.opacity !== now.opacity ||
           before.fill !== now.fill
-        )
-          stops.push(
-            animate(
-              element,
+        ) {
+          // The CSS `translate` property composes with an SVG `transform` attribute (graph nodes are
+          // positioned by one); a CSS `transform` would replace it and send the node to the origin.
+          // No fill mode: once done, nothing stays inline to mask the next frame's classes.
+          const animation = element.animate(
+            [
               {
-                x: [dx, 0],
-                y: [dy, 0],
-                opacity: [before.opacity, now.opacity],
-                fill: [before.fill, now.fill],
+                translate: `${offset.x}px ${offset.y}px`,
+                opacity: before.opacity,
+                fill: before.fill,
               },
-              { duration: 0.3 / playback.speed },
-            ),
+              { translate: '0px 0px', opacity: now.opacity, fill: now.fill },
+            ],
+            { duration: 300 / playback.speed, easing: 'ease-out' },
           )
+          stops.push({ stop: () => animation.cancel() })
+        }
       }
     }
     previous.current = next
