@@ -99,7 +99,8 @@ export class BookTab extends BaseTab {
 
   display(target?: string, returnable = true) {
     // The Illustrate bridge treats this CFI as the section the reader chose (ADR 0053).
-    if (target?.startsWith('epubcfi(')) this.rendition?.emit('illus:navigate', target)
+    if (target?.startsWith('epubcfi('))
+      this.rendition?.emit('illus:navigate', target)
     this.rendition?.display(target)
     if (returnable) this.showPrevLocation()
   }
