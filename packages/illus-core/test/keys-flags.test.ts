@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DEFAULT_FLAGS,
+  FLAG_OWNERS,
+  FlagName,
   parseFlagList,
   planKey,
   resolveFlags,
@@ -109,6 +111,7 @@ describe('flags (§4)', () => {
     expect(DEFAULT_FLAGS).toEqual({
       templates: true,
       animations: true,
+      sceneAnimations: false,
       tracer: false,
       conceptModels: false,
       critic: false,
@@ -119,9 +122,21 @@ describe('flags (§4)', () => {
       'conceptModels',
       'critic',
       'htmlFallback',
+      'sceneAnimations',
       'templates',
       'tracer',
     ])
+  })
+
+  it('keeps graph scene animations dark, owned by W6 and explicitly opt-in', () => {
+    expect(FlagName.parse('sceneAnimations')).toBe('sceneAnimations')
+    expect(FLAG_OWNERS.sceneAnimations).toBe('W6')
+    expect(resolveFlags().sceneAnimations).toBe(false)
+    expect(resolveFlags({ sceneAnimations: true }).sceneAnimations).toBe(true)
+    expect(parseFlagList('sceneAnimations')).toEqual({ sceneAnimations: true })
+    expect(parseFlagList('-sceneAnimations')).toEqual({
+      sceneAnimations: false,
+    })
   })
 
   it('merges valid overrides and ignores junk', () => {
