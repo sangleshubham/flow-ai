@@ -26,3 +26,26 @@ export function getSectionAt(sections: readonly SectionNode[], cfi: string): Sec
   if (hit?.spineIndex === target.spinePos) return hit
   return sections.find((s) => s.spineIndex === target.spinePos) ?? null
 }
+
+/**
+ * The section a rendered page belongs to (decision 2026-10-16): the last section whose heading starts
+ * on the page, i.e. with `start < cfiStart <= end`; otherwise the section containing `start`.
+ * `end` is the rendition location's `end.cfi`; without it this is `getSectionAt(sections, start)`.
+ */
+export function getSectionForPage(
+  sections: readonly SectionNode[],
+  start: string,
+  end?: string,
+): SectionNode | null {
+  const atStart = getSectionAt(sections, start)
+  if (!end) return atStart
+  const atEnd = getSectionAt(sections, end)
+  if (
+    atEnd &&
+    atEnd !== atStart &&
+    cmp.compare(atEnd.cfiStart, start) > 0 &&
+    cmp.compare(atEnd.cfiStart, end) <= 0
+  )
+    return atEnd
+  return atStart
+}
