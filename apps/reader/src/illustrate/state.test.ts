@@ -106,6 +106,53 @@ describe('item failures with cached visuals', () => {
     expect(s.status).toBe('plan-limit')
   })
 })
+describe('item previews (ADR 0054)', () => {
+  it('shows a preview while the item finishes, then the stored record replaces it', () => {
+    const s = createPaneState()
+    const fake = jobFake()
+    bindJob(s, fake.job, () => true, vi.fn())
+    fake.emit('plan', {
+      plan: make.visualPlan(),
+      record: make.planRecord(),
+      partialContext: false,
+      fromCache: false,
+    })
+    const preview = make.visualRecord({ planItemId: 'a' })
+    fake.emit('item-preview', { planItemId: 'a', record: preview })
+    expect(s.status).toBe('ready')
+    expect(s.previews).toEqual({ a: preview })
+    expect(s.records).toEqual([])
+    const final = make.visualRecord({ planItemId: 'a', usageTokens: 99 })
+    fake.emit('item-ready', {
+      planItemId: 'a',
+      record: final,
+      fromCache: false,
+    })
+    expect(s.previews).toEqual({})
+    expect(s.records).toEqual([final])
+  })
+  it('drops the preview when its item fails and clears leftovers when the job ends', () => {
+    const s = createPaneState()
+    const fake = jobFake()
+    bindJob(s, fake.job, () => true, vi.fn())
+    fake.emit('item-preview', {
+      planItemId: 'a',
+      record: make.visualRecord({ planItemId: 'a' }),
+    })
+    fake.emit('item-preview', {
+      planItemId: 'b',
+      record: make.visualRecord({ planItemId: 'b' }),
+    })
+    fake.emit('item-failed', {
+      planItemId: 'a',
+      code: 'upstream',
+      message: 'x',
+    })
+    expect(Object.keys(s.previews)).toEqual(['b'])
+    fake.emit('done', { cancelled: true })
+    expect(s.previews).toEqual({})
+  })
+})
 describe('concept-model catch-up', () => {
   it('tracks the catch-up stage per item until the item settles', () => {
     const s = createPaneState()
