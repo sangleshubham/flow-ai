@@ -310,3 +310,48 @@ test('a muted tone dims the node in the scene player, and seeking restores it', 
   }
   expect(errors).toEqual([])
 })
+
+test('hidden elements take no hover or Tab focus; faded ones stay visible', async ({
+  page,
+}) => {
+  const errors = await open(page, 'scene-details')
+  const visibility = (target: string) =>
+    page
+      .locator(`[data-target="${target}"]`)
+      .evaluate((el) => getComputedStyle(el).visibility)
+  const hit = (target: string) =>
+    body(page, target).evaluate((el) => {
+      const r = el.getBoundingClientRect()
+      const at = document.elementFromPoint(
+        r.x + r.width / 2,
+        r.y + r.height / 2,
+      )
+      return !!at?.closest(
+        `[data-target="${el.parentElement!.getAttribute('data-target')}"]`,
+      )
+    })
+  const tabbable = (target: string) =>
+    page.locator(`[data-target="${target}"]`).evaluate((el) => {
+      ;(el as SVGElement).focus()
+      return document.activeElement === el
+    })
+  // s0: only `a` is shown; `b`, `c` and both edges are hidden.
+  await seek(page, 's0')
+  for (const target of ['node:b', 'node:c', 'edge:ab', 'edge:bc'])
+    expect(await visibility(target), target).toBe('hidden')
+  expect(await hit('node:a')).toBe(true)
+  expect(await tabbable('node:b')).toBe(false)
+  // s1 reveals `b`; s3 fades it (still visible); s4 hides it; s5 shows it again.
+  await seek(page, 's1')
+  expect(await visibility('node:b')).toBe('visible')
+  expect(await hit('node:b')).toBe(true)
+  await seek(page, 's3')
+  expect(await visibility('node:b')).toBe('visible')
+  await seek(page, 's4')
+  expect(await visibility('node:b')).toBe('hidden')
+  await seek(page, 's5')
+  expect(await visibility('node:b')).toBe('visible')
+  await seek(page, 's0')
+  expect(await visibility('node:b')).toBe('hidden')
+  expect(errors).toEqual([])
+})
