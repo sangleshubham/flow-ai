@@ -93,13 +93,31 @@ function detailFrames(): FrameState[] {
   ]
 }
 
-export function SceneHarness({ details }: { details: boolean }) {
+/** The chain with a muted tone: s0 shows `a`, s1 reveals `b` and mutes `a`, s2 unmutes `a` and reveals `c`. */
+function mutedFrames(): FrameState[] {
+  const base = buildFrames(chain, hiddenGraphAnimation)
+  return [
+    base[0]!,
+    { ...base[1]!, highlights: { 'node:a': 'muted' } },
+    base[2]!,
+  ]
+}
+
+export function SceneHarness({
+  variant,
+}: {
+  variant: 'spread' | 'details' | 'muted'
+}) {
   const root = useRef<HTMLDivElement>(null)
+  const details = variant !== 'spread'
   const graph = details ? chain : spread
   useEffect(() => {
-    const frames = details
-      ? detailFrames()
-      : buildFrames(spread, spreadAnimation)
+    const frames =
+      variant === 'details'
+        ? detailFrames()
+        : variant === 'muted'
+        ? mutedFrames()
+        : buildFrames(spread, spreadAnimation)
     let built: ReturnType<typeof buildSceneTimeline> | undefined
     const build = () => {
       if (built) return
@@ -131,7 +149,7 @@ export function SceneHarness({ details }: { details: boolean }) {
       built?.ctx.revert()
       delete window.__scene
     }
-  }, [details, graph])
+  }, [variant, details, graph])
   return (
     <div ref={root}>
       <VisualView

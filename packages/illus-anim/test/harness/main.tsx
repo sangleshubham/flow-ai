@@ -47,8 +47,16 @@ const reducedMotion =
 /** `?strict=on` mounts the scene player under StrictMode, which replays effects (mount, cleanup, mount). */
 const Wrapper = params.get('strict') === 'on' ? StrictMode : Fragment
 createRoot(document.getElementById('root')!).render(
-  kind === 'scene' || kind === 'scene-details' ? (
-    <SceneHarness details={kind === 'scene-details'} />
+  kind === 'scene' || kind === 'scene-details' || kind === 'scene-muted' ? (
+    <SceneHarness
+      variant={
+        kind === 'scene-details'
+          ? 'details'
+          : kind === 'scene-muted'
+          ? 'muted'
+          : 'spread'
+      }
+    />
   ) : kind === 'scene-player' ? (
     <Wrapper>
       <ScenePlayerHarness

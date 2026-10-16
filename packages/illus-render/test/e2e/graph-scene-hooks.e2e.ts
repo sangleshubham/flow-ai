@@ -48,6 +48,9 @@ test('scene data tones match frame classes, including focus table cells', async 
     const node = document.querySelector('[data-target="node:leader"]')!
     const body = node.querySelector('[data-anim-body]')!
     const shape = body.querySelector('.illus-shape')!
+    // A muted scene tone dims the outer <g> (GSAP owns the body's inline opacity), so compare the
+    // opacity the reader sees. The outer <g> eases opacity over 0.2 s; read it settled.
+    ;(node as SVGElement).style.transition = 'none'
     const read = () => {
       const s = getComputedStyle(shape)
       return [
@@ -55,7 +58,8 @@ test('scene data tones match frame classes, including focus table cells', async 
         s.stroke,
         s.strokeWidth,
         s.strokeDasharray,
-        getComputedStyle(body).opacity,
+        Number(getComputedStyle(body).opacity) *
+          Number(getComputedStyle(node).opacity),
       ]
     }
     const tones = ['focus', 'success', 'warning', 'muted'].map((tone) => {

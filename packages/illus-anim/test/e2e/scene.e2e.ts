@@ -42,7 +42,10 @@ const picture = (page: Page) =>
       ),
     }
   })
-async function open(page: Page, kind: 'scene' | 'scene-details') {
+async function open(
+  page: Page,
+  kind: 'scene' | 'scene-details' | 'scene-muted',
+) {
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   page.on('console', (message) => {
@@ -274,4 +277,36 @@ test('reverting the context removes the overlay and restores the static graph an
       ),
     ),
   ).toBe(blankStyles(staticMarkup))
+})
+
+/** Opacity the reader sees: the element's own times every ancestor's, up to the svg. */
+const shownOpacity = (page: Page, target: string) =>
+  body(page, target).evaluate((el) => {
+    let value = 1
+    for (
+      let e: Element | null = el;
+      e && e.tagName !== 'svg';
+      e = e.parentElement
+    )
+      value *= Number(getComputedStyle(e).opacity)
+    return Math.round(value * 100) / 100
+  })
+
+test('a muted tone dims the node in the scene player, and seeking restores it', async ({
+  page,
+}) => {
+  const errors = await open(page, 'scene-muted')
+  // The outer <g> eases its opacity over 0.2 s (`[data-ir-id]` transition), so poll.
+  for (const [label, expected] of [
+    ['s0', 1],
+    ['s1', 0.35],
+    ['s2', 1],
+    ['s1', 0.35],
+  ] as const) {
+    await seek(page, label)
+    await expect
+      .poll(() => shownOpacity(page, 'node:a'), { message: label })
+      .toBe(expected)
+  }
+  expect(errors).toEqual([])
 })
