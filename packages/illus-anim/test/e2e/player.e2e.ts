@@ -132,3 +132,19 @@ test('restyled graph nodes keep their layout positions while and after animating
   }
   await expect(node).toHaveCSS('opacity', '1')
 })
+
+test('graph edges appear only after both endpoint nodes are revealed', async ({
+  page,
+}) => {
+  await page.goto('/?kind=graph-hidden&motion=on')
+  const ab = page.locator('[data-target="edge:ab"]')
+  const bc = page.locator('[data-target="edge:bc"]')
+  await expect(ab).toHaveClass(/illus-hidden/)
+  await expect(bc).toHaveClass(/illus-hidden/)
+  await page.getByLabel('Next step').click()
+  await expect(ab).not.toHaveClass(/illus-hidden/)
+  await expect(bc).toHaveClass(/illus-hidden/)
+  await page.getByLabel('Next step').click()
+  await expect(ab).not.toHaveClass(/illus-hidden/)
+  await expect(bc).not.toHaveClass(/illus-hidden/)
+})
