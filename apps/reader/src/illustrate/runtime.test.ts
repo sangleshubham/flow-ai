@@ -206,3 +206,66 @@ describe('evidence navigation', () => {
     expect(bridge.highlight).not.toHaveBeenCalled()
   })
 })
+
+describe('location changes', () => {
+  let section: Awaited<
+    ReturnType<Awaited<ReturnType<typeof getRepos>>['sections']['listByBook']>
+  >[number]
+  const publish = async (sectionId: string | null) => {
+    const cb = (
+      bridge.onLocationChange.mock.calls as unknown as [(l: unknown) => void][]
+    )[0]![0]
+    cb({ bookId: section.bookId, cfi: 'epubcfi(/6/2!/4/2)', sectionId })
+    await new Promise((r) => setTimeout(r, 0))
+  }
+  beforeEach(async () => {
+    const bookId = await makeBookId(new Uint8Array())
+    section = (await (await getRepos()).sections.listByBook(bookId))[0]!
+    await activate({
+      book: { id: 'test' },
+      epub: {} as Book,
+      rendition: {} as BridgeRendition,
+    })
+    await publish(section.sectionId)
+    expect(pane.section?.sectionId).toBe(section.sectionId)
+  })
+
+  it('leaves the pane alone when an evidence click re-publishes the open section', async () => {
+    pane.status = 'ready'
+    pane.selectedItem = 'second'
+    await publish(section.sectionId)
+    expect(pane.status).toBe('ready')
+    expect(pane.selectedItem).toBe('second')
+  })
+
+  it('still follows the reader after unpinning on another section', async () => {
+    pane.pinned = true
+    pane.status = 'ready'
+    await publish('elsewhere')
+    expect(pane.status).toBe('ready')
+    pane.pinned = false
+    await publish('elsewhere') // unpin() refreshes the bridge, which publishes the reader's section
+    expect(pane.section).toBeNull()
+    expect(pane.status).toBe('idle')
+  })
+
+  it('sets the section up again after the pane is closed and reopened', async () => {
+    deactivate()
+    pane.status = 'idle'
+    await activate({
+      book: { id: 'test' },
+      epub: {} as Book,
+      rendition: {} as BridgeRendition,
+    })
+    const calls = bridge.onLocationChange.mock.calls as unknown as [
+      (l: unknown) => void,
+    ][]
+    calls.at(-1)![0]({
+      bookId: section.bookId,
+      cfi: 'epubcfi(/6/2!/4/2)',
+      sectionId: section.sectionId,
+    })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(pane.status).not.toBe('idle')
+  })
+})

@@ -93,6 +93,8 @@ let generation = 0
 const evidenceGeneration = { evidence: 0, step: 0 }
 const pinnedEvidence = { evidence: false, step: false }
 let locationId: string | null = null
+/** The section the pane last set itself up for; a repeated location for it changes nothing. */
+let shownSectionId: string | null | undefined
 // ADR 0048: a new section waits for the reader to stay before any model call.
 const dwell = createDwell()
 let lastBook: { book: Book; bookId: string } | null = null
@@ -191,6 +193,7 @@ export function deactivate() {
   active = null
   currentJob = null
   locationId = null
+  shownSectionId = undefined
 }
 export async function activate(tab: BookTabLike) {
   deactivate()
@@ -336,8 +339,18 @@ export async function activate(tab: BookTabLike) {
 async function onLocation(loc: ReaderLocation, own: number) {
   if (own !== generation || !active) return
   locationId = loc.sectionId
+  // A click that turns to evidence re-publishes the section the reader is already on (the bridge
+  // resets its de-duplication for every explicit navigation); re-running would reset the open plan item
+  // and cancel the job in progress.
+  if (
+    !pane.pinned &&
+    loc.sectionId !== null &&
+    loc.sectionId === shownSectionId
+  )
+    return
   pane.selection = null
   if (pane.pinned) return
+  shownSectionId = loc.sectionId
   dwell.cancel()
   const old = pane.section
   pane.section =
