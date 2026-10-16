@@ -3,6 +3,7 @@ import { buildFrames } from '@illus/core'
 import { make } from '@illus/core/testing'
 import { VisualView, templateRegistry } from '@illus/render'
 import { Player } from '../../src/index.ts'
+import { SceneHarness } from './scene.tsx'
 import {
   arrayIR,
   arrayAnimation,
@@ -37,25 +38,29 @@ const ir =
       : arrayAnimation
 const frames = buildFrames(ir, animation, { templates: templateRegistry })
 createRoot(document.getElementById('root')!).render(
-  <Player
-    frames={frames}
-    reducedMotion={
-      params.get('motion') === 'on'
-        ? true
-        : params.get('motion') === 'off'
-        ? false
-        : undefined
-    }
-    renderFrame={(frame) => (
-      <VisualView
-        spec={{ ir }}
-        frame={frame}
-        theme={make.themeTokens()}
-        templates={templateRegistry}
-      />
-    )}
-    onStepChange={(index) =>
-      document.documentElement.setAttribute('data-step', String(index))
-    }
-  />,
+  kind === 'scene' || kind === 'scene-details' ? (
+    <SceneHarness details={kind === 'scene-details'} />
+  ) : (
+    <Player
+      frames={frames}
+      reducedMotion={
+        params.get('motion') === 'on'
+          ? true
+          : params.get('motion') === 'off'
+          ? false
+          : undefined
+      }
+      renderFrame={(frame) => (
+        <VisualView
+          spec={{ ir }}
+          frame={frame}
+          theme={make.themeTokens()}
+          templates={templateRegistry}
+        />
+      )}
+      onStepChange={(index) =>
+        document.documentElement.setAttribute('data-step', String(index))
+      }
+    />
+  ),
 )
