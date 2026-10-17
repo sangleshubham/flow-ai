@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   applyBookRunProgress,
   bindJob,
+  bookRunStopMessage,
   createBookRunState,
   createDwell,
   createPaneState,
@@ -416,5 +417,22 @@ describe('whole-book run state (ADR 0057)', () => {
     expect(Object.keys(runs).sort()).toEqual(['__proto__', 'a', 'b'])
     expect(runs.b).toEqual({ status: 'paused-limit', resetAt: 9 })
     expect(Object.getPrototypeOf(runs)).toBe(Object.prototype)
+  })
+})
+
+describe('bookRunStopMessage (ADR 0057)', () => {
+  it('names the reason a run paused itself', () => {
+    expect(bookRunStopMessage()).toBe(
+      'Understanding the book stopped before it finished. Resume to try again.',
+    )
+    for (const code of ['signin-required', 'auth'])
+      expect(bookRunStopMessage({ code, message: 'x' })).toBe(
+        'ChatGPT needs you to sign in again. Sign in, then resume.',
+      )
+    expect(
+      bookRunStopMessage({ code: 'upstream', message: 'network error' }),
+    ).toBe(
+      'Paused because requests keep failing (network error). Resume to try again.',
+    )
   })
 })

@@ -155,6 +155,17 @@ export function applyBookRunProgress(
   if (p.status === 'understanding' || p.status === 'illustrating')
     state.message = ''
 }
+/** Why a run paused itself, for the bar (ADR 0057). Without a reason, the concept pass was stopped. */
+export function bookRunStopMessage(stoppedBy?: {
+  code: string
+  message: string
+}): string {
+  if (!stoppedBy)
+    return 'Understanding the book stopped before it finished. Resume to try again.'
+  if (stoppedBy.code === 'signin-required' || stoppedBy.code === 'auth')
+    return 'ChatGPT needs you to sign in again. Sign in, then resume.'
+  return `Paused because requests keep failing (${stoppedBy.message}). Resume to try again.`
+}
 /** A book's run as saved in settings `bookRuns` (Flow book id → this). Stored settings are untrusted. */
 export const PersistedBookRun = z.object({
   status: z.enum(['running', 'paused', 'paused-limit']),

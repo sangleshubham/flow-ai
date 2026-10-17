@@ -346,7 +346,9 @@ function resetTime(at: number): string {
 export function bookRunText(b: BookRunState): string {
   switch (b.status) {
     case 'idle':
-      return `${b.cachedCount} of ${b.total} sections illustrated`
+      return b.total
+        ? `${b.cachedCount} of ${b.total} sections illustrated`
+        : 'Preparing the book…'
     case 'confirm':
       return `Illustrate the remaining ${Math.max(
         0,
