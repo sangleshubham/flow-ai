@@ -1,7 +1,3 @@
-import { mkdtemp } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-
 import { describe, expect, it } from 'vitest'
 
 import { make } from '@illus/core/testing'
@@ -12,6 +8,7 @@ import {
   createGateway,
   createOpenAiProvider,
   createUsageTracker,
+  openReaderDb,
 } from '../src/server/index.ts'
 import {
   allPrompts,
@@ -272,15 +269,11 @@ describe('openai provider (fake Responses API, no network)', () => {
 
 describe('gateway + openai provider end to end (fake stream)', () => {
   async function gatewayWith(fetchFn: typeof fetch) {
-    const dir = await mkdtemp(join(tmpdir(), 'illus-e2e-'))
     return createGateway({
       mode: 'live',
       models: DEFAULT_MODELS,
       prompts: allPrompts(),
-      usage: await createUsageTracker({
-        file: join(dir, 'usage.jsonl'),
-        caps: { max5h: 10, maxDay: 10 },
-      }),
+      usage: createUsageTracker({ db: openReaderDb({ memory: true }) }),
       provider: createOpenAiProvider({ id: 'chatgpt-plan', fetch: fetchFn }),
       credential: async () => 'tok',
       sleep: async () => undefined,
@@ -301,7 +294,7 @@ describe('gateway + openai provider end to end (fake stream)', () => {
     )
     const res = await (
       await gatewayWith(f.fetch)
-    ).handle(request, { session: true })
+    ).handle(request, { sub: 'test' })
     expect(res.body).toMatchObject({ ok: true, data: plan, effort: 'medium' })
     expect(f.calls[0]!.body).toHaveProperty('text')
     expect(f.calls[1]!.body).toHaveProperty('tools')
@@ -324,7 +317,7 @@ describe('gateway + openai provider end to end (fake stream)', () => {
         body: 'INTENT + IR SUMMARY',
         image: { mediaType: 'image/png', base64: png },
       },
-      { session: true },
+      { sub: 'test' },
     )
     expect(res.body).toMatchObject({ ok: true, data: make.criticReport() })
     expect(f.calls).toHaveLength(1)
@@ -350,7 +343,7 @@ describe('gateway + openai provider end to end (fake stream)', () => {
       await gatewayWith(f.fetch)
     ).handle(
       { ...request, image: { mediaType: 'image/png', base64: 'iVBORw0K' } },
-      { session: true },
+      { sub: 'test' },
     )
     expect(res).toMatchObject({ status: 400, body: { ok: false } })
     expect(f.calls).toHaveLength(0)
@@ -362,7 +355,7 @@ describe('gateway + openai provider end to end (fake stream)', () => {
     )
     const res = await (
       await gatewayWith(f.fetch)
-    ).handle(request, { session: true })
+    ).handle(request, { sub: 'test' })
     expect(res).toMatchObject({ status: 429, body: { code: 'plan-limit' } })
     expect(f.calls).toHaveLength(1)
   })

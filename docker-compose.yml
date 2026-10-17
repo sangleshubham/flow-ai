@@ -14,13 +14,14 @@ services:
       # Spec §9
       ILLUS_CHATGPT_CLIENT_ID: ${ILLUS_CHATGPT_CLIENT_ID:-} # optional override (ADR 0007)
       ILLUS_PUBLIC_URL: ${ILLUS_PUBLIC_URL:-http://127.0.0.1:3000}
-      # Optional (ADR 0047). Empty: the first ChatGPT sign-in claims the reader, and the entrypoint generates
+      # Optional (ADR 0047). Owner mode only: the first ChatGPT sign-in claims the reader. The entrypoint generates
       # both secrets once and keeps them in /data/secrets.json.
       ILLUS_ALLOWED_ACCOUNT_ID: ${ILLUS_ALLOWED_ACCOUNT_ID:-}
       ILLUS_TOKEN_ENC_KEY: ${ILLUS_TOKEN_ENC_KEY:-}
       ILLUS_SESSION_SECRET: ${ILLUS_SESSION_SECRET:-}
-      ILLUS_MAX_REQUESTS_5H: ${ILLUS_MAX_REQUESTS_5H:-100}
-      ILLUS_MAX_REQUESTS_DAY: ${ILLUS_MAX_REQUESTS_DAY:-300}
+      ILLUS_ACCESS: ${ILLUS_ACCESS:-open}
+      # ILLUS_ALLOWED_EMAILS: you@example.com,@example.org
+      # ILLUS_SOURCE_URL: https://github.com/your-user/your-fork
       ILLUS_DATA_DIR: /data
       ILLUS_MODELS_JSON: ${ILLUS_MODELS_JSON:-}
       ILLUS_OPENAI_API_KEY: ${ILLUS_OPENAI_API_KEY:-} # optional fallback provider; empty = plan usage only
