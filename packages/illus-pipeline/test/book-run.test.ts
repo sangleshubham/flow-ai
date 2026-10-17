@@ -7,6 +7,7 @@ import { describe, expect, test, vi } from 'vitest'
 
 import {
   BOOK_RUN_SECTIONS,
+  MAX_FAILED_IN_A_ROW,
   REQUESTS_PER_SECTION,
   bookRunTargets,
   createBookRun,
@@ -203,8 +204,24 @@ describe('createBookRun (ADR 0057)', () => {
       }).start()
       expect(result.status).toBe('paused')
       expect(result.retryAfterMs).toBeUndefined()
+      expect(result.stoppedBy).toEqual(
+        p.error ? { code: 'upstream', message: 'upstream failed' } : undefined,
+      )
       expect(pipeline.requestSection).not.toHaveBeenCalled()
     }
+  })
+
+  test('a pass that completed without its failed batches still illustrates every section', async () => {
+    const pipeline = fakePipeline()
+    const result = createBookRun({
+      pipeline,
+      concepts: fakeConcepts({ indexed: 2, total: 3, done: true, failed: 1 }),
+      sections: BOOK,
+      concurrency: 4,
+    }).start()
+    await flush()
+    for (const h of pipeline.open()) h.done()
+    expect(await result).toMatchObject({ status: 'done', finished: 4 })
   })
 
   test('requests in reading order, never more than `concurrency` at once, all as background requests', async () => {
@@ -334,6 +351,85 @@ describe('createBookRun (ADR 0057)', () => {
     expect(final).toMatchObject({ status: 'paused-limit', finished: 1 })
     expect(final.retryAfterMs).toBeUndefined()
     expect(pipeline.requestSection).toHaveBeenCalledTimes(2)
+  })
+
+  test.each(['signin-required', 'auth'])(
+    'a %s failure cancels the open handles, starts no new section and pauses with the reason',
+    async (code) => {
+      const pipeline = fakePipeline()
+      const result = createBookRun({
+        pipeline,
+        concepts: fakeConcepts(),
+        sections: BOOK,
+      }).start()
+      await flush()
+      const [a, b] = pipeline.handles
+      a!.emit('item-failed', { planItemId: 'p1', code, message: 'Sign in' })
+      expect(a!.cancelled).toBe(true)
+      expect(b!.cancelled).toBe(true)
+      expect(await result).toMatchObject({
+        status: 'paused',
+        stoppedBy: { code, message: 'Sign in' },
+        failedItems: 0,
+        finished: 0,
+      })
+      expect(pipeline.requestSection).toHaveBeenCalledTimes(2)
+    },
+  )
+
+  /** Ends the next open section: a planner `error` with `code`, or a drawn item when `code` is null. */
+  const endNext = async (
+    pipeline: ReturnType<typeof fakePipeline>,
+    code: string | null,
+  ) => {
+    await flush()
+    const h = pipeline.open()[0]!
+    if (code) h.emit('error', { code, message: `${code} failed` })
+    else
+      h.emit('item-ready', {
+        planItemId: 'p1',
+        record: make.visualRecord(),
+        fromCache: false,
+      })
+    h.done()
+  }
+
+  test(`${MAX_FAILED_IN_A_ROW} sections in a row failing on upstream or timeout errors pause the run`, async () => {
+    expect(MAX_FAILED_IN_A_ROW).toBe(3)
+    const pipeline = fakePipeline()
+    const result = createBookRun({
+      pipeline,
+      concepts: fakeConcepts(),
+      sections: BOOK,
+      concurrency: 1,
+    }).start()
+    await endNext(pipeline, 'upstream')
+    await endNext(pipeline, 'timeout')
+    await endNext(pipeline, 'upstream')
+    expect(await result).toMatchObject({
+      status: 'paused',
+      stoppedBy: { code: 'upstream', message: 'upstream failed' },
+      finished: 3,
+      failedItems: 3,
+    })
+    expect(pipeline.requestSection).toHaveBeenCalledTimes(3)
+  })
+
+  test('a section that draws resets the count, and content failures never pause the run', async () => {
+    const pipeline = fakePipeline()
+    const result = createBookRun({
+      pipeline,
+      concepts: fakeConcepts(),
+      sections: BOOK,
+      concurrency: 1,
+    }).start()
+    await endNext(pipeline, 'upstream')
+    await endNext(pipeline, 'upstream')
+    await endNext(pipeline, null)
+    await endNext(pipeline, 'schema')
+    const final = await result
+    expect(final).toMatchObject({ status: 'done', finished: 4, failedItems: 3 })
+    expect(final.stoppedBy).toBeUndefined()
   })
 
   test('pause() cancels the open handles and resolves start() with paused', async () => {

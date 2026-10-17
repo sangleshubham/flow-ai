@@ -28,6 +28,7 @@ export { createLimiter, limitLlm } from './limiter.ts'
 export type { Limiter, LimiterOptions, Priority } from './limiter.ts'
 export {
   BOOK_RUN_SECTIONS,
+  MAX_FAILED_IN_A_ROW,
   REQUESTS_PER_SECTION,
   bookRunTargets,
   createBookRun,
