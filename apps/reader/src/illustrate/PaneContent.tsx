@@ -78,8 +78,7 @@ export function PaneContent({
           <span>{s.progress || 'Open a book to begin'}</span>
           {s.usage && (
             <span title="Local request caps">
-              {s.usage.used5h}/{s.usage.max5h} requests · 5h; {s.usage.usedDay}/
-              {s.usage.maxDay} today
+              {s.usage.used5h} requests · 5 h; {s.usage.usedDay} today
             </span>
           )}
         </div>

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 import type { LlmRequest, TemplateIR } from '@illus/core'
 import { createPromptRegistry, Fixture, memoryFixtures } from '@illus/llm'
+import { openReaderDb } from '@illus/llm/server'
 import { exampleIR, listTemplates } from '@illus/render/templates'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -78,15 +79,17 @@ describe('reader server template capability', () => {
     async (_id, data) => {
       const { server, request, dataDir } = await setup(data)
       expect(
-        await server.gateway.handle(request, { session: true }),
+        await server.gateway.handle(request, { sub: 'test' }),
       ).toMatchObject({
         status: 200,
         body: { ok: true, data },
       })
-      const rows = (await readFile(join(dataDir, 'usage.jsonl'), 'utf8'))
-        .trim()
-        .split('\n')
-        .map((row) => JSON.parse(row))
+      const db = openReaderDb({ dir: dataDir })
+      const rows = db
+        .prepare('SELECT row FROM usage')
+        .all()
+        .map((r) => JSON.parse(String(r.row)))
+      db.close()
       expect(rows).toEqual([
         expect.objectContaining({
           role: 'extractor.template',
@@ -108,7 +111,7 @@ describe('reader server template capability', () => {
         evidence: [],
       })
       expect(
-        await server.gateway.handle(request, { session: true }),
+        await server.gateway.handle(request, { sub: 'test' }),
       ).toMatchObject({
         status: 422,
         body: {
@@ -130,7 +133,7 @@ describe('reader server template capability', () => {
     expect(
       await server.gateway.handle(
         { ...request, templateId: 'stack' },
-        { session: true },
+        { sub: 'test' },
       ),
     ).toMatchObject({
       status: 422,
@@ -151,9 +154,10 @@ describe('reader server template capability', () => {
       props: { values: [1] },
       evidence: [],
     })
-    expect(
-      await server.gateway.handle(request, { session: false }),
-    ).toMatchObject({ status: 401, body: { code: 'auth' } })
+    expect(await server.gateway.handle(request, { sub: null })).toMatchObject({
+      status: 401,
+      body: { code: 'auth' },
+    })
     for (const change of [
       { role: 'planner' },
       { schemaName: 'GraphIR' },
@@ -161,10 +165,7 @@ describe('reader server template capability', () => {
       { templateId: 'unregistered' },
     ]) {
       expect(
-        await server.gateway.handle(
-          { ...request, ...change },
-          { session: true },
-        ),
+        await server.gateway.handle({ ...request, ...change }, { sub: 'test' }),
       ).toMatchObject({ status: 400, body: { ok: false, code: 'upstream' } })
     }
   })
@@ -192,8 +193,8 @@ describe('reader server template capability', () => {
       schemaName: request.schemaName,
       promptVersion: request.promptVersion,
     })
-    expect(
-      await server.gateway.handle(request, { session: true }),
-    ).toMatchObject({ status: 200, body: { ok: true, data: fixture.data } })
+    expect(await server.gateway.handle(request, { sub: 'test' })).toMatchObject(
+      { status: 200, body: { ok: true, data: fixture.data } },
+    )
   })
 })
