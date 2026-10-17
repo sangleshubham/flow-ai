@@ -1,7 +1,13 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 
 import { LlmError, ROLES, RoleName } from '@illus/core'
-import type { GraphIR, GraphSource, LlmRequest, LlmResponse, VisualPlan } from '@illus/core'
+import type {
+  GraphIR,
+  GraphSource,
+  LlmRequest,
+  LlmResponse,
+  VisualPlan,
+} from '@illus/core'
 import { createMemoryRepos, make } from '@illus/core/testing'
 
 import {
@@ -19,7 +25,10 @@ import type { LlmTransport } from '../src/index.ts'
 import { SAMPLE, allPrompts } from './helpers.ts'
 
 const prompts = allPrompts()
-const ctx = { prefix: '<book_context>Replicated Logs</book_context>', body: '<section id="s1">The leader accepts client requests</section>' }
+const ctx = {
+  prefix: '<book_context>Replicated Logs</book_context>',
+  body: '<section id="s1">The leader accepts client requests</section>',
+}
 
 /** A hand-written fixture for every role, as role owners will add under fixtures/llm/<role>/. */
 async function fixturesForAllRoles() {
@@ -44,7 +53,10 @@ async function fixturesForAllRoles() {
 describe('createLlmClient', () => {
   it('typed calls work for every role in replay mode', async () => {
     const fixtures = await fixturesForAllRoles()
-    const llm = createLlmClient({ transport: transportFor('replay', { fixtures, models: DEFAULT_MODELS }), prompts })
+    const llm = createLlmClient({
+      transport: transportFor('replay', { fixtures, models: DEFAULT_MODELS }),
+      prompts,
+    })
     for (const role of RoleName.options) {
       const res = await llm.call(role, ctx)
       expect(res.data, role).toEqual(SAMPLE[ROLES[role].schemas[0]]())
@@ -59,8 +71,17 @@ describe('createLlmClient', () => {
   })
 
   it('replay misses say how to fix them and never touch the network', async () => {
-    const llm = createLlmClient({ transport: replayTransport({ fixtures: await memoryFixtures(), models: DEFAULT_MODELS }), prompts })
-    await expect(llm.call('planner', ctx)).rejects.toMatchObject({ code: 'upstream', message: expect.stringMatching(/no fixture for planner@1.0.0/) })
+    const llm = createLlmClient({
+      transport: replayTransport({
+        fixtures: await memoryFixtures(),
+        models: DEFAULT_MODELS,
+      }),
+      prompts,
+    })
+    await expect(llm.call('planner', ctx)).rejects.toMatchObject({
+      code: 'upstream',
+      message: expect.stringMatching(/no fixture for planner@1.0.0/),
+    })
   })
 
   it('writes one llmLog row per call, prompts only with debugPrompts', async () => {
@@ -75,18 +96,34 @@ describe('createLlmClient', () => {
       now: () => 1_000,
       newRequestId: () => 'req-1',
     })
-    await llm.call('planner', ctx, { bookId: '0123456789abcdef', sectionId: 's1' })
+    await llm.call('planner', ctx, {
+      bookId: '0123456789abcdef',
+      sectionId: 's1',
+    })
     debug = true
     await llm.call('critic', { prefix: 'p', body: 'b' }).catch(() => undefined)
     const rows = await repos.llmLog.list()
     expect(rows).toHaveLength(2)
-    expect(rows.find((r) => r.role === 'planner')).toMatchObject({ outcome: 'ok', model: 'gpt-6.1-sol', effort: 'medium', bookId: '0123456789abcdef' })
+    expect(rows.find((r) => r.role === 'planner')).toMatchObject({
+      outcome: 'ok',
+      model: 'gpt-6.1-sol',
+      effort: 'medium',
+      bookId: '0123456789abcdef',
+    })
     expect(rows.find((r) => r.role === 'planner')!.prompt).toBeUndefined()
-    expect(rows.find((r) => r.role === 'critic')).toMatchObject({ outcome: 'upstream', prompt: { prefix: 'p', body: 'b' } })
+    expect(rows.find((r) => r.role === 'critic')).toMatchObject({
+      outcome: 'upstream',
+      prompt: { prefix: 'p', body: 'b' },
+    })
   })
 
   it('maps gateway errors to LlmError with retryAfterMs and issues', async () => {
-    const transport: LlmTransport = async () => ({ ok: false, code: 'plan-limit', message: 'limit', retryAfterMs: 5000 })
+    const transport: LlmTransport = async () => ({
+      ok: false,
+      code: 'plan-limit',
+      message: 'limit',
+      retryAfterMs: 5000,
+    })
     const llm = createLlmClient({ transport, prompts })
     const err = await llm.call('planner', ctx).catch((e: unknown) => e)
     expect(err).toBeInstanceOf(LlmError)
@@ -94,14 +131,29 @@ describe('createLlmClient', () => {
   })
 
   it('rejects output that fails the role schema with code schema', async () => {
-    const transport: LlmTransport = async () => ({ ok: true, data: { nope: 1 }, usage: { input: 1, output: 1, cachedInput: 0 }, model: 'm', effort: 'low', latencyMs: 1 })
-    await expect(createLlmClient({ transport, prompts }).call('planner', ctx)).rejects.toMatchObject({ code: 'schema' })
+    const transport: LlmTransport = async () => ({
+      ok: true,
+      data: { nope: 1 },
+      usage: { input: 1, output: 1, cachedInput: 0 },
+      model: 'm',
+      effort: 'low',
+      latencyMs: 1,
+    })
+    await expect(
+      createLlmClient({ transport, prompts }).call('planner', ctx),
+    ).rejects.toMatchObject({ code: 'schema' })
   })
 
   it('rejects a schema the role cannot return', async () => {
-    const llm = createLlmClient({ transport: async () => ({ ok: false, code: 'upstream', message: '' }), prompts })
-    // @ts-expect-error GraphIR is not a planner schema
-    await expect(llm.call('planner', ctx, { schemaName: 'GraphIR' })).rejects.toMatchObject({ code: 'schema' })
+    const llm = createLlmClient({
+      transport: async () => ({ ok: false, code: 'upstream', message: '' }),
+      prompts,
+    })
+    const invalidCall = llm.call('planner', ctx, {
+      // @ts-expect-error GraphIR is not a planner schema
+      schemaName: 'GraphIR',
+    })
+    await expect(invalidCall).rejects.toMatchObject({ code: 'schema' })
   })
 
   it('aborts immediately on AbortSignal and logs the abort', async () => {
@@ -127,19 +179,49 @@ describe('record → replay', () => {
     const sent: unknown[] = []
     const live: LlmTransport = async (req) => {
       sent.push(req)
-      return { ok: true, data: plan, usage: { input: 10, output: 5, cachedInput: 2 }, model: 'gpt-6-sol', effort: 'medium', latencyMs: 9 }
+      return {
+        ok: true,
+        data: plan,
+        usage: { input: 10, output: 5, cachedInput: 2 },
+        model: 'gpt-6-sol',
+        effort: 'medium',
+        latencyMs: 9,
+      }
     }
     const store = await memoryFixtures()
-    const recorder = createLlmClient({ transport: recordTransport({ live, fixtures: store, models: DEFAULT_MODELS, now: () => 7 }), prompts })
+    const recorder = createLlmClient({
+      transport: recordTransport({
+        live,
+        fixtures: store,
+        models: DEFAULT_MODELS,
+        now: () => 7,
+      }),
+      prompts,
+    })
     const recorded = await recorder.call('planner', ctx)
     expect(sent).toHaveLength(1)
     const [f] = store.all()
     // Keyed on the primary model; the fallback that answered is kept inside the fixture.
-    expect(f).toMatchObject({ source: 'recorded', model: 'gpt-6.1-sol', usedModel: 'gpt-6-sol', recordedAt: 7 })
-    expect(f!.key).toBe(await fixtureKey({ role: 'planner', promptVersion: '1.0.0', model: 'gpt-6.1-sol', ...ctx }))
+    expect(f).toMatchObject({
+      source: 'recorded',
+      model: 'gpt-6.1-sol',
+      usedModel: 'gpt-6-sol',
+      recordedAt: 7,
+    })
+    expect(f!.key).toBe(
+      await fixtureKey({
+        role: 'planner',
+        promptVersion: '1.0.0',
+        model: 'gpt-6.1-sol',
+        ...ctx,
+      }),
+    )
     expect(JSON.stringify(f)).not.toContain('leader accepts')
 
-    const replayer = createLlmClient({ transport: replayTransport({ fixtures: store, models: DEFAULT_MODELS }), prompts })
+    const replayer = createLlmClient({
+      transport: replayTransport({ fixtures: store, models: DEFAULT_MODELS }),
+      prompts,
+    })
     const replayed = await replayer.call('planner', ctx)
     expect(replayed.data).toEqual(recorded.data)
     expect(replayed.model).toBe('gpt-6-sol')
@@ -149,35 +231,110 @@ describe('record → replay', () => {
 
 describe('critic image (record → replay)', () => {
   it('forwards the PNG live, never stores it, and replays by the §9 key (image not part of the key)', async () => {
-    const image = { mediaType: 'image/png' as const, base64: 'iVBORw0KGgoAAAANSUhEUg' }
+    const image = {
+      mediaType: 'image/png' as const,
+      base64: 'iVBORw0KGgoAAAANSUhEUg',
+    }
     const report = make.criticReport()
     const sent: LlmRequest[] = []
     const live: LlmTransport = async (req) => {
       sent.push(req)
-      return { ok: true, data: report, usage: { input: 900, output: 80, cachedInput: 0 }, model: 'gpt-6.1-sol', effort: 'low', latencyMs: 5 }
+      return {
+        ok: true,
+        data: report,
+        usage: { input: 900, output: 80, cachedInput: 0 },
+        model: 'gpt-6.1-sol',
+        effort: 'low',
+        latencyMs: 5,
+      }
     }
     const store = await memoryFixtures()
     const critic = { prefix: 'RUBRIC', body: 'INTENT + IR SUMMARY' }
-    await createLlmClient({ transport: recordTransport({ live, fixtures: store, models: DEFAULT_MODELS }), prompts }).call('critic', critic, { image })
+    await createLlmClient({
+      transport: recordTransport({
+        live,
+        fixtures: store,
+        models: DEFAULT_MODELS,
+      }),
+      prompts,
+    }).call('critic', critic, { image })
     expect(sent[0]!.image).toEqual(image)
     expect(JSON.stringify(store.all())).not.toContain(image.base64)
 
-    const replayed = await createLlmClient({ transport: replayTransport({ fixtures: store, models: DEFAULT_MODELS }), prompts }).call('critic', critic, { image })
+    const replayed = await createLlmClient({
+      transport: replayTransport({ fixtures: store, models: DEFAULT_MODELS }),
+      prompts,
+    }).call('critic', critic, { image })
     expect(replayed.data).toEqual(report)
   })
 })
 
 describe('httpTransport', () => {
+  it('only marks an explicitly requested recheck and keeps it out of the frozen request body', async () => {
+    const headers: Headers[] = []
+    let recheck = false
+    const transport = httpTransport({
+      recheckPlanLimit: () => {
+        const requested = recheck
+        recheck = false
+        return requested
+      },
+      fetch: (async (_url, init) => {
+        headers.push(new Headers(init?.headers))
+        expect(JSON.parse(String(init?.body))).not.toHaveProperty(
+          'recheckPlanLimit',
+        )
+        return Response.json({
+          ok: false,
+          code: 'plan-limit',
+          message: 'paused',
+        })
+      }) as typeof fetch,
+    })
+    await transport(make.llmRequest())
+    recheck = true
+    await transport(make.llmRequest())
+    await transport(make.llmRequest())
+    expect(headers.map((h) => h.get('x-illus-recheck-plan-limit'))).toEqual([
+      null,
+      '1',
+      null,
+    ])
+  })
   it('posts the request and returns the gateway body; network errors become upstream', async () => {
-    const body: LlmResponse = { ok: true, data: make.visualPlan(), usage: { input: 1, output: 1, cachedInput: 0 }, model: 'm', effort: 'low', latencyMs: 1 }
+    const body: LlmResponse = {
+      ok: true,
+      data: make.visualPlan(),
+      usage: { input: 1, output: 1, cachedInput: 0 },
+      model: 'm',
+      effort: 'low',
+      latencyMs: 1,
+    }
     const seen: RequestInit[] = []
-    const t = httpTransport({ fetch: (async (_u: RequestInfo | URL, init?: RequestInit) => (seen.push(init!), Response.json(body))) as typeof fetch })
+    const t = httpTransport({
+      fetch: (async (_u: RequestInfo | URL, init?: RequestInit) => (
+        seen.push(init!), Response.json(body)
+      )) as typeof fetch,
+    })
     const req = { ...make.llmRequest(), requestId: 'r' }
     expect(await t(req)).toEqual(body)
     expect(JSON.parse(String(seen[0]!.body))).toEqual(req)
-    const down = httpTransport({ fetch: (async () => { throw new TypeError('fetch failed') }) as typeof fetch })
+    const down = httpTransport({
+      fetch: (async () => {
+        throw new TypeError('fetch failed')
+      }) as typeof fetch,
+    })
     expect(await down(req)).toMatchObject({ ok: false, code: 'upstream' })
-    const tooBig = httpTransport({ fetch: (async () => new Response('Body exceeded 4mb limit', { status: 413 })) as typeof fetch })
-    expect(await tooBig(req)).toMatchObject({ ok: false, code: 'upstream', message: expect.stringContaining('4 MB') })
+    const tooBig = httpTransport({
+      fetch: (async () =>
+        new Response('Body exceeded 4mb limit', {
+          status: 413,
+        })) as typeof fetch,
+    })
+    expect(await tooBig(req)).toMatchObject({
+      ok: false,
+      code: 'upstream',
+      message: expect.stringContaining('4 MB'),
+    })
   })
 })

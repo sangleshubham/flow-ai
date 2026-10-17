@@ -36,6 +36,12 @@ export default async function handler(
   const sub = server.sessions.verify(req.headers.cookie)?.sub ?? null
   await respondWithKeepAlive(
     res,
-    server.gateway.handle(req.body, { sub, signal: abort.signal }),
+    server.gateway.handle(req.body, {
+      sub,
+      signal: abort.signal,
+      ...(req.headers['x-illus-recheck-plan-limit'] === '1' && {
+        recheckPlanLimit: true,
+      }),
+    }),
   )
 }

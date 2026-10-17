@@ -104,6 +104,7 @@ let active: {
   bookId: string
   /** Flow's id for the open book tab; whole-book runs are saved under it. */
   flowBookId: string
+  allowPlanRecheck(): void
 } | null = null
 /** The tab the runtime is set up (or being set up) for: `activate` for the same one only reopens the pane. */
 let activeTab: { id: string; rendition: BridgeRendition } | null = null
@@ -312,8 +313,15 @@ export async function activate(tab: BookTabLike) {
       sections: () => sections,
       blocks: () => blocks,
     })
+    let recheckUntil = 0
     const llm = createLlmClient({
-      transport: httpTransport(),
+      transport: httpTransport({
+        recheckPlanLimit: () => {
+          const requested = recheckUntil > Date.now()
+          recheckUntil = 0 // Only the next call; never grants background work an ongoing bypass.
+          return requested
+        },
+      }),
       prompts,
       log: repos.llmLog,
       debugPrompts: () => pane.preferences.debugPrompts,
@@ -378,6 +386,9 @@ export async function activate(tab: BookTabLike) {
       book,
       bookId,
       flowBookId,
+      allowPlanRecheck: () => {
+        recheckUntil = Date.now() + 60_000
+      },
     }
     const indexed = new Set(
       (await repos.sectionIndex.listByBook(bookId)).map((s) => s.sectionId),
@@ -669,18 +680,9 @@ function pauseBookRunOffline() {
   pane.bookRun.inProgress = []
   paused.pause()
 }
-/** Resumes without the confirm card; a plan limit that has not reset yet only says so. */
+/** User-initiated resume may recheck access before the local pause expires. */
 export function resumeBookRun() {
-  const { status, resetAt } = pane.bookRun
-  if (status === 'paused-limit' && resetAt !== null && resetAt > Date.now()) {
-    const message = `Still paused by the ChatGPT plan limit until ${new Date(
-      resetAt,
-    ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`
-    // Not `pane.message`: that belongs to the open section's state.
-    pane.bookRun.message = message
-    pane.announcement = message
-    return
-  }
+  if (pane.bookRun.status === 'paused-limit') active?.allowPlanRecheck()
   return startBookRun()
 }
 async function onLocation(loc: ReaderLocation, own: number) {
@@ -759,6 +761,16 @@ export async function approveIndexing() {
   await (
     await getRepos()
   ).settings.set(`indexingApproved:${active.bookId}`, true)
+  requestVisual()
+}
+/** Explicit Retry can check restored access; dwell, indexing and navigation keep obeying the pause. */
+export function retryVisual() {
+  if (!active || !pane.section || !pane.open || !navigator.onLine) return
+  if (
+    pane.status === 'plan-limit' ||
+    (pane.usage?.pausedUntil ?? 0) > Date.now()
+  )
+    active.allowPlanRecheck()
   requestVisual()
 }
 export function requestVisual(opts: RequestOptions = {}) {

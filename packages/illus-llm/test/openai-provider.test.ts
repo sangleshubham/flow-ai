@@ -45,6 +45,43 @@ const FORBIDDEN = [
 ]
 
 describe('openai provider (fake Responses API, no network)', () => {
+  it.each([false, true])(
+    'preserves the upstream request ID and parameter (stream=%s)',
+    async (streaming) => {
+      const response = streaming
+        ? sse([
+            {
+              type: 'error',
+              code: 'subscription_sharing_usage_limit_exceeded',
+              param: 'model',
+              message: 'Original limit message',
+            },
+          ])
+        : errorResponse(
+            429,
+            {
+              code: 'subscription_sharing_usage_limit_exceeded',
+              param: 'model',
+              message: 'Original limit message',
+            },
+            { 'retry-after': '120' },
+          )
+      response.headers.set('x-request-id', 'req_diagnostic')
+      const f = fakeFetch(() => response)
+      await expect(
+        createOpenAiProvider({ id: 'chatgpt-plan', fetch: f.fetch }).respond(
+          base,
+        ),
+      ).rejects.toMatchObject({
+        kind: 'plan-limit',
+        code: 'subscription_sharing_usage_limit_exceeded',
+        param: 'model',
+        requestId: 'req_diagnostic',
+        status: streaming ? 200 : 429,
+        message: expect.stringContaining('Original limit message'),
+      })
+    },
+  )
   it('sends the plan-route request shape and accumulates the stream', async () => {
     const plan = make.visualPlan()
     const f = fakeFetch(() => textStream(plan))

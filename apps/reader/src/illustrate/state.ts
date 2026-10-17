@@ -118,7 +118,7 @@ export interface BookRunState {
   cachedCount: number
   /** Requests, while `confirm`. */
   estimate: number | null
-  /** Epoch ms, while `paused-limit`, when the plan limit's reset is known. */
+  /** Local pause deadline in epoch ms; never a verified ChatGPT reset time. Kept for persisted runs. */
   resetAt: number | null
   /** Concept-pass progress while `understanding`. */
   indexed: { indexed: number; total: number } | null

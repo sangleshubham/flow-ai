@@ -1,7 +1,12 @@
 // `LlmProvider` (§9 "Provider adapter"): `chatgpt-plan` is the default; `openai-api-key` is an optional
 // fallback that is active only when `ILLUS_OPENAI_API_KEY` is set and selected explicitly. The
 // implementation (openai SDK, server only) lives in `@illus/llm/server`.
-import type { LlmImage, LlmUsage, ReasoningEffort, SchemaName } from '@illus/core'
+import type {
+  LlmImage,
+  LlmUsage,
+  ReasoningEffort,
+  SchemaName,
+} from '@illus/core'
 
 import type { JsonSchema } from './json-schema.ts'
 
@@ -47,14 +52,28 @@ export class ProviderError extends Error {
   readonly kind: ProviderErrorKind
   readonly status: number | undefined
   readonly code: string | undefined
+  readonly param: string | undefined
+  readonly requestId: string | undefined
   readonly retryAfterMs: number | undefined
 
-  constructor(kind: ProviderErrorKind, message: string, extra: { status?: number; code?: string; retryAfterMs?: number } = {}) {
+  constructor(
+    kind: ProviderErrorKind,
+    message: string,
+    extra: {
+      status?: number
+      code?: string
+      param?: string
+      requestId?: string
+      retryAfterMs?: number
+    } = {},
+  ) {
     super(message)
     this.name = 'ProviderError'
     this.kind = kind
     this.status = extra.status
     this.code = extra.code
+    this.param = extra.param
+    this.requestId = extra.requestId
     this.retryAfterMs = extra.retryAfterMs
   }
 }

@@ -2,7 +2,13 @@
 // Transports decide where a request goes: `/api/llm` over HTTP (browser), fixtures (replay), or live
 // plus fixture capture (record). In the app the server applies `ILLUS_LLM_MODE`; the browser always
 // uses `httpTransport`.
-import { LlmError, LlmResponse, ROLES, SCHEMAS, roleAllowsSchema } from '@illus/core'
+import {
+  LlmError,
+  LlmResponse,
+  ROLES,
+  SCHEMAS,
+  roleAllowsSchema,
+} from '@illus/core'
 import type {
   LlmCall,
   LlmCallOptions,
@@ -21,10 +27,19 @@ import { resolveRoute } from './models.ts'
 import type { ModelsConfig } from './models.ts'
 import type { PromptRegistry } from './prompts.ts'
 
-export type LlmTransport = (req: LlmRequest, signal?: AbortSignal) => Promise<LlmResponse>
+export type LlmTransport = (
+  req: LlmRequest,
+  signal?: AbortSignal,
+) => Promise<LlmResponse>
 
 /** POSTs to `/api/llm` (same origin, session cookie included). Network failures become `upstream`. */
-export function httpTransport(opts: { url?: string; fetch?: typeof fetch } = {}): LlmTransport {
+export function httpTransport(
+  opts: {
+    url?: string
+    fetch?: typeof fetch
+    recheckPlanLimit?: () => boolean
+  } = {},
+): LlmTransport {
   const url = opts.url ?? '/api/llm'
   return async (req, signal) => {
     const doFetch = opts.fetch ?? globalThis.fetch
@@ -32,26 +47,56 @@ export function httpTransport(opts: { url?: string; fetch?: typeof fetch } = {})
     try {
       res = await doFetch(url, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          ...(!signal?.aborted &&
+            opts.recheckPlanLimit?.() && { 'x-illus-recheck-plan-limit': '1' }),
+        },
         body: JSON.stringify(req),
         credentials: 'same-origin',
         signal,
       })
     } catch (e) {
       if (signal?.aborted) throw e
-      return { ok: false, code: 'upstream', message: `network error: ${(e as Error).message}` }
+      return {
+        ok: false,
+        code: 'upstream',
+        message: `network error: ${(e as Error).message}`,
+      }
     }
-    const parsed = LlmResponse.safeParse(await res.json().catch(() => undefined))
+    const parsed = LlmResponse.safeParse(
+      await res.json().catch(() => undefined),
+    )
     if (parsed.success) return parsed.data
     // Next.js answers an oversized body (the /api/llm limit is 4 MB, sized for critic PNGs) with plain text.
-    if (res.status === 413) return { ok: false, code: 'upstream', message: 'request too large for /api/llm (4 MB limit; critic image too big?)' }
-    return { ok: false, code: 'upstream', message: `bad gateway response (HTTP ${res.status})` }
+    if (res.status === 413)
+      return {
+        ok: false,
+        code: 'upstream',
+        message:
+          'request too large for /api/llm (4 MB limit; critic image too big?)',
+      }
+    return {
+      ok: false,
+      code: 'upstream',
+      message: `bad gateway response (HTTP ${res.status})`,
+    }
   }
 }
 
 /** Looks a request up in the fixtures; no network. Used by the client and by the gateway in replay mode. */
-export async function replayResponse(req: LlmRequest, fixtures: FixtureStore, primaryModel: string): Promise<LlmResponse> {
-  const key = await fixtureKey({ role: req.role, promptVersion: req.promptVersion, model: primaryModel, prefix: req.prefix, body: req.body })
+export async function replayResponse(
+  req: LlmRequest,
+  fixtures: FixtureStore,
+  primaryModel: string,
+): Promise<LlmResponse> {
+  const key = await fixtureKey({
+    role: req.role,
+    promptVersion: req.promptVersion,
+    model: primaryModel,
+    prefix: req.prefix,
+    body: req.body,
+  })
   const f = await fixtures.get(key)
   if (!f)
     return {
@@ -70,18 +115,35 @@ export async function replayResponse(req: LlmRequest, fixtures: FixtureStore, pr
 }
 
 /** Fixtures only (`ILLUS_LLM_MODE=replay`). */
-export function replayTransport(opts: { fixtures: FixtureStore; models: ModelsConfig }): LlmTransport {
-  return (req) => replayResponse(req, opts.fixtures, resolveRoute(opts.models, req.role, req.escalate).chain[0]!.model)
+export function replayTransport(opts: {
+  fixtures: FixtureStore
+  models: ModelsConfig
+}): LlmTransport {
+  return (req) =>
+    replayResponse(
+      req,
+      opts.fixtures,
+      resolveRoute(opts.models, req.role, req.escalate).chain[0]!.model,
+    )
 }
 
 /** Live call, then saves the successful result as a fixture (`ILLUS_LLM_MODE=record`). */
-export function recordTransport(opts: { live: LlmTransport; fixtures: FixtureStore; models: ModelsConfig; now?: () => number }): LlmTransport {
-  if (!opts.fixtures.put) throw new Error('record mode needs a writable fixture store')
+export function recordTransport(opts: {
+  live: LlmTransport
+  fixtures: FixtureStore
+  models: ModelsConfig
+  now?: () => number
+}): LlmTransport {
+  if (!opts.fixtures.put)
+    throw new Error('record mode needs a writable fixture store')
   return async (req, signal) => {
     const res = await opts.live(req, signal)
     if (!res.ok) return res
-    const model = resolveRoute(opts.models, req.role, req.escalate).chain[0]!.model
-    await opts.fixtures.put!(await fixtureFromResponse(req, model, res, (opts.now ?? Date.now)()))
+    const model = resolveRoute(opts.models, req.role, req.escalate).chain[0]!
+      .model
+    await opts.fixtures.put!(
+      await fixtureFromResponse(req, model, res, (opts.now ?? Date.now)()),
+    )
     return res
   }
 }
@@ -98,7 +160,11 @@ export function transportFor(
   if (!deps.live) throw new Error(`${mode} mode needs a live transport`)
   if (mode === 'live') return deps.live
   if (!deps.fixtures) throw new Error('record mode needs fixtures')
-  return recordTransport({ live: deps.live, fixtures: deps.fixtures, models: deps.models })
+  return recordTransport({
+    live: deps.live,
+    fixtures: deps.fixtures,
+    models: deps.models,
+  })
 }
 
 export interface LlmClientOptions {
@@ -117,13 +183,17 @@ export function createLlmClient(o: LlmClientOptions): LlmCall {
   const now = o.now ?? Date.now
   const newId = o.newRequestId ?? (() => globalThis.crypto.randomUUID())
 
-  async function call<R extends RoleName, S extends RoleSchemaName<R> = RoleSchemaName<R>>(
+  async function call<
+    R extends RoleName,
+    S extends RoleSchemaName<R> = RoleSchemaName<R>,
+  >(
     role: R,
     ctx: { prefix: string; body: string },
     opts: LlmCallOptions<S> = {},
   ): Promise<LlmResult<SchemaOutput<S>>> {
     const schemaName = (opts.schemaName ?? ROLES[role].schemas[0]) as SchemaName
-    if (!roleAllowsSchema(role, schemaName)) throw new LlmError('schema', `role ${role} cannot return ${schemaName}`)
+    if (!roleAllowsSchema(role, schemaName))
+      throw new LlmError('schema', `role ${role} cannot return ${schemaName}`)
     const promptVersion = o.prompts.get(role).version
     const requestId = opts.requestId ?? newId()
     const req: LlmRequest = {
@@ -138,7 +208,10 @@ export function createLlmClient(o: LlmClientOptions): LlmCall {
       ...(opts.escalate && { escalate: true }),
     }
     const started = now()
-    const log = async (outcome: LlmError['code'] | 'ok', res?: Extract<LlmResponse, { ok: true }>) => {
+    const log = async (
+      outcome: LlmError['code'] | 'ok',
+      res?: Extract<LlmResponse, { ok: true }>,
+    ) => {
       if (!o.log) return
       try {
         await o.log.add({
@@ -154,7 +227,9 @@ export function createLlmClient(o: LlmClientOptions): LlmCall {
           outcome,
           ...(opts.bookId && { bookId: opts.bookId }),
           ...(opts.sectionId && { sectionId: opts.sectionId }),
-          ...(o.debugPrompts?.() && { prompt: { prefix: ctx.prefix, body: ctx.body } }),
+          ...(o.debugPrompts?.() && {
+            prompt: { prefix: ctx.prefix, body: ctx.body },
+          }),
           createdAt: now(),
         })
       } catch {
@@ -162,7 +237,10 @@ export function createLlmClient(o: LlmClientOptions): LlmCall {
       }
     }
 
-    const res = await withAbort(o.transport(req, opts.signal), opts.signal).catch(async (e: unknown) => {
+    const res = await withAbort(
+      o.transport(req, opts.signal),
+      opts.signal,
+    ).catch(async (e: unknown) => {
       if (opts.signal?.aborted) {
         await log('aborted')
         throw new LlmError('aborted', 'request aborted by the caller')
@@ -173,14 +251,18 @@ export function createLlmClient(o: LlmClientOptions): LlmCall {
     if (!res.ok) {
       await log(res.code)
       throw new LlmError(res.code, res.message, {
-        ...(res.retryAfterMs !== undefined && { retryAfterMs: res.retryAfterMs }),
+        ...(res.retryAfterMs !== undefined && {
+          retryAfterMs: res.retryAfterMs,
+        }),
         ...(res.issues && { issues: res.issues }),
       })
     }
     const parsed = SCHEMAS[schemaName].safeParse(res.data)
     if (!parsed.success) {
       await log('schema')
-      throw new LlmError('schema', `${schemaName} output failed validation`, { issues: parsed.error.issues })
+      throw new LlmError('schema', `${schemaName} output failed validation`, {
+        issues: parsed.error.issues,
+      })
     }
     await log('ok', res)
     return {
@@ -203,6 +285,8 @@ function withAbort<T>(p: Promise<T>, signal?: AbortSignal): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const onAbort = () => reject(signal.reason)
     signal.addEventListener('abort', onAbort, { once: true })
-    p.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort))
+    p.then(resolve, reject).finally(() =>
+      signal.removeEventListener('abort', onAbort),
+    )
   })
 }

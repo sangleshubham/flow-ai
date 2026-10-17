@@ -22,6 +22,13 @@ export interface UsageRow {
   outcome: LlmOutcome
   /** Upstream requests made (retries and fallbacks included); recorded per user. */
   attempts: number
+  /** Safe upstream diagnostics; never stores credentials, request bodies, or book text. */
+  upstreamError?: {
+    status?: number
+    code?: string
+    param?: string
+    requestId?: string
+  }
 }
 
 export interface UsageSummary {
@@ -33,6 +40,8 @@ export interface UsageSummary {
 export interface UserUsage {
   pausedUntil(): number | null
   pause(untilMs: number): void
+  /** Clear the pause that a completed access check actually observed, preserving newer failures. */
+  resume(expectedUntil: number): void
   append(row: UsageRow): Promise<void>
   summary(): UsageSummary
 }
@@ -46,8 +55,6 @@ export function createUsageTracker(o: {
   now?: () => number
 }): UsageTracker {
   const now = o.now ?? Date.now
-  // Only active pauses are cached; ordinary requests do not grow this map.
-  const pauses = new Map<string, number>()
   const sum = o.db.prepare(
     'SELECT COALESCE(SUM(attempts),0) AS n FROM usage WHERE sub=? AND ts>?',
   )
@@ -55,19 +62,12 @@ export function createUsageTracker(o: {
     forUser(sub) {
       if (!sub) throw new Error('usage requires an account')
       const pausedUntil = () => {
-        const until =
-          pauses.get(sub) ??
-          Number(
-            o.db
-              .prepare('SELECT paused_until FROM usage_pause WHERE sub=?')
-              .get(sub)?.paused_until ?? 0,
-          )
-        if (until <= now()) {
-          pauses.delete(sub)
-          return null
-        }
-        pauses.set(sub, until)
-        return until
+        const until = Number(
+          o.db
+            .prepare('SELECT paused_until FROM usage_pause WHERE sub=?')
+            .get(sub)?.paused_until ?? 0,
+        )
+        return until > now() ? until : null
       }
       return {
         pausedUntil,
@@ -80,7 +80,11 @@ export function createUsageTracker(o: {
             ON CONFLICT(sub) DO UPDATE SET paused_until=MAX(paused_until,excluded.paused_until)`,
             )
             .run(sub, until)
-          pauses.delete(sub)
+        },
+        resume(expectedUntil) {
+          o.db
+            .prepare('DELETE FROM usage_pause WHERE sub=? AND paused_until=?')
+            .run(sub, expectedUntil)
         },
         async append(row) {
           if (row.sub !== sub) throw new Error('usage account mismatch')

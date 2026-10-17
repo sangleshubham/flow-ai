@@ -60,7 +60,11 @@ export interface GatewayResult {
 export interface Gateway {
   handle(
     raw: unknown,
-    ctx: { sub: string | null; signal?: AbortSignal },
+    ctx: {
+      sub: string | null
+      signal?: AbortSignal
+      recheckPlanLimit?: boolean
+    },
   ): Promise<GatewayResult>
 }
 
@@ -81,6 +85,9 @@ export function createGateway(d: GatewayDeps): Gateway {
   const random = d.random ?? Math.random
   // Set once the plan route rejects `text.format`; later calls go straight to the tool fallback.
   let structured: StructuredMode = 'json_schema'
+  // Explicit user checks are single-flight and at most once per ten seconds per account.
+  // The deployment uses one Node process (ADR 0055); pauses themselves remain durable.
+  const rechecks = new Map<string, { until: number; inFlight: boolean }>()
 
   const fail = (
     code: LlmErrorCode,
@@ -96,7 +103,11 @@ export function createGateway(d: GatewayDeps): Gateway {
 
   async function handle(
     raw: unknown,
-    ctx: { sub: string | null; signal?: AbortSignal },
+    ctx: {
+      sub: string | null
+      signal?: AbortSignal
+      recheckPlanLimit?: boolean
+    },
   ): Promise<GatewayResult> {
     // 1. Session.
     if (!ctx.sub) return fail('auth', 'sign in to the reader first')
@@ -118,6 +129,7 @@ export function createGateway(d: GatewayDeps): Gateway {
     let attempts = 0
     let used: ModelRun | undefined
     let tokens = { input: 0, output: 0, cachedInput: 0 }
+    let lastError: ProviderError | undefined
 
     const finish = async (result: GatewayResult): Promise<GatewayResult> => {
       try {
@@ -136,6 +148,15 @@ export function createGateway(d: GatewayDeps): Gateway {
           latencyMs: now() - started,
           outcome: result.body.ok ? 'ok' : result.body.code,
           attempts,
+          ...(!result.body.ok &&
+            lastError && {
+              upstreamError: {
+                status: lastError.status,
+                code: lastError.code,
+                param: lastError.param,
+                requestId: lastError.requestId,
+              },
+            }),
         })
       } catch {
         // A full disk must not turn a paid result into an error.
@@ -221,135 +242,154 @@ export function createGateway(d: GatewayDeps): Gateway {
 
     // 3. Pause only after OpenAI reports this account’s plan limit.
     const paused = usage.pausedUntil()
-    if (paused !== null)
-      return finish(
-        fail(
-          'plan-limit',
-          'ChatGPT plan usage limit reached; plan requests are paused',
-          { retryAfterMs: paused - now() },
-        ),
-      )
+    let recheck: { until: number; inFlight: boolean } | undefined
+    for (const [account, check] of rechecks)
+      if (!check.inFlight && check.until <= now()) rechecks.delete(account)
+    const previous = rechecks.get(sub)
+    if (paused !== null || previous?.inFlight) {
+      if (!ctx.recheckPlanLimit || previous)
+        return finish(
+          fail(
+            'plan-limit',
+            previous
+              ? 'An access check is in progress or was just made. Wait a few seconds before trying again.'
+              : 'Requests are locally paused after an earlier OpenAI usage-limit error. Retry checks your access again.',
+            { retryAfterMs: Math.max(0, (paused ?? previous!.until) - now()) },
+          ),
+        )
+      recheck = { until: now() + 10_000, inFlight: true }
+      rechecks.set(sub, recheck)
+    }
 
-    // 5–6. Call along the chain; fall back only when a model is unavailable.
-    const instructions = `${prompt.systemPrompt}\n\n${req.prefix}`
-    let result: ProviderResult | undefined
-    let lastError: ProviderError | undefined
-    chain: for (const run of route.chain) {
-      for (let tries = 1; ; tries++) {
-        attempts++
-        used = run
-        try {
-          result = await d.provider.respond({
-            model: run.model,
-            effort: run.effort,
-            instructions,
-            body: req.body,
-            ...(req.image && { image: req.image }),
-            schemaName: req.schemaName,
-            schema: schema.strict,
-            strict: schema.isStrict,
-            structured,
-            apiKey,
-            ...(ctx.signal && { signal: ctx.signal }),
-          })
-          break chain
-        } catch (e) {
-          const err =
-            e instanceof ProviderError
-              ? e
-              : new ProviderError('fatal', (e as Error)?.message ?? String(e))
-          lastError = err
-          switch (err.kind) {
-            case 'plan-limit':
-              // Never retried; nothing switches to paid billing (§9 step 6, §15).
-              usage.pause(now() + (err.retryAfterMs ?? DEFAULT_PLAN_PAUSE_MS))
-              return finish(
-                fail(
-                  'plan-limit',
-                  'ChatGPT plan usage limit reached; see ChatGPT settings → Usage',
-                  {
-                    ...(err.retryAfterMs !== undefined && {
-                      retryAfterMs: err.retryAfterMs,
-                    }),
-                  },
-                ),
-              )
-            case 'model-unavailable':
-              continue chain
-            case 'unsupported-format':
-              if (structured === 'tool')
-                return finish(fail('upstream', err.message))
-              structured = 'tool'
-              tries-- // the format switch is not a retry
-              continue
-            case 'rate-limit':
-            case 'transient':
-            case 'timeout':
-              if (tries >= MAX_ATTEMPTS)
+    try {
+      // 5–6. Call along the chain; fall back only when a model is unavailable.
+      const instructions = `${prompt.systemPrompt}\n\n${req.prefix}`
+      let result: ProviderResult | undefined
+      chain: for (const run of route.chain) {
+        for (let tries = 1; ; tries++) {
+          attempts++
+          used = run
+          try {
+            result = await d.provider.respond({
+              model: run.model,
+              effort: run.effort,
+              instructions,
+              body: req.body,
+              ...(req.image && { image: req.image }),
+              schemaName: req.schemaName,
+              schema: schema.strict,
+              strict: schema.isStrict,
+              structured,
+              apiKey,
+              ...(ctx.signal && { signal: ctx.signal }),
+            })
+            break chain
+          } catch (e) {
+            const err =
+              e instanceof ProviderError
+                ? e
+                : new ProviderError('fatal', (e as Error)?.message ?? String(e))
+            lastError = err
+            switch (err.kind) {
+              case 'plan-limit':
+                // Never retried; nothing switches to paid billing (§9 step 6, §15).
+                usage.pause(now() + (err.retryAfterMs ?? DEFAULT_PLAN_PAUSE_MS))
                 return finish(
                   fail(
-                    err.kind === 'timeout' ? 'timeout' : 'upstream',
-                    err.message,
+                    'plan-limit',
+                    `OpenAI reported a usage limit for your ChatGPT plan or this app. Review ChatGPT Settings → Usage, or retry after your allowance recovers. ${
+                      err.message
+                    }${err.requestId ? ` [request ID: ${err.requestId}]` : ''}`,
+                    {
+                      ...(err.retryAfterMs !== undefined && {
+                        retryAfterMs: err.retryAfterMs,
+                      }),
+                    },
                   ),
                 )
-              await sleep(
-                err.kind === 'rate-limit' && err.retryAfterMs !== undefined
-                  ? err.retryAfterMs
-                  : backoff(tries, random),
-              )
-              continue
-            default:
-              return finish(fail('upstream', err.message))
+              case 'model-unavailable':
+                continue chain
+              case 'unsupported-format':
+                if (structured === 'tool')
+                  return finish(fail('upstream', err.message))
+                structured = 'tool'
+                tries-- // the format switch is not a retry
+                continue
+              case 'rate-limit':
+              case 'transient':
+              case 'timeout':
+                if (tries >= MAX_ATTEMPTS)
+                  return finish(
+                    fail(
+                      err.kind === 'timeout' ? 'timeout' : 'upstream',
+                      err.message,
+                    ),
+                  )
+                await sleep(
+                  err.kind === 'rate-limit' && err.retryAfterMs !== undefined
+                    ? err.retryAfterMs
+                    : backoff(tries, random),
+                )
+                continue
+              default:
+                return finish(fail('upstream', err.message))
+            }
           }
         }
       }
-    }
-    if (!result)
-      return finish(
-        fail(
-          'upstream',
-          `no model in the ${route.tier} chain is available: ${
-            lastError?.message ?? 'unknown error'
-          }`,
-        ),
-      )
-    tokens = result.usage
-
-    // 7. Parse again on the server.
-    let json: unknown
-    try {
-      json = JSON.parse(result.text)
-    } catch {
-      return finish(
-        fail('schema', 'model output is not valid JSON', { issues: [] }),
-      )
-    }
-    const out = parseOutput(json)
-    if (!out.ok)
-      return finish(
-        fail('schema', `${req.schemaName} output failed validation`, {
-          issues: out.issues,
-        }),
-      )
-    const body: LlmResponse = {
-      ok: true,
-      data: out.data,
-      usage: result.usage,
-      model: used!.model,
-      effort: used!.effort,
-      latencyMs: now() - started,
-    }
-    if (d.mode === 'record' && d.fixtures?.put) {
-      try {
-        await d.fixtures.put(
-          await fixtureFromResponse(req, route.chain[0]!.model, body, now()),
+      if (!result)
+        return finish(
+          fail(
+            'upstream',
+            `no model in the ${route.tier} chain is available: ${
+              lastError?.message ?? 'unknown error'
+            }`,
+          ),
         )
+      // Clear even a persisted legacy pause once OpenAI completes a request. Schema validation
+      // can still fail independently of account access.
+      if (paused !== null) usage.resume(paused)
+      lastError = undefined
+      tokens = result.usage
+
+      // 7. Parse again on the server.
+      let json: unknown
+      try {
+        json = JSON.parse(result.text)
       } catch {
-        // A failed fixture write must not discard a paid result.
+        return finish(
+          fail('schema', 'model output is not valid JSON', { issues: [] }),
+        )
       }
+      const out = parseOutput(json)
+      if (!out.ok)
+        return finish(
+          fail('schema', `${req.schemaName} output failed validation`, {
+            issues: out.issues,
+          }),
+        )
+      const body: LlmResponse = {
+        ok: true,
+        data: out.data,
+        usage: result.usage,
+        model: used!.model,
+        effort: used!.effort,
+        latencyMs: now() - started,
+      }
+      if (d.mode === 'record' && d.fixtures?.put) {
+        try {
+          await d.fixtures.put(
+            await fixtureFromResponse(req, route.chain[0]!.model, body, now()),
+          )
+        } catch {
+          // A failed fixture write must not discard a paid result.
+        }
+      }
+      // 8. Usage line.
+      return finish({ status: 200, body })
+    } finally {
+      if (recheck) recheck.inFlight = false
     }
-    // 8. Usage line.
-    return finish({ status: 200, body })
   }
 
   return { handle }
