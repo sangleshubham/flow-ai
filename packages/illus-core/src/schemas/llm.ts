@@ -124,14 +124,20 @@ const checkRoles = <T extends Record<RoleName, RoleSpec>>(roles: T): T => roles
 
 /** The §9 roles table. Owners of each prompt are listed in CLAUDE.md. */
 export const ROLES = checkRoles({
+  // `fast` is gpt-6-luna; indexer and glossary run there at medium (ADR 0058).
   indexer: {
     tier: 'fast',
     escalationTier: 'standard',
-    effort: 'low',
+    effort: 'medium',
     schemas: ['IndexerOutput'],
   },
-  glossary: { tier: 'fast', effort: 'low', schemas: ['GlossaryOutput'] },
-  'book-summary': { tier: 'fast', effort: 'medium', schemas: ['BookSummary'] },
+  glossary: { tier: 'fast', effort: 'medium', schemas: ['GlossaryOutput'] },
+  // Stays on gpt-6.1-sol: one call per book that feeds every later prompt (ADR 0058).
+  'book-summary': {
+    tier: 'standard',
+    effort: 'medium',
+    schemas: ['BookSummary'],
+  },
   planner: {
     tier: 'standard',
     escalationTier: 'deep',

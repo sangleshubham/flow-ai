@@ -1,18 +1,16 @@
 {
-  "key": "8ec6860ced682539450e0539ae650fb71239a1155b33ea3fc05016621a7d5ea5",
+  "key": "b369a50a80aa0eea2885eeebd055d70c2fec6c8e7db2fff6272c7254b0fa1574",
   "source": "handwritten",
   "role": "glossary",
   "promptVersion": "1.0.0",
-  "model": "gpt-6.1-sol",
-  "effort": "low",
+  "model": "gpt-6-luna",
+  "effort": "medium",
   "schemaName": "GlossaryOutput",
   "data": {
     "merges": [
       {
         "canonical": "replicated log",
-        "aliases": [
-          "log"
-        ]
+        "aliases": ["log"]
       }
     ]
   },
