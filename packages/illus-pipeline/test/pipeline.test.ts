@@ -12,6 +12,7 @@ import { describe, expect, test, vi } from 'vitest'
 import { createLimiter, reportBlock } from '../src/index.ts'
 import type { PipelineDeps, ReviewHook, SectionJob } from '../src/index.ts'
 import {
+  CHAPTER_ID,
   SECTION_COMMIT_ID as C,
   SECTION_LEADERS_ID as L,
   TRACE_CODE_ID,
@@ -1363,5 +1364,327 @@ describe('limits', () => {
     const pipeline = pipelineWith(repos, llm, { maxLlmRequests: 1 })
     await collect(pipeline.requestSection(L))
     expect(peak).toBe(1)
+  })
+})
+
+describe('shared jobs (ADR 0057)', () => {
+  /** A promise with its resolver, to hold fake calls open. */
+  const gate = () => {
+    let open!: () => void
+    const p = new Promise<void>((r) => (open = r))
+    return { p, open }
+  }
+  /** Lets every pending promise chain of the in-memory pipeline settle. */
+  const settle = async (n = 5) => {
+    for (let i = 0; i < n; i++) await new Promise((r) => setTimeout(r, 0))
+  }
+  const planners = (llm: { calls: Call[] }) =>
+    llm.calls.filter((c) => c.role === 'planner').map((c) => c.opts.sectionId)
+  const bg = { background: true, keepOthers: true } as const
+
+  test('a foreground request joins a background job: one call per step, and late joiners replay the history in order', async () => {
+    const repos = await seededRepos()
+    const planner = gate()
+    const extractor = gate()
+    const planning = gate()
+    const extracting = gate()
+    const llm = fakeLlm(
+      byRole({
+        planner: async () => {
+          planning.open()
+          await planner.p
+          return plan()
+        },
+        'extractor.graph': async () => {
+          extracting.open()
+          await extractor.p
+          return make.graphSource()
+        },
+      }),
+    )
+    const pipeline = pipelineWith(repos, llm)
+    const early = collect(pipeline.requestSection(L, bg))
+    await planning.p
+    const late = collect(pipeline.requestSection(L))
+    planner.open()
+    await extracting.p
+    // Joins after `plan` and `queued` were emitted: they are replayed first, then live events follow.
+    const later = collect(pipeline.requestSection(L, bg))
+    extractor.open()
+    const [re, rl, rr] = await Promise.all([early, late, later])
+    expect(llm.calls.map((c) => c.role)).toEqual(['planner', 'extractor.graph'])
+    expect(
+      re.events.map((e) => e.type).filter((t) => t !== 'item-progress'),
+    ).toEqual(['plan', 'item-ready', 'done'])
+    expect(rl.events).toEqual(re.events)
+    expect(rr.events).toEqual(re.events)
+    expect(re.of('done')).toEqual([{ cancelled: false }])
+  })
+
+  test('cancelling the foreground handle releases it; the background holder keeps the job', async () => {
+    const repos = await seededRepos()
+    const planner = gate()
+    const planning = gate()
+    const llm = fakeLlm(
+      byRole({
+        planner: async () => {
+          planning.open()
+          await planner.p
+          return plan()
+        },
+        'extractor.graph': () => make.graphSource(),
+      }),
+    )
+    const pipeline = pipelineWith(repos, llm)
+    const bgJob = pipeline.requestSection(L, bg)
+    const rb = collect(bgJob)
+    await planning.p
+    const fgJob = pipeline.requestSection(L)
+    const rf = collect(fgJob)
+    fgJob.cancel()
+    expect((await rf).events).toEqual([
+      { type: 'done', payload: { cancelled: true } },
+    ])
+    expect(fgJob.cancelled).toBe(true)
+    expect(llm.calls[0]!.opts.signal!.aborted).toBe(false)
+    planner.open()
+    const r = await rb
+    expect(bgJob.cancelled).toBe(false)
+    expect(r.of('item-ready')).toHaveLength(1)
+    expect(r.of('done')).toEqual([{ cancelled: false }])
+  })
+
+  test('the last holder to cancel aborts the job', async () => {
+    const repos = await seededRepos()
+    const planner = gate()
+    const planning = gate()
+    const llm = fakeLlm(
+      byRole({
+        planner: async () => {
+          planning.open()
+          await planner.p
+          return plan()
+        },
+      }),
+    )
+    const pipeline = pipelineWith(repos, llm)
+    const a = pipeline.requestSection(L, bg)
+    const b = pipeline.requestSection(L)
+    const [ra, rb] = [collect(a), collect(b)]
+    await planning.p
+    b.cancel()
+    expect(llm.calls[0]!.opts.signal!.aborted).toBe(false)
+    a.cancel()
+    expect(llm.calls[0]!.opts.signal!.aborted).toBe(true)
+    planner.open()
+    for (const r of await Promise.all([ra, rb])) {
+      expect(r.of('plan')).toEqual([])
+      expect(r.of('done')).toEqual([{ cancelled: true }])
+    }
+  })
+
+  test('background requests do not take a section slot', async () => {
+    const repos = await seededRepos()
+    const planner = gate()
+    const both = gate()
+    const llm = fakeLlm(
+      byRole({
+        planner: async () => {
+          if (planners(llm).length === 2) both.open()
+          await planner.p
+          return plan({ needsVisual: false, items: [] })
+        },
+      }),
+    )
+    const pipeline = pipelineWith(repos, llm, { maxSections: 1 })
+    const jobs = [
+      collect(pipeline.requestSection(C, bg)),
+      collect(pipeline.requestSection(L)),
+    ]
+    await both.p
+    expect(planners(llm).sort()).toEqual([L, C].sort())
+    planner.open()
+    await Promise.all(jobs)
+  })
+
+  test('a reader job left to the run alone gives back its section slot', async () => {
+    const repos = await seededRepos()
+    const planner = gate()
+    const llm = fakeLlm(
+      byRole({
+        planner: async (c) => {
+          if (c.opts.sectionId === L) await planner.p
+          return plan({ needsVisual: false, items: [] })
+        },
+      }),
+    )
+    const pipeline = pipelineWith(repos, llm, { maxSections: 1 })
+    const reader = collect(pipeline.requestSection(L))
+    const run = collect(pipeline.requestSection(L, bg))
+    await settle()
+    // The reader moves on: L keeps running for the run, and C does not wait for L's slot.
+    const next = await collect(pipeline.requestSection(C))
+    expect(next.of('no-visual')).toHaveLength(1)
+    expect((await reader).of('done')).toEqual([{ cancelled: true }])
+    planner.open()
+    expect((await run).of('done')).toEqual([{ cancelled: false }])
+    expect(planners(llm)).toEqual([L, C])
+  })
+
+  test('foreground calls start while background calls hold every background slot', async () => {
+    const repos = await seededRepos()
+    const planner = gate()
+    const llm = fakeLlm(
+      byRole({
+        planner: async (c) => {
+          if (c.opts.sectionId === C) await planner.p
+          return plan({ needsVisual: false, items: [] })
+        },
+      }),
+    )
+    const pipeline = pipelineWith(repos, llm, { maxBackgroundLlmRequests: 1 })
+    const held = collect(pipeline.requestSection(C, bg))
+    const queued = collect(pipeline.requestSection(CHAPTER_ID, bg))
+    await settle()
+    expect(planners(llm)).toEqual([C])
+    // The reader's request is not queued behind the run's.
+    await collect(pipeline.requestSection(L))
+    expect(planners(llm)).toEqual([C, L])
+    planner.open()
+    await Promise.all([held, queued])
+    expect(planners(llm)).toEqual([C, L, CHAPTER_ID])
+  })
+
+  test('a foreground request joining a background job promotes its queued calls', async () => {
+    const repos = await seededRepos()
+    const planner = gate()
+    const llm = fakeLlm(
+      byRole({
+        planner: async (c) => {
+          if (c.opts.sectionId === C) await planner.p
+          return plan({ needsVisual: false, items: [] })
+        },
+      }),
+    )
+    const pipeline = pipelineWith(repos, llm, { maxBackgroundLlmRequests: 1 })
+    const held = collect(pipeline.requestSection(C, bg))
+    const run = collect(pipeline.requestSection(L, bg))
+    await settle()
+    expect(planners(llm)).toEqual([C]) // L's planner call waits for a background slot
+    const reader = await collect(pipeline.requestSection(L))
+    expect(planners(llm)).toEqual([C, L])
+    expect(reader.of('no-visual')).toHaveLength(1)
+    planner.open()
+    await Promise.all([held, run])
+    expect(planners(llm)).toEqual([C, L])
+  })
+
+  test('force, instruction and selection requests never join', async () => {
+    const cases: ((p: ReturnType<typeof pipelineWith>) => SectionJob)[] = [
+      (p) => p.requestSection(L, { force: true, keepOthers: true }),
+      (p) =>
+        p.requestSection(L, { instruction: 'Use a ring', keepOthers: true }),
+      (p) =>
+        p.requestSelection(
+          { parentSectionId: L, blockIds: [`${L}#b0`, `${L}#b1`] },
+          { keepOthers: true },
+        ),
+    ]
+    for (const other of cases) {
+      const repos = await seededRepos()
+      const planner = gate()
+      const planning = gate()
+      const llm = fakeLlm(
+        byRole({
+          planner: async () => {
+            if (planners(llm).length === 2) planning.open()
+            await planner.p
+            return plan({ needsVisual: false, items: [] })
+          },
+        }),
+      )
+      const pipeline = pipelineWith(repos, llm)
+      const jobs = [
+        collect(pipeline.requestSection(L, bg)),
+        collect(other(pipeline)),
+      ]
+      await planning.p
+      expect(planners(llm)).toHaveLength(2)
+      planner.open()
+      await Promise.all(jobs)
+    }
+  })
+
+  test('a foreground request for another section cancels the earlier foreground job, not the background one', async () => {
+    const repos = await seededRepos()
+    const planner = gate()
+    const planning = gate()
+    const llm = fakeLlm(
+      byRole({
+        planner: async () => {
+          if (planners(llm).length === 2) planning.open()
+          await planner.p
+          return plan({ needsVisual: false, items: [] })
+        },
+      }),
+    )
+    const pipeline = pipelineWith(repos, llm)
+    const run = collect(pipeline.requestSection(C, bg))
+    const first = collect(pipeline.requestSection(L))
+    await planning.p
+    const next = collect(pipeline.requestSection(CHAPTER_ID))
+    planner.open()
+    const [rr, rf, rn] = await Promise.all([run, first, next])
+    expect(rf.of('done')).toEqual([{ cancelled: true }])
+    expect(rr.of('done')).toEqual([{ cancelled: false }])
+    expect(rr.of('no-visual')).toHaveLength(1)
+    expect(rn.of('done')).toEqual([{ cancelled: false }])
+  })
+
+  test('item-failed and error carry the plan-limit reset time', async () => {
+    const limit = () =>
+      new LlmError('plan-limit', 'plan limit reached', {
+        retryAfterMs: 60_000,
+      })
+    const planFails = await collect(
+      pipelineWith(
+        await seededRepos(),
+        fakeLlm(
+          byRole({
+            planner: () => {
+              throw limit()
+            },
+          }),
+        ),
+      ).requestSection(L, bg),
+    )
+    expect(planFails.of('error')).toEqual([
+      {
+        code: 'plan-limit',
+        message: 'plan limit reached',
+        retryAfterMs: 60_000,
+      },
+    ])
+    const itemFails = await collect(
+      pipelineWith(
+        await seededRepos(),
+        fakeLlm(
+          byRole({
+            planner: () => plan(),
+            'extractor.graph': () => {
+              throw limit()
+            },
+          }),
+        ),
+      ).requestSection(L),
+    )
+    expect(itemFails.of('item-failed')).toEqual([
+      {
+        planItemId: 'p1',
+        code: 'plan-limit',
+        message: 'plan limit reached',
+        retryAfterMs: 60_000,
+      },
+    ])
   })
 })
