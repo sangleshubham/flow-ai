@@ -107,7 +107,7 @@ describe('cache keys (§5)', () => {
 })
 
 describe('flags (§4)', () => {
-  it('defaults templates and animations on, the rest off', () => {
+  it('defaults templates, animations and wholeBook on, the rest off', () => {
     expect(DEFAULT_FLAGS).toEqual({
       templates: true,
       animations: true,
@@ -116,6 +116,7 @@ describe('flags (§4)', () => {
       conceptModels: false,
       critic: false,
       htmlFallback: false,
+      wholeBook: true,
     })
     expect(Object.keys(DEFAULT_FLAGS).sort()).toEqual([
       'animations',
@@ -125,7 +126,9 @@ describe('flags (§4)', () => {
       'sceneAnimations',
       'templates',
       'tracer',
+      'wholeBook',
     ])
+    expect(FLAG_OWNERS.wholeBook).toBe('W9')
   })
 
   it('keeps graph scene animations dark, owned by W6 and explicitly opt-in', () => {

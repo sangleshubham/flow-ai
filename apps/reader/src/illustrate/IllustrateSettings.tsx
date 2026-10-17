@@ -135,6 +135,7 @@ export function IllustrateSettings() {
                 conceptModels: 'Growing concept diagrams',
                 critic: 'Visual quality review (uses plan requests)',
                 htmlFallback: 'Sandboxed HTML illustrations',
+                wholeBook: 'Whole-book illustration',
               }[flag]
             }
           </label>

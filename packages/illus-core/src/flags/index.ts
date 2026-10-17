@@ -11,6 +11,7 @@ export const FlagName = z.enum([
   'conceptModels',
   'critic',
   'htmlFallback',
+  'wholeBook',
 ])
 export type FlagName = z.infer<typeof FlagName>
 
@@ -25,6 +26,7 @@ export const FLAG_OWNERS: Readonly<Record<FlagName, string>> = {
   conceptModels: 'W8',
   critic: 'W10',
   htmlFallback: 'W4',
+  wholeBook: 'W9',
 }
 
 export const DEFAULT_FLAGS: Flags = {
@@ -35,6 +37,7 @@ export const DEFAULT_FLAGS: Flags = {
   conceptModels: false,
   critic: false,
   htmlFallback: false,
+  wholeBook: true,
 }
 
 /** Partial overrides as stored in the `settings` store under key `flags`; unknown keys are ignored. */
