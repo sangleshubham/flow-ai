@@ -1,10 +1,10 @@
 {
-  "key": "28a6ec0685d4fdbf60e41ad9500ee53159b6cd8bb7de1ffdf4ae61287c923076",
+  "key": "aa60710460c3ffa262e2a66f7a1f26ed7447d1ebcef4afad832251774ea828f3",
   "source": "handwritten",
   "role": "indexer",
   "promptVersion": "1.0.0",
-  "model": "gpt-6.1-sol",
-  "effort": "low",
+  "model": "gpt-6-luna",
+  "effort": "medium",
   "schemaName": "IndexerOutput",
   "data": {
     "sections": [

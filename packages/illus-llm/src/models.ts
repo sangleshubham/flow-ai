@@ -94,17 +94,21 @@ export const ModelsConfig = z
   })
 export type ModelsConfig = z.infer<typeof ModelsConfig>
 
-/** The default `ILLUS_MODELS_JSON`: spec §9 with every tier on gpt-6.1-sol and per-role efforts (ADR 0046). */
+/**
+ * The default `ILLUS_MODELS_JSON`: spec §9 with per-role efforts. `fast` runs gpt-6-luna for the
+ * high-volume concept pass (ADR 0058); `standard` and `deep` run gpt-6.1-sol (ADR 0046).
+ */
 export const DEFAULT_MODELS: ModelsConfig = {
   tiers: {
-    // Every tier runs gpt-6.1-sol (ADR 0046); tiers now differ only by effort.
-    fast: [{ model: 'gpt-6.1-sol' }],
+    // No fallback model: an unavailable primary fails the call rather than dropping to an older model.
+    fast: [{ model: 'gpt-6-luna' }],
     standard: [{ model: 'gpt-6.1-sol' }],
     deep: [{ model: 'gpt-6.1-sol', effort: 'high' }],
   },
   efforts: {
-    indexer: 'low',
-    glossary: 'low',
+    // Luna at low scores far below gpt-6.1-sol at low; medium is the floor for concept extraction.
+    indexer: 'medium',
+    glossary: 'medium',
     'book-summary': 'medium',
     planner: 'medium',
     'extractor.graph': 'medium',

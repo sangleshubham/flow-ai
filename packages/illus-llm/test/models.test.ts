@@ -73,10 +73,27 @@ describe('resolveRoute', () => {
     }
   })
 
-  it('every tier runs gpt-6.1-sol with the role effort (ADR 0046)', () => {
+  it('runs the concept pass on gpt-6-luna at medium (ADR 0058)', () => {
     expect(resolveRoute(DEFAULT_MODELS, 'indexer')).toEqual({
       tier: 'fast',
-      chain: [{ model: 'gpt-6.1-sol', effort: 'low' }],
+      chain: [{ model: 'gpt-6-luna', effort: 'medium' }],
+    })
+    expect(resolveRoute(DEFAULT_MODELS, 'glossary').chain).toEqual([
+      { model: 'gpt-6-luna', effort: 'medium' },
+    ])
+  })
+
+  it('escalates the indexer to gpt-6.1-sol at high', () => {
+    expect(resolveRoute(DEFAULT_MODELS, 'indexer', true)).toEqual({
+      tier: 'standard',
+      chain: [{ model: 'gpt-6.1-sol', effort: 'high' }],
+    })
+  })
+
+  it('runs every other role on gpt-6.1-sol with the role effort (ADR 0046)', () => {
+    expect(resolveRoute(DEFAULT_MODELS, 'book-summary')).toEqual({
+      tier: 'standard',
+      chain: [{ model: 'gpt-6.1-sol', effort: 'medium' }],
     })
     expect(resolveRoute(DEFAULT_MODELS, 'planner').chain).toEqual([
       { model: 'gpt-6.1-sol', effort: 'medium' },
@@ -88,8 +105,9 @@ describe('resolveRoute', () => {
       { model: 'gpt-6.1-sol', effort: 'high' },
     ])
     for (const role of RoleName.options)
-      for (const run of resolveRoute(DEFAULT_MODELS, role).chain)
-        expect(run.model).toBe('gpt-6.1-sol')
+      if (role !== 'indexer' && role !== 'glossary')
+        for (const run of resolveRoute(DEFAULT_MODELS, role).chain)
+          expect(run.model).toBe('gpt-6.1-sol')
   })
 
   it('escalates to deep: gpt-6.1-sol at high', () => {
