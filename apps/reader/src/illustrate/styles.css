@@ -347,13 +347,20 @@
   border-radius: 4px;
   background: var(--illus-bg);
 }
+.illus-rail {
+  flex-shrink: 0;
+  width: 32px;
+  height: 100%;
+  padding-top: 8px;
+  border-left: 1px solid rgb(var(--md-sys-color-outline-variant));
+  background: rgb(var(--md-sys-color-surface));
+}
 .illus-toggle {
-  position: fixed;
-  top: 8px;
-  right: 16px;
-  z-index: 35;
-  padding: 6px 12px;
-  border-radius: 18px;
+  display: block;
+  margin: 0 auto;
+  padding: 12px 4px;
+  writing-mode: vertical-rl;
+  border-radius: 14px;
   background: rgb(var(--md-sys-color-primary-container));
   color: rgb(var(--md-sys-color-on-primary-container));
   font-size: 14px;
