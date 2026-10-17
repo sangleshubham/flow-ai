@@ -26,8 +26,19 @@ import {
   DEFAULT_MODELS,
   httpTransport,
 } from '@illus/llm'
-import { createPipeline } from '@illus/pipeline'
-import type { Pipeline, RequestOptions, SectionJob } from '@illus/pipeline'
+import {
+  bookRunTargets,
+  createBookRun,
+  createPipeline,
+  estimateBookRun,
+} from '@illus/pipeline'
+import type {
+  BookRun,
+  BookRunProgress,
+  Pipeline,
+  RequestOptions,
+  SectionJob,
+} from '@illus/pipeline'
 import { createReaderBridge } from '@illus/reader-bridge'
 import type { BridgeRendition, ManagedReaderBridge } from '@illus/reader-bridge'
 import { readFlowTheme, reviewHook, templateRegistry } from '@illus/render'
@@ -52,18 +63,21 @@ import { db } from '../db'
 
 import { PROMPT_FILES } from './prompt-files'
 import {
+  applyBookRunProgress,
   bindJob,
+  createBookRunState,
   createDwell,
   DEFAULT_PREFERENCES,
   dwellDelay,
   evidenceAction,
   pane,
   migrateDwellMs,
+  parseBookRuns,
   parseDwellMs,
   PREFS_VERSION,
   whenCritic,
 } from './state'
-import type { Preferences } from './state'
+import type { BookRunUiStatus, PersistedBookRun, Preferences } from './state'
 
 // Zod's compiled fast path uses new Function; the strict production CSP forbids it.
 z.config({ jitless: true })
@@ -87,7 +101,27 @@ let active: {
   blocks: Block[]
   book: Book
   bookId: string
+  /** Flow's id for the open book tab; whole-book runs are saved under it. */
+  flowBookId: string
 } | null = null
+/** The tab the runtime is set up (or being set up) for: `activate` for the same one only reopens the pane. */
+let activeTab: { id: string; rendition: BridgeRendition } | null = null
+/** The whole-book run in flight (ADR 0057); null when there is none, or once it is paused. */
+let run: BookRun | null = null
+/** Settles when the last run's `start()` does, so a resume never overlaps a pausing run. */
+let runSettled: Promise<unknown> = Promise.resolve()
+/**
+ * The run stopped (or could not resume) because the browser went offline. It stays saved as
+ * `running`, and coming back online restarts it: offline sections would otherwise all count as failed.
+ */
+let pausedOffline = false
+/** What `cancelBookRunConfirm` goes back to. */
+let beforeConfirm: BookRunUiStatus = 'idle'
+let usageRefreshedAt = 0
+const USAGE_REFRESH_MS = 10_000
+/** Settings key: Flow book id → `PersistedBookRun`. */
+const BOOK_RUNS_KEY = 'bookRuns'
+let bookRunsWrite: Promise<void> = Promise.resolve()
 let currentJob: SectionJob | null = null
 let unbind: (() => void) | undefined
 let generation = 0
@@ -134,6 +168,10 @@ export async function loadPreferences() {
     flags: resolveFlags(p.flags),
   }
   pane.open = pane.preferences.enabled
+  const runs = parseBookRuns(await repos.settings.get(BOOK_RUNS_KEY))
+  pane.runningBooks = pane.preferences.flags.wholeBook
+    ? Object.keys(runs).filter((id) => runs[id]!.status === 'running')
+    : []
   await requestPersistence(repos.settings, navigator.storage)
   await refreshUsage()
 }
@@ -185,6 +223,17 @@ export async function refreshUsage() {
 }
 export function deactivate() {
   generation++
+  activeTab = null
+  // The saved status is left alone, so a `running` book resumes when it is opened again.
+  run?.pause()
+  run = null
+  pausedOffline = false
+  if (
+    pane.bookRun.status !== 'paused' &&
+    pane.bookRun.status !== 'paused-limit'
+  )
+    pane.bookRun.status = 'idle'
+  pane.bookRun.inProgress = []
   evidenceGeneration.evidence++
   evidenceGeneration.step++
   pinnedEvidence.evidence = pinnedEvidence.step = false
@@ -202,6 +251,14 @@ export function deactivate() {
   shownSectionId = undefined
 }
 export async function activate(tab: BookTabLike) {
+  if (
+    activeTab &&
+    activeTab.id === tab.book.id &&
+    activeTab.rendition === tab.rendition
+  ) {
+    paneOpened()
+    return
+  }
   deactivate()
   const own = generation
   if (!tab.epub || !tab.rendition) {
@@ -210,6 +267,9 @@ export async function activate(tab: BookTabLike) {
   }
   const book = tab.epub
   const rendition = tab.rendition
+  const flowBookId = tab.book.id
+  activeTab = { id: flowBookId, rendition }
+  pane.bookRun = createBookRunState()
   pane.status = 'indexing-required'
   pane.progress = 'Preparing the book index…'
   try {
@@ -256,8 +316,10 @@ export async function activate(tab: BookTabLike) {
       repos,
       llm,
       onProgress(p) {
-        if (own === generation)
-          pane.progress = `${p.indexed} of ${p.total} sections understood`
+        if (own !== generation) return
+        pane.progress = `${p.indexed} of ${p.total} sections understood`
+        if (pane.bookRun.status === 'understanding')
+          pane.bookRun.indexed = { indexed: p.indexed, total: p.total }
       },
     })
     const pipeline = createPipeline({
@@ -300,7 +362,16 @@ export async function activate(tab: BookTabLike) {
             ]
       },
     })
-    active = { bridge, pipeline, concepts, sections, blocks, book, bookId }
+    active = {
+      bridge,
+      pipeline,
+      concepts,
+      sections,
+      blocks,
+      book,
+      bookId,
+      flowBookId,
+    }
     const indexed = new Set(
       (await repos.sectionIndex.listByBook(bookId)).map((s) => s.sectionId),
     )
@@ -335,12 +406,262 @@ export async function activate(tab: BookTabLike) {
       }),
     )
     bridge.refreshLocation()
+    if (!pane.preferences.flags.wholeBook) return
+    const targets = bookRunTargets(sections)
+    const [cachedCount, runs] = await Promise.all([
+      countCached(bookId, targets),
+      repos.settings.get(BOOK_RUNS_KEY).then(parseBookRuns),
+    ])
+    if (own !== generation || !pane.preferences.flags.wholeBook) return
+    pane.bookRun.total = targets.length
+    pane.bookRun.cachedCount = cachedCount
+    const saved = runs[flowBookId]
+    if (saved?.status === 'running') void startBookRun({ resume: true })
+    else if (saved) {
+      pane.bookRun.status = saved.status
+      pane.bookRun.resetAt = saved.resetAt ?? null
+    }
   } catch (e) {
     if (own === generation) {
+      activeTab = null
       pane.status = 'error'
       pane.message = (e as Error).message
     }
   }
+}
+/** Pane closed: stop the reader's own work; the runtime (and a whole-book run) stays alive. */
+export function paneClosed() {
+  dwell.cancel()
+  currentJob?.cancel()
+  unbind?.()
+  unbind = undefined
+  currentJob = null
+  if (!pane.pinned) pane.status = 'idle'
+}
+/** Pane reopened over a live runtime: set the open section up again (cache, then the dwell). */
+export function paneOpened() {
+  shownSectionId = undefined
+  active?.bridge.refreshLocation()
+}
+
+/** Target sections with a saved plan. */
+async function countCached(
+  bookId: string,
+  targets: readonly SectionNode[],
+): Promise<number> {
+  const repos = await getRepos()
+  const cached = await Promise.all(
+    targets.map(
+      async (s) =>
+        (await repos.plans.listBySection(bookId, s.sectionId)).length > 0,
+    ),
+  )
+  return cached.filter(Boolean).length
+}
+/** Saves (or, with null, forgets) a book's run. Writes are serialized so none is lost. */
+function persistBookRun(flowBookId: string, value: PersistedBookRun | null) {
+  pane.runningBooks =
+    value?.status === 'running'
+      ? [...new Set([...pane.runningBooks, flowBookId])]
+      : pane.runningBooks.filter((id) => id !== flowBookId)
+  bookRunsWrite = bookRunsWrite
+    .then(async () => {
+      const settings = (await getRepos()).settings
+      const runs = parseBookRuns(await settings.get(BOOK_RUNS_KEY))
+      delete runs[flowBookId]
+      await settings.set(
+        BOOK_RUNS_KEY,
+        value ? { ...runs, [flowBookId]: value } : runs,
+      )
+    })
+    .catch(() => {
+      /* The run itself goes on; only resuming it after a reload is lost. */
+    })
+  return bookRunsWrite
+}
+function refreshUsageThrottled() {
+  const now = Date.now()
+  if (now - usageRefreshedAt < USAGE_REFRESH_MS) return
+  usageRefreshedAt = now
+  void refreshUsage()
+}
+
+/** Shows the confirm card with a rough request estimate (ADR 0057). */
+export async function confirmBookRun() {
+  const runtime = active
+  if (!runtime || run || !pane.preferences.flags.wholeBook) return
+  const own = generation
+  // Recounted here: a paused run has illustrated sections since the book opened.
+  const [book, cachedCount] = await Promise.all([
+    getRepos().then((repos) => repos.books.get(runtime.bookId)),
+    countCached(runtime.bookId, bookRunTargets(runtime.sections)),
+  ])
+  if (own !== generation || active !== runtime || run) return
+  if (pane.bookRun.status !== 'confirm') beforeConfirm = pane.bookRun.status
+  pane.bookRun.cachedCount = cachedCount
+  pane.bookRun.estimate = estimateBookRun({
+    uncachedSections: pane.bookRun.total - pane.bookRun.cachedCount,
+    indexRequests:
+      book?.indexStatus === 'complete' ? 0 : pane.estimate?.requests ?? 0,
+  })
+  pane.bookRun.status = 'confirm'
+  pane.bookRun.message = ''
+}
+export function cancelBookRunConfirm() {
+  if (pane.bookRun.status !== 'confirm') return
+  pane.bookRun.status = beforeConfirm
+  pane.bookRun.estimate = null
+}
+/**
+ * Illustrates the whole book in the background, from the section being read (ADR 0057). `resume` is
+ * an automatic restart of a saved `running` run (the book opened, or the browser came back online).
+ */
+export async function startBookRun({ resume = false } = {}) {
+  const runtime = active
+  if (!runtime || run || !pane.preferences.flags.wholeBook) return
+  if (!navigator.onLine) {
+    if (resume) {
+      // Still saved as `running`: it restarts when the browser is back online.
+      pausedOffline = true
+      pane.bookRun.status = 'paused'
+    } else {
+      cancelBookRunConfirm()
+      pane.announcement = pane.bookRun.message =
+        'You are offline. Illustrate the whole book once you are back online.'
+    }
+    return
+  }
+  pausedOffline = false
+  const own = generation
+  const { flowBookId } = runtime
+  const thisRun: BookRun = createBookRun({
+    pipeline: runtime.pipeline,
+    concepts: runtime.concepts,
+    sections: runtime.sections,
+    startAt: locationId ?? pane.section?.sectionId ?? undefined,
+    onProgress(p) {
+      if (!current()) return
+      applyBookRunProgress(pane.bookRun, p)
+      refreshUsageThrottled()
+    },
+  })
+  const current = () =>
+    own === generation && run === thisRun && active === runtime
+  const stopped = (message: string) => {
+    pane.bookRun.status = 'paused'
+    pane.bookRun.inProgress = []
+    pane.bookRun.message = message
+    pane.announcement = message
+    void persistBookRun(flowBookId, { status: 'paused' })
+  }
+  run = thisRun
+  pane.bookRun.status = 'understanding'
+  pane.bookRun.estimate = null
+  pane.bookRun.resetAt = null
+  pane.bookRun.indexed = null
+  pane.bookRun.message = ''
+  void persistBookRun(flowBookId, { status: 'running' })
+  // The confirm card included the indexing estimate, so starting the run approves the indexing.
+  if (!pane.indexingApproved) {
+    pane.indexingApproved = true
+    void (await getRepos()).settings.set(
+      `indexingApproved:${runtime.bookId}`,
+      true,
+    )
+  }
+  // A paused run's concept pass must stop before this run asks it to start again.
+  await runSettled
+  if (!current()) return
+  const started = thisRun.start()
+  runSettled = started.catch(() => {})
+  let result: BookRunProgress
+  try {
+    result = await started
+  } catch (e) {
+    if (current()) {
+      run = null
+      stopped(`The whole-book run stopped: ${(e as Error).message}`)
+    }
+    return
+  }
+  if (!current()) return
+  try {
+    applyBookRunProgress(pane.bookRun, result)
+    if (result.status === 'done') {
+      void persistBookRun(flowBookId, null)
+      const cachedCount = await countCached(
+        runtime.bookId,
+        bookRunTargets(runtime.sections),
+      )
+      if (current()) pane.bookRun.cachedCount = cachedCount
+    } else if (result.status === 'paused') {
+      // `pauseBookRun` and `deactivate` drop the run first, so this pause is the concept pass's.
+      stopped(
+        'Understanding the book stopped before it finished. Resume to try again.',
+      )
+    } else if (result.status === 'paused-limit') {
+      await refreshUsage()
+      if (!current()) return
+      const pausedUntil = pane.usage?.pausedUntil
+      const resetAt =
+        pausedUntil && pausedUntil > Date.now()
+          ? pausedUntil
+          : result.retryAfterMs !== undefined
+          ? Date.now() + result.retryAfterMs
+          : null
+      pane.bookRun.status = 'paused-limit'
+      pane.bookRun.resetAt = resetAt
+      // No timer and no auto-resume: after a plan limit only the user resumes (ADR 0057).
+      void persistBookRun(
+        flowBookId,
+        resetAt === null
+          ? { status: 'paused-limit' }
+          : { status: 'paused-limit', resetAt },
+      )
+    }
+  } finally {
+    if (run === thisRun) run = null
+  }
+}
+export function pauseBookRun() {
+  const runtime = active
+  const paused = run
+  pausedOffline = false
+  if (!runtime || !paused) {
+    // A run waiting to come back online: the user's pause makes it stay paused.
+    if (runtime && pane.bookRun.status === 'paused')
+      void persistBookRun(runtime.flowBookId, { status: 'paused' })
+    return
+  }
+  run = null
+  void persistBookRun(runtime.flowBookId, { status: 'paused' })
+  pane.bookRun.status = 'paused'
+  pane.bookRun.inProgress = []
+  paused.pause()
+}
+/** Offline, every section would fail: stop the run but keep it saved as `running` (see `pausedOffline`). */
+function pauseBookRunOffline() {
+  const paused = run
+  if (!paused) return
+  run = null
+  pausedOffline = true
+  pane.bookRun.status = 'paused'
+  pane.bookRun.inProgress = []
+  paused.pause()
+}
+/** Resumes without the confirm card; a plan limit that has not reset yet only says so. */
+export function resumeBookRun() {
+  const { status, resetAt } = pane.bookRun
+  if (status === 'paused-limit' && resetAt !== null && resetAt > Date.now()) {
+    const message = `Still paused by the ChatGPT plan limit until ${new Date(
+      resetAt,
+    ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`
+    // Not `pane.message`: that belongs to the open section's state.
+    pane.bookRun.message = message
+    pane.announcement = message
+    return
+  }
+  return startBookRun()
 }
 async function onLocation(loc: ReaderLocation, own: number) {
   if (own !== generation || !active) return
@@ -387,6 +708,12 @@ async function onLocation(loc: ReaderLocation, own: number) {
       : pane.records.length
       ? 'ready'
       : 'indexing-required'
+    return
+  }
+  // The runtime may be alive with the pane closed (a whole-book run): never start a dwell then;
+  // `paneOpened` sets the section up again.
+  if (!pane.open) {
+    pane.status = 'idle'
     return
   }
   const wait = dwellDelay({
@@ -491,10 +818,14 @@ export async function showCached(): Promise<boolean> {
 export function networkChanged() {
   if (!navigator.onLine) {
     currentJob?.cancel()
+    pauseBookRunOffline()
     void showCached().then(() => {
       pane.status = 'offline'
     })
-  } else if (pane.status === 'offline') requestVisual()
+  } else {
+    if (pausedOffline) void startBookRun({ resume: true })
+    if (pane.status === 'offline') requestVisual()
+  }
 }
 export function currentBridge() {
   return active?.bridge

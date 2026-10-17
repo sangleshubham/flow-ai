@@ -1,5 +1,6 @@
 import { makeBookId } from '@illus/core'
 import { make } from '@illus/core/testing'
+import type { BookRunDeps, BookRunProgress } from '@illus/pipeline'
 import type { BridgeRendition } from '@illus/reader-bridge'
 import type { EvidenceEvent } from '@illus/render'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -8,13 +9,68 @@ import type { Book } from '@flow/epubjs'
 
 import {
   activate,
+  cancelBookRunConfirm,
+  confirmBookRun,
   deactivate,
   getRepos,
   highlightEvidence,
   loadPreferences,
+  networkChanged,
+  paneClosed,
+  paneOpened,
+  pauseBookRun,
+  resumeBookRun,
   savePreferences,
+  startBookRun,
 } from './runtime'
 import { createPaneState, pane } from './state'
+
+/** A whole-book run whose `start()` resolves only when the test settles it (as a real one does after `pause()`). */
+interface FakeBookRun {
+  deps: BookRunDeps
+  start: ReturnType<typeof vi.fn>
+  pause: ReturnType<typeof vi.fn>
+  settle(status: BookRunProgress['status'], o?: Partial<BookRunProgress>): void
+}
+const { bookRuns } = vi.hoisted(() => ({
+  bookRuns: { created: [] as FakeBookRun[] },
+}))
+vi.mock('@illus/pipeline', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@illus/pipeline')>()
+  return {
+    ...real,
+    createBookRun: vi.fn((deps: BookRunDeps) => {
+      const progress = (
+        status: BookRunProgress['status'],
+        o: Partial<BookRunProgress> = {},
+      ): BookRunProgress => ({
+        status,
+        total: 1,
+        finished: 0,
+        noVisual: 0,
+        failedItems: 0,
+        inProgress: [],
+        ...o,
+      })
+      let resolve!: (p: BookRunProgress) => void
+      const finished = new Promise<BookRunProgress>((yes) => (resolve = yes))
+      const fake: FakeBookRun = {
+        deps,
+        start: vi.fn(() => finished),
+        pause: vi.fn(),
+        settle: (status, o) => resolve(progress(status, o)),
+      }
+      bookRuns.created.push(fake)
+      return {
+        start: fake.start,
+        pause: fake.pause,
+        get progress() {
+          return progress('paused')
+        },
+      }
+    }),
+  }
+})
 
 const { bridge } = vi.hoisted(() => ({
   bridge: {
@@ -267,5 +323,232 @@ describe('location changes', () => {
     })
     await new Promise((r) => setTimeout(r, 0))
     expect(pane.status).not.toBe('idle')
+  })
+})
+
+describe('whole-book run (ADR 0057)', () => {
+  const FLOW_ID = 'flow-book'
+  const flush = async () => {
+    for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0))
+  }
+  const tab = () => ({
+    book: { id: FLOW_ID },
+    epub: {} as Book,
+    rendition: {} as BridgeRendition,
+  })
+  const settings = async () => (await getRepos()).settings
+  const saved = async () => (await settings()).get('bookRuns')
+  let sectionId: string
+  let bookId: string
+  const publish = async (id: string | null) => {
+    const calls = bridge.onLocationChange.mock.calls as unknown as [
+      (l: unknown) => void,
+    ][]
+    calls.at(-1)![0]({ bookId, cfi: 'epubcfi(/6/2!/4/2)', sectionId: id })
+    await flush()
+  }
+
+  beforeEach(async () => {
+    vi.stubGlobal('navigator', { storage: {}, onLine: true })
+    bookId = await makeBookId(new Uint8Array())
+    sectionId = (await (await getRepos()).sections.listByBook(bookId))[0]!
+      .sectionId
+    await (await settings()).delete('bookRuns')
+    await (await settings()).delete(`indexingApproved:${bookId}`)
+    pane.open = true
+  })
+  afterEach(async () => {
+    deactivate()
+    for (const r of bookRuns.created) r.settle('paused')
+    bookRuns.created.length = 0
+    await flush()
+  })
+
+  it('starts from the section being read, saves it as running and approves indexing', async () => {
+    pane.open = false
+    await activate(tab())
+    await publish(sectionId)
+    expect(pane.bookRun.total).toBe(1)
+    pane.indexingApproved = false
+    const started = startBookRun()
+    expect(pane.bookRun.status).toBe('understanding')
+    expect(pane.runningBooks).toEqual([FLOW_ID])
+    await flush()
+    expect(bookRuns.created).toHaveLength(1)
+    const [run] = bookRuns.created
+    expect(run!.deps.startAt).toBe(sectionId)
+    expect(run!.start).toHaveBeenCalledOnce()
+    expect(pane.indexingApproved).toBe(true)
+    expect(await (await settings()).get(`indexingApproved:${bookId}`)).toBe(
+      true,
+    )
+    expect(await saved()).toEqual({ [FLOW_ID]: { status: 'running' } })
+    // A second start while running does nothing.
+    await startBookRun()
+    expect(bookRuns.created).toHaveLength(1)
+
+    run!.settle('done', { finished: 1 })
+    await started
+    await flush()
+    expect(pane.bookRun.status).toBe('done')
+    expect(pane.bookRun.finished).toBe(1)
+    expect(pane.runningBooks).toEqual([])
+    expect(await saved()).toEqual({})
+  })
+
+  it('pauses on request, ignores the paused run, and resumes only after it settles', async () => {
+    await activate(tab())
+    void startBookRun()
+    await flush()
+    const [first] = bookRuns.created
+    pauseBookRun()
+    expect(first!.pause).toHaveBeenCalledOnce()
+    expect(pane.bookRun.status).toBe('paused')
+    expect(pane.runningBooks).toEqual([])
+    await flush()
+    expect(await saved()).toEqual({ [FLOW_ID]: { status: 'paused' } })
+
+    const resumed = resumeBookRun()
+    await flush()
+    const second = bookRuns.created[1]!
+    expect(second.start).not.toHaveBeenCalled()
+    expect(pane.bookRun.status).toBe('understanding')
+    first!.settle('paused', { finished: 7 })
+    await flush()
+    expect(second.start).toHaveBeenCalledOnce()
+    expect(pane.bookRun.finished).toBe(0)
+    expect(await saved()).toEqual({ [FLOW_ID]: { status: 'running' } })
+    second.settle('done')
+    await resumed
+    expect(pane.bookRun.status).toBe('done')
+  })
+
+  it('stays paused after the plan limit until the user resumes after the reset', async () => {
+    await activate(tab())
+    const started = startBookRun()
+    await flush()
+    const before = Date.now()
+    bookRuns.created[0]!.settle('paused-limit', { retryAfterMs: 60_000 })
+    await started
+    await flush()
+    expect(pane.bookRun.status).toBe('paused-limit')
+    const resetAt = pane.bookRun.resetAt!
+    expect(resetAt).toBeGreaterThanOrEqual(before + 60_000)
+    expect(pane.runningBooks).toEqual([])
+    expect(await saved()).toEqual({
+      [FLOW_ID]: { status: 'paused-limit', resetAt },
+    })
+
+    await resumeBookRun()
+    expect(bookRuns.created).toHaveLength(1)
+    expect(pane.bookRun.message).toMatch(
+      /^Still paused by the ChatGPT plan limit until /,
+    )
+    pane.bookRun.resetAt = Date.now() - 1
+    void resumeBookRun()
+    await flush()
+    expect(bookRuns.created).toHaveLength(2)
+  })
+
+  it('keeps a running book saved when the book closes and resumes it when it opens', async () => {
+    await activate(tab())
+    void startBookRun()
+    await flush()
+    deactivate()
+    expect(bookRuns.created[0]!.pause).toHaveBeenCalledOnce()
+    expect(pane.bookRun.status).toBe('idle')
+    await flush()
+    expect(await saved()).toEqual({ [FLOW_ID]: { status: 'running' } })
+    expect(pane.runningBooks).toEqual([FLOW_ID])
+
+    await activate(tab())
+    await flush()
+    expect(bookRuns.created).toHaveLength(2)
+    expect(pane.bookRun.status).toBe('understanding')
+  })
+
+  it('stops while offline, stays saved as running, and restarts back online', async () => {
+    await activate(tab())
+    void startBookRun()
+    await flush()
+    const nav = navigator as { onLine: boolean }
+    nav.onLine = false
+    networkChanged()
+    expect(bookRuns.created[0]!.pause).toHaveBeenCalledOnce()
+    expect(pane.bookRun.status).toBe('paused')
+    await flush()
+    expect(await saved()).toEqual({ [FLOW_ID]: { status: 'running' } })
+    expect(pane.runningBooks).toEqual([FLOW_ID])
+    bookRuns.created[0]!.settle('paused')
+    nav.onLine = true
+    networkChanged()
+    await flush()
+    expect(bookRuns.created).toHaveLength(2)
+    expect(bookRuns.created[1]!.start).toHaveBeenCalledOnce()
+    expect(pane.bookRun.status).toBe('understanding')
+  })
+
+  it('does nothing for the whole book while the flag is off', async () => {
+    await (
+      await settings()
+    ).set('bookRuns', { [FLOW_ID]: { status: 'running' } })
+    pane.preferences.flags = { ...pane.preferences.flags, wholeBook: false }
+    await activate(tab())
+    await flush()
+    await startBookRun()
+    await confirmBookRun()
+    expect(bookRuns.created).toHaveLength(0)
+    expect(pane.bookRun.status).toBe('idle')
+  })
+
+  it('restores a plan-limit pause without starting anything', async () => {
+    await (
+      await settings()
+    ).set('bookRuns', { [FLOW_ID]: { status: 'paused-limit', resetAt: 99 } })
+    await activate(tab())
+    await flush()
+    expect(bookRuns.created).toHaveLength(0)
+    expect(pane.bookRun.status).toBe('paused-limit')
+    expect(pane.bookRun.resetAt).toBe(99)
+  })
+
+  it('loads the running books from settings and ignores malformed entries', async () => {
+    await (
+      await settings()
+    ).set('bookRuns', {
+      a: { status: 'running' },
+      b: { status: 'paused' },
+      c: { status: 'running', resetAt: 'never' },
+      d: 'running',
+    })
+    await loadPreferences()
+    expect(pane.runningBooks).toEqual(['a'])
+  })
+
+  it('confirms with an estimate and cancels back', async () => {
+    await activate(tab())
+    await confirmBookRun()
+    expect(pane.bookRun.status).toBe('confirm')
+    expect(pane.bookRun.estimate).toBe(5 + (pane.estimate?.requests ?? 0))
+    cancelBookRunConfirm()
+    expect(pane.bookRun.status).toBe('idle')
+    expect(pane.bookRun.estimate).toBeNull()
+  })
+
+  it('never starts a dwell with the pane closed, and sets the section up on reopening', async () => {
+    const t = tab()
+    await activate(t)
+    paneClosed()
+    pane.open = false
+    await publish(sectionId)
+    expect(pane.status).toBe('idle')
+    // Opening the pane over the live runtime does not rebuild it.
+    pane.open = true
+    await activate(t)
+    expect(bridge.dispose).not.toHaveBeenCalled()
+    expect(bridge.refreshLocation).toHaveBeenCalledTimes(2)
+    paneOpened()
+    await publish(sectionId)
+    expect(pane.status).toBe('waiting')
   })
 })
