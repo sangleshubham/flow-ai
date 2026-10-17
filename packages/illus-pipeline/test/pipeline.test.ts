@@ -1544,6 +1544,9 @@ describe('shared jobs (ADR 0057)', () => {
     )
     const pipeline = pipelineWith(repos, llm, { maxBackgroundLlmRequests: 1 })
     const held = collect(pipeline.requestSection(C, bg))
+    // C's call must hold the one background slot before the second section asks for it.
+    await settle()
+    expect(planners(llm)).toEqual([C])
     const queued = collect(pipeline.requestSection(CHAPTER_ID, bg))
     await settle()
     expect(planners(llm)).toEqual([C])
@@ -1568,6 +1571,8 @@ describe('shared jobs (ADR 0057)', () => {
     )
     const pipeline = pipelineWith(repos, llm, { maxBackgroundLlmRequests: 1 })
     const held = collect(pipeline.requestSection(C, bg))
+    await settle()
+    expect(planners(llm)).toEqual([C])
     const run = collect(pipeline.requestSection(L, bg))
     await settle()
     expect(planners(llm)).toEqual([C]) // L's planner call waits for a background slot
