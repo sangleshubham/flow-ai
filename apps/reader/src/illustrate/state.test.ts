@@ -14,6 +14,7 @@ import {
   dwellDelay,
   dwellSecondsLeft,
   evidenceAction,
+  migrateDwellMs,
   parseDwellMs,
   stageLabel,
   whenCritic,
@@ -276,17 +277,26 @@ describe('generation stages', () => {
 })
 
 describe('dwell before generating (ADR 0048)', () => {
-  it('waits 5 s by default and only for sections with nothing cached', () => {
-    expect(DEFAULT_PREFERENCES.dwellMs).toBe(5000)
+  it('migrates a saved v1 default of 5 s to the new 2 s default (ADR 0057)', () => {
+    expect(migrateDwellMs({ dwellMs: 5000 })).toBe(2000)
+    expect(migrateDwellMs({ dwellMs: 5000, prefsVersion: 2 })).toBe(5000)
+    expect(migrateDwellMs({ dwellMs: 10000 })).toBe(10000)
+    expect(migrateDwellMs({ dwellMs: 0 })).toBe(0)
+    expect(migrateDwellMs({ dwellMs: 'x', prefsVersion: 'y' })).toBe(2000)
+    expect(migrateDwellMs({})).toBe(2000)
+  })
+  it('waits 2 s by default and only for sections with nothing cached', () => {
+    expect(DEFAULT_PREFERENCES.dwellMs).toBe(2000)
+    expect(dwellDelay({ cachedPlan: false, dwellMs: 2000 })).toBe(2000)
     expect(dwellDelay({ cachedPlan: false, dwellMs: 5000 })).toBe(5000)
     expect(dwellDelay({ cachedPlan: true, dwellMs: 5000 })).toBe(0)
     expect(dwellDelay({ cachedPlan: false, dwellMs: 0 })).toBe(0)
   })
   it('accepts only the offered delays from saved settings', () => {
-    expect(parseDwellMs(undefined)).toBe(5000)
-    expect(parseDwellMs('5000')).toBe(5000)
-    expect(parseDwellMs(-1)).toBe(5000)
-    expect(parseDwellMs(1234)).toBe(5000)
+    expect(parseDwellMs(undefined)).toBe(2000)
+    expect(parseDwellMs('5000')).toBe(2000)
+    expect(parseDwellMs(-1)).toBe(2000)
+    expect(parseDwellMs(1234)).toBe(2000)
     for (const ms of [0, 2000, 5000, 10000]) expect(parseDwellMs(ms)).toBe(ms)
   })
   it('restarts on every move and fires once for the section the reader stays on', () => {
