@@ -387,6 +387,12 @@ describe('whole-book bar (ADR 0057)', () => {
     press('Illustrate whole book')
     expect(c.bookConfirm).toHaveBeenCalledOnce()
   })
+  it('idle: says the book is being prepared until its sections are counted', () => {
+    bar((s) => {
+      s.bookRun.total = 0
+    })
+    expect(within(region()).getByText('Preparing the book…')).toBeDefined()
+  })
   it('idle: the button is disabled offline and when signed out with sign-in configured', () => {
     const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
     bar(() => {})

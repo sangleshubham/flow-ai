@@ -535,6 +535,38 @@ describe('whole-book run (ADR 0057)', () => {
     expect(pane.bookRun.estimate).toBeNull()
   })
 
+  it('"Illustrate whole book" pressed before the book is ready shows the card once it is', async () => {
+    await confirmBookRun()
+    expect(pane.bookRun.status).toBe('idle')
+    await activate(tab())
+    await flush()
+    expect(pane.bookRun.status).toBe('confirm')
+    expect(pane.bookRun.estimate).toBe(5 + (pane.estimate?.requests ?? 0))
+    // Consumed: opening the book again shows no card.
+    cancelBookRunConfirm()
+    deactivate()
+    await activate(tab())
+    await flush()
+    expect(pane.bookRun.status).toBe('idle')
+  })
+
+  it('a run that paused itself says why and stays paused', async () => {
+    await activate(tab())
+    const started = startBookRun()
+    await flush()
+    bookRuns.created[0]!.settle('paused', {
+      stoppedBy: { code: 'signin-required', message: 'Sign in' },
+    })
+    await started
+    await flush()
+    expect(pane.bookRun.status).toBe('paused')
+    expect(pane.bookRun.message).toBe(
+      'ChatGPT needs you to sign in again. Sign in, then resume.',
+    )
+    expect(pane.runningBooks).toEqual([])
+    expect(await saved()).toEqual({ [FLOW_ID]: { status: 'paused' } })
+  })
+
   it('never starts a dwell with the pane closed, and sets the section up on reopening', async () => {
     const t = tab()
     await activate(t)

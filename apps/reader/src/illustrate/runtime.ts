@@ -65,6 +65,7 @@ import { PROMPT_FILES } from './prompt-files'
 import {
   applyBookRunProgress,
   bindJob,
+  bookRunStopMessage,
   createBookRunState,
   createDwell,
   DEFAULT_PREFERENCES,
@@ -117,6 +118,11 @@ let runSettled: Promise<unknown> = Promise.resolve()
 let pausedOffline = false
 /** What `cancelBookRunConfirm` goes back to. */
 let beforeConfirm: BookRunUiStatus = 'idle'
+/** `activate` has counted the book's sections, so a confirm card can show a real estimate. */
+let bookRunReady = false
+/** When "Illustrate whole book" was pressed before the book was ready; `activate` shows the card then. */
+let confirmRequestedAt = 0
+const CONFIRM_REQUEST_MS = 60_000
 let usageRefreshedAt = 0
 const USAGE_REFRESH_MS = 10_000
 /** Settings key: Flow book id → `PersistedBookRun`. */
@@ -224,6 +230,7 @@ export async function refreshUsage() {
 export function deactivate() {
   generation++
   activeTab = null
+  bookRunReady = false
   // The saved status is left alone, so a `running` book resumes when it is opened again.
   run?.pause()
   run = null
@@ -416,13 +423,22 @@ export async function activate(tab: BookTabLike) {
     pane.bookRun.total = targets.length
     pane.bookRun.cachedCount = cachedCount
     const saved = runs[flowBookId]
+    bookRunReady = true
+    const confirmRequested =
+      Date.now() - confirmRequestedAt < CONFIRM_REQUEST_MS
+    confirmRequestedAt = 0
     if (saved?.status === 'running') void startBookRun({ resume: true })
-    else if (saved) {
-      pane.bookRun.status = saved.status
-      pane.bookRun.resetAt = saved.resetAt ?? null
+    else {
+      if (saved) {
+        pane.bookRun.status = saved.status
+        pane.bookRun.resetAt = saved.resetAt ?? null
+      }
+      // Pressed while the book was loading (or from settings with the pane closed): show the card now.
+      if (confirmRequested && !saved) void confirmBookRun()
     }
   } catch (e) {
     if (own === generation) {
+      confirmRequestedAt = 0
       activeTab = null
       pane.status = 'error'
       pane.message = (e as Error).message
@@ -489,7 +505,12 @@ function refreshUsageThrottled() {
 /** Shows the confirm card with a rough request estimate (ADR 0057). */
 export async function confirmBookRun() {
   const runtime = active
-  if (!runtime || run || !pane.preferences.flags.wholeBook) return
+  if (run || !pane.preferences.flags.wholeBook) return
+  if (!runtime || !bookRunReady) {
+    // The book is still being set up: `activate` shows the card once it has counted the sections.
+    confirmRequestedAt = Date.now()
+    return
+  }
   const own = generation
   // Recounted here: a paused run has illustrated sections since the book opened.
   const [book, cachedCount] = await Promise.all([
@@ -595,10 +616,9 @@ export async function startBookRun({ resume = false } = {}) {
       )
       if (current()) pane.bookRun.cachedCount = cachedCount
     } else if (result.status === 'paused') {
-      // `pauseBookRun` and `deactivate` drop the run first, so this pause is the concept pass's.
-      stopped(
-        'Understanding the book stopped before it finished. Resume to try again.',
-      )
+      // `pauseBookRun` and `deactivate` drop the run first, so the run paused itself.
+      stopped(bookRunStopMessage(result.stoppedBy))
+      if (result.stoppedBy) void refreshUsage()
     } else if (result.status === 'paused-limit') {
       await refreshUsage()
       if (!current()) return
