@@ -1,0 +1,21 @@
+{
+  "key": "ed83e2e12137dbbf49b911538aa6a0075f3d31daff9d0adbde13d036791d21b7",
+  "source": "handwritten",
+  "role": "planner",
+  "promptVersion": "1.2.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "VisualPlan",
+  "data": {
+    "sectionId": "9604b90977df58f0:0:preface:0",
+    "needsVisual": false,
+    "reason": "The preface describes the test fixture and its CC0 license.",
+    "items": []
+  },
+  "usage": {
+    "input": 346,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: planner for Preface. Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}

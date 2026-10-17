@@ -1,0 +1,21 @@
+{
+  "key": "e5fd499ef57de4c5c9474468ca17ca2166dcbaee20bc34582eb3bcb2d677046d",
+  "source": "handwritten",
+  "role": "planner",
+  "promptVersion": "1.2.0",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "schemaName": "VisualPlan",
+  "data": {
+    "sectionId": "9604b90977df58f0:2:chapter-2-math-and-figures/2-3-a-tiny-section/2-3-1-straight-into-a-subheading:4",
+    "needsVisual": false,
+    "reason": "A one-sentence test section with nothing technical to draw.",
+    "items": []
+  },
+  "usage": {
+    "input": 641,
+    "output": 200,
+    "cachedInput": 0
+  },
+  "note": "synthetic.epub: planner for 2.3.1 Straight Into a Subheading. Written from packages/illus-pipeline/test/fixtures/synthetic-calls.ts."
+}
