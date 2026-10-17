@@ -23,4 +23,4 @@ export type {
   SectionJobEvents,
 } from './pipeline.ts'
 export { createLimiter, limitLlm } from './limiter.ts'
-export type { Limiter } from './limiter.ts'
+export type { Limiter, LimiterOptions, Priority } from './limiter.ts'
