@@ -55,7 +55,7 @@ import type { ModelsConfig } from '@illus/llm'
 
 import { createLimiter, limitLlm } from './limiter.ts'
 
-/** How long a request waits for `indexNow` before planning with partial context (§15 step 2). */
+/** How long a request waits for `indexNow` before planning or extracting with partial context (§15 step 2, ADR 0060). */
 export const INDEX_WAIT_MS = 20_000
 /** Most foreground (reader) LLM requests in flight. */
 export const MAX_LLM_REQUESTS = 4
@@ -337,6 +337,26 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     }))
   }
 
+  /**
+   * ADR 0060: visual lookups try the expected runs, then the role's escalated runs. A visual is stored
+   * under the run of its requested (non-escalated) route even when escalation produced it; builds before
+   * ADR 0060 stored it under the escalated run, and those records stay readable.
+   */
+  function lookupRuns(role: RoleName) {
+    const runs = expectedRuns(role)
+    let escalated: typeof runs = []
+    try {
+      escalated = expectedRuns(role, true)
+    } catch {
+      // The role has no escalation tier, so no record was ever stored under one.
+    }
+    const seen = new Set(runs.map((r) => `${r.model}@${r.effort}`))
+    return [
+      ...runs,
+      ...escalated.filter((r) => !seen.has(`${r.model}@${r.effort}`)),
+    ]
+  }
+
   async function firstHit<T>(
     keys: Promise<string>[],
     get: (k: string) => Promise<T | undefined>,
@@ -541,10 +561,14 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     const flags = flagsNow()
     const signal = job.controller.signal
 
-    // §15 step 2: the concept index, waited for up to 20 s.
-    let partialContext = false
-    if (!(await repos.sectionIndex.get(target.indexId))) {
-      if (deps.concepts) {
+    // §15 step 2: the concept index, waited for up to 20 s. ADR 0060: only before a step that packs
+    // context for a model call (planning, or an item that misses the cache), once per job, so a cached
+    // section is served at once. Resolves to `partialContext`.
+    let indexWait: Promise<boolean> | undefined
+    const waitForIndex = () =>
+      (indexWait ??= (async () => {
+        if (await repos.sectionIndex.get(target.indexId)) return false
+        if (!deps.concepts) return true
         let timer: ReturnType<typeof setTimeout> | undefined
         const timeout = new Promise<boolean>(
           (r) =>
@@ -553,14 +577,13 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
               deps.indexWaitMs ?? INDEX_WAIT_MS,
             )),
         )
-        partialContext = !(await Promise.race([
+        const indexed = await Promise.race([
           deps.concepts.indexNow(target.indexId).catch(() => false),
           timeout,
-        ]))
+        ])
         clearTimeout(timer)
-      } else partialContext = true
-    }
-    if (job.cancelled) return
+        return !indexed
+      })())
 
     const synthetic = target.synthetic && { section, blocks: target.synthetic }
     const repo = { ...repos, ...(deps.lexical && { lexical: deps.lexical }) }
@@ -586,6 +609,8 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       : await firstHit(planKeys, (k) => repos.plans.get(k))
     const fromCache = !!record
     if (!record) {
+      const partialContext = await waitForIndex()
+      if (job.cancelled) return
       const packed = await packContext({
         role: 'planner',
         sectionId: section.sectionId,
@@ -703,7 +728,16 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     const runOne = async (item: PlanItem) => {
       if (job.cancelled) return
       try {
-        await runItem(job, item, record, section, synthetic, opts, flags)
+        await runItem(
+          job,
+          item,
+          record,
+          section,
+          synthetic,
+          opts,
+          flags,
+          waitForIndex,
+        )
       } catch (e) {
         if (e instanceof LlmError && e.code === 'aborted') return
         const f =
@@ -746,6 +780,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     synthetic: { section: SectionNode; blocks: Block[] } | undefined,
     opts: RequestOptions,
     flags: Flags,
+    waitForIndex: () => Promise<boolean>,
   ) {
     const progress = (stage: ItemStage) =>
       job.emit('item-progress', { planItemId: item.planItemId, stage })
@@ -760,7 +795,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       )
     const role = roleForKind(item.kind)
     const instruction = opts.instruction?.trim() || undefined
-    const keys = expectedRuns(role).map((extractor) =>
+    const keys = lookupRuns(role).map((extractor) =>
       visualKey({
         planKey: plan.cacheKey,
         planItem: item,
@@ -780,6 +815,8 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       return
     }
 
+    await waitForIndex()
+    stopIfCancelled()
     const repo = { ...repos, ...(deps.lexical && { lexical: deps.lexical }) }
     let packed = await packContext({
       role,
@@ -833,6 +870,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     let traceKeyOut: string | undefined
     let routeItem = item
     let simulatedReason: string | undefined
+    // The run whose key stores the record: the requested route (ADR 0060), the primary until an attempt answers.
     let storeRun = expectedRuns(role)[0]!
 
     if (item.kind === 'trace') {
@@ -928,7 +966,8 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
             },
           )
           note(exRole, res)
-          if (item.kind !== 'trace')
+          // ADR 0060: the key is the requested route's run; `models` keeps the escalated run.
+          if (item.kind !== 'trace' && !escalate)
             storeRun = {
               promptVersion: res.promptVersion,
               model: res.model,

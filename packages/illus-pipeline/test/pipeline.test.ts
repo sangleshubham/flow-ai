@@ -1,12 +1,15 @@
 import {
+  COMPILER_VERSION,
   GraphIR,
   LlmError,
   animationTargets,
   defaultStoryboard,
   validateAnimation as validateCoreAnimation,
+  visualKey,
 } from '@illus/core'
 import type { LlmCall, TemplateRegistry, VisualPlan } from '@illus/core'
 import { make } from '@illus/core/testing'
+import { DEFAULT_MODELS, resolveRoute } from '@illus/llm'
 import { describe, expect, test, vi } from 'vitest'
 
 import { createLimiter, reportBlock } from '../src/index.ts'
@@ -298,6 +301,70 @@ describe('requestSection', () => {
     })
   })
 
+  test('ADR 0060: an escalated visual is stored under the requested-route key, so a revisit is a cache hit with no calls', async () => {
+    const repos = await seededRepos()
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': (c) =>
+          c.opts.escalate ? make.graphSource() : make.graphSource(badGraph()),
+      }),
+    )
+    const first = await collect(pipelineWith(repos, llm).requestSection(L))
+    const stored = first.of('item-ready')[0]!.record
+    // The run that actually produced the IR stays in the record.
+    expect(stored).toMatchObject({
+      validation: { retried: true, escalated: true },
+      models: { 'extractor.graph': 'gpt-6-astra@medium' },
+    })
+    const calls = llm.calls.length
+    const again = await collect(pipelineWith(repos, llm).requestSection(L))
+    expect(again.of('item-ready')).toEqual([
+      { planItemId: 'p1', record: stored, fromCache: true },
+    ])
+    expect(again.of('item-progress').map((p) => p.stage)).toEqual([
+      'queued',
+      'cached',
+    ])
+    expect(llm.calls).toHaveLength(calls)
+  })
+
+  test('ADR 0060: a visual an older build stored under the escalated-route key is still a cache hit', async () => {
+    const repos = await seededRepos()
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphSource(),
+      }),
+    )
+    const first = await collect(pipelineWith(repos, llm).requestSection(L))
+    const planRecord = first.of('plan')[0]!.record
+    const record = first.of('item-ready')[0]!.record
+    const deep = resolveRoute(DEFAULT_MODELS, 'extractor.graph', true).chain[0]!
+    const legacyKey = await visualKey({
+      planKey: planRecord.cacheKey,
+      planItem: planRecord.plan.items[0]!,
+      extractor: {
+        promptVersion: record.promptVersions['extractor.graph']!,
+        ...deep,
+      },
+      compilerVersion: COMPILER_VERSION,
+    })
+    expect(legacyKey).not.toBe(record.cacheKey)
+    await repos.visuals.delete(record.cacheKey)
+    await repos.visuals.put({ ...record, cacheKey: legacyKey })
+
+    const none = fakeLlm(() => {
+      throw new Error('no model call expected')
+    })
+    const again = await collect(pipelineWith(repos, none).requestSection(L))
+    expect(again.of('item-ready')[0]).toMatchObject({
+      fromCache: true,
+      record: { cacheKey: legacyKey },
+    })
+    expect(none.calls).toHaveLength(0)
+  })
+
   test('a structural error (isolated nodes) is retried with the validator report, not failed outright', async () => {
     const repos = await seededRepos()
     const good = make.graphSource()
@@ -519,6 +586,65 @@ describe('requestSection', () => {
       partialContext: true,
       record: { partialContext: true },
     })
+  })
+
+  test('a cached plan is served without waiting for indexNow; the wait applies only when a model call needs context', async () => {
+    const repos = await seededRepos()
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphSource(),
+      }),
+    )
+    const first = await collect(pipelineWith(repos, llm).requestSection(L))
+    const stored = first.of('item-ready')[0]!.record
+    await repos.sectionIndex.delete(L)
+    const calls = llm.calls.length
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    // Real macrotask turns (crypto hashing runs off-thread) for up to 2 s of wall time; the fake timers never advance.
+    const until = async (done: () => boolean) => {
+      const end = Date.now() + 2_000
+      while (!done() && Date.now() < end)
+        await new Promise<void>((r) => setImmediate(r))
+    }
+    try {
+      const asked: string[] = []
+      const pipeline = pipelineWith(repos, llm, {
+        concepts: {
+          indexNow: (id) => (asked.push(id), new Promise(() => {})),
+        },
+      })
+      let settled = false
+      const pending = collect(pipeline.requestSection(L)).then((r) => {
+        settled = true
+        return r
+      })
+      await until(() => settled)
+      expect(settled).toBe(true)
+      const r = await pending
+      expect(r.of('plan')[0]).toMatchObject({ fromCache: true })
+      expect(r.of('item-ready')).toEqual([
+        { planItemId: 'p1', record: stored, fromCache: true },
+      ])
+      expect(asked).toEqual([])
+      expect(llm.calls).toHaveLength(calls)
+
+      // A cached plan whose visual is missing still gives the extractor its concept index first.
+      await repos.visuals.delete(stored.cacheKey)
+      const miss = collect(pipeline.requestSection(L))
+      await until(() => asked.length > 0)
+      expect(asked).toEqual([L])
+      expect(llm.calls).toHaveLength(calls)
+      await vi.advanceTimersByTimeAsync(20_000)
+      const m = await miss
+      expect(m.of('item-ready')[0]!.fromCache).toBe(false)
+      expect(llm.calls.slice(calls).map((c) => c.role)).toEqual([
+        'extractor.graph',
+      ])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   test('flag-gated routes: template filtered when off; animate, trace and concept-model routes when on', async () => {
