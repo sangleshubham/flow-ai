@@ -1,5 +1,7 @@
 import { makeBookId } from '@illus/core'
 import { make } from '@illus/core/testing'
+import { httpTransport } from '@illus/llm'
+import { createPipeline } from '@illus/pipeline'
 import type { BookRunDeps, BookRunProgress } from '@illus/pipeline'
 import type { BridgeRendition } from '@illus/reader-bridge'
 import type { EvidenceEvent } from '@illus/render'
@@ -20,6 +22,8 @@ import {
   paneOpened,
   pauseBookRun,
   resumeBookRun,
+  requestVisual,
+  retryVisual,
   savePreferences,
   startBookRun,
 } from './runtime'
@@ -35,10 +39,15 @@ interface FakeBookRun {
 const { bookRuns } = vi.hoisted(() => ({
   bookRuns: { created: [] as FakeBookRun[] },
 }))
+vi.mock('@illus/llm', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@illus/llm')>()
+  return { ...real, httpTransport: vi.fn(real.httpTransport) }
+})
 vi.mock('@illus/pipeline', async (importOriginal) => {
   const real = await importOriginal<typeof import('@illus/pipeline')>()
   return {
     ...real,
+    createPipeline: vi.fn(real.createPipeline),
     createBookRun: vi.fn((deps: BookRunDeps) => {
       const progress = (
         status: BookRunProgress['status'],
@@ -147,6 +156,42 @@ afterEach(() => {
   deactivate()
   vi.clearAllMocks()
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
+
+describe('manual plan access checks', () => {
+  it('arms one recheck on Retry, while ordinary requests never bypass a pause', async () => {
+    vi.stubGlobal('navigator', { storage: {}, onLine: true })
+    pane.open = true
+    await activate({
+      book: { id: 'test' },
+      epub: {} as Book,
+      rendition: {} as BridgeRendition,
+    })
+    const bookId = await makeBookId(new Uint8Array())
+    pane.section = (await (await getRepos()).sections.listByBook(bookId))[0]!
+    const pipeline = vi.mocked(createPipeline).mock.results.at(-1)!.value
+    vi.spyOn(pipeline, 'requestSection').mockReturnValue({
+      on: () => () => {},
+      cancel: vi.fn(),
+    })
+    const consume = vi.mocked(httpTransport).mock.calls.at(-1)![0]!
+      .recheckPlanLimit!
+    pane.status = 'plan-limit'
+    requestVisual()
+    expect(consume()).toBe(false)
+    pane.status = 'plan-limit'
+    retryVisual()
+    expect(consume()).toBe(true)
+    expect(consume()).toBe(false)
+    expect(pipeline.requestSection).toHaveBeenCalledTimes(2)
+    let now = Date.now()
+    vi.spyOn(Date, 'now').mockImplementation(() => now)
+    pane.status = 'plan-limit'
+    retryVisual()
+    now += 60_001
+    expect(consume()).toBe(false) // An unused check cannot leak to much later background work.
+  })
 })
 
 describe('remembered step highlights (ADR 0052)', () => {
@@ -423,7 +468,7 @@ describe('whole-book run (ADR 0057)', () => {
     expect(pane.bookRun.status).toBe('done')
   })
 
-  it('stays paused after the plan limit until the user resumes after the reset', async () => {
+  it('stays paused after the plan limit until explicit Resume, including before the local deadline', async () => {
     await activate(tab())
     const started = startBookRun()
     await flush()
@@ -439,15 +484,15 @@ describe('whole-book run (ADR 0057)', () => {
       [FLOW_ID]: { status: 'paused-limit', resetAt },
     })
 
-    await resumeBookRun()
-    expect(bookRuns.created).toHaveLength(1)
-    expect(pane.bookRun.message).toMatch(
-      /^Still paused by the ChatGPT plan limit until /,
-    )
-    pane.bookRun.resetAt = Date.now() - 1
+    expect(bookRuns.created).toHaveLength(1) // Never auto-resume.
+    const consume = vi.mocked(httpTransport).mock.calls.at(-1)![0]!
+      .recheckPlanLimit!
+    expect(consume()).toBe(false)
     void resumeBookRun()
     await flush()
     expect(bookRuns.created).toHaveLength(2)
+    expect(consume()).toBe(true)
+    expect(consume()).toBe(false)
   })
 
   it('keeps a running book saved when the book closes and resumes it when it opens', async () => {

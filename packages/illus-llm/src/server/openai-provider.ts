@@ -54,13 +54,19 @@ export function createOpenAiProvider(o: OpenAiProviderOptions): LlmProvider {
           idle.abort()
         }, idleMs)
       }
+      let requestId: string | undefined
+      let responseStatus: number | undefined
       try {
         arm()
-        const stream = await client.responses.create(buildRequest(req), {
-          signal: AbortSignal.any(
-            [req.signal, idle.signal].filter((x): x is AbortSignal => !!x),
-          ),
-        })
+        const { data: stream, response } = await client.responses
+          .create(buildRequest(req), {
+            signal: AbortSignal.any(
+              [req.signal, idle.signal].filter((x): x is AbortSignal => !!x),
+            ),
+          })
+          .withResponse()
+        requestId = response.headers.get('x-request-id') ?? undefined
+        responseStatus = response.status
         let final: OpenAI.Responses.Response | undefined
         // With store:false the plan route can send response.completed with an empty `output`;
         // the items only arrive as output_item.done events.
@@ -74,11 +80,12 @@ export function createOpenAiProvider(o: OpenAiProviderOptions): LlmProvider {
             const err = event.response.error as {
               code?: string
               message?: string
+              param?: string
             } | null
             throw classify(
               undefined,
               err?.code ?? undefined,
-              undefined,
+              err?.param,
               err?.message ?? 'response failed',
             )
           } else if (event.type === 'response.incomplete')
@@ -110,7 +117,7 @@ export function createOpenAiProvider(o: OpenAiProviderOptions): LlmProvider {
             'timeout',
             `no stream event for ${Math.round(idleMs / 1000)}s`,
           )
-        throw toProviderError(e)
+        throw toProviderError(e, requestId, responseStatus)
       } finally {
         clearTimeout(timer)
       }
@@ -209,8 +216,19 @@ function usageOf(res: OpenAI.Responses.Response) {
   }
 }
 
-function toProviderError(e: unknown): ProviderError {
-  if (e instanceof ProviderError) return e
+function toProviderError(
+  e: unknown,
+  requestId?: string,
+  responseStatus?: number,
+): ProviderError {
+  if (e instanceof ProviderError)
+    return new ProviderError(e.kind, e.message, {
+      status: e.status ?? responseStatus,
+      code: e.code,
+      param: e.param,
+      retryAfterMs: e.retryAfterMs,
+      requestId: e.requestId ?? requestId,
+    })
   if (e instanceof APIConnectionTimeoutError)
     return new ProviderError('timeout', e.message)
   if (e instanceof APIConnectionError)
@@ -224,13 +242,13 @@ function toProviderError(e: unknown): ProviderError {
       body?.message ?? body?.detail ?? e.message,
     )
     const ra = retryAfterMs(e.headers)
-    return ra === undefined
-      ? err
-      : new ProviderError(err.kind, err.message, {
-          status: err.status,
-          code: err.code,
-          retryAfterMs: ra,
-        })
+    return new ProviderError(err.kind, err.message, {
+      status: err.status ?? responseStatus,
+      code: err.code,
+      param: err.param,
+      requestId: e.requestID ?? requestId,
+      retryAfterMs: ra,
+    })
   }
   if ((e as Error)?.name === 'AbortError')
     return new ProviderError('fatal', 'aborted')
@@ -278,6 +296,7 @@ export function classify(
   return new ProviderError(kind, detail ? `${message} (${detail})` : message, {
     ...(status !== undefined && { status }),
     ...(code && { code }),
+    ...(param && { param }),
   })
 }
 

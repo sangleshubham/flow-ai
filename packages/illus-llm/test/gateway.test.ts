@@ -216,6 +216,118 @@ describe('gateway steps 1–8', () => {
     expect(usage.forUser('A').pausedUntil()).toBe(1_000_000 + 30 * 60_000)
   })
 
+  it('manual recheck reaches OpenAI during a persisted pause and success clears it', async () => {
+    const s = scripted(
+      () => ok(make.visualPlan()),
+      () => ok(make.visualPlan()),
+    )
+    const { gw, usage } = await setup(s)
+    usage.forUser('A').pause(9_000_000) // Includes pauses created before this fix.
+    expect((await gw.handle(req(), session)).status).toBe(429)
+    expect(s.calls).toHaveLength(0)
+    expect(
+      (await gw.handle(req(), { ...session, recheckPlanLimit: true })).body.ok,
+    ).toBe(true)
+    expect(usage.forUser('A').pausedUntil()).toBeNull()
+    expect((await gw.handle(req(), session)).body.ok).toBe(true)
+    expect(s.calls).toHaveLength(2)
+  })
+
+  it('a failed manual recheck stops again without retrying and repeated clicks are throttled per account', async () => {
+    const s = scripted(fail('plan-limit'), fail('plan-limit'), () =>
+      ok(make.visualPlan()),
+    )
+    const { gw, usage, advance, rows } = await setup(s)
+    usage.forUser('A').pause(9_000_000)
+    const manual = { ...session, recheckPlanLimit: true }
+    usage.forUser('B').pause(9_000_000)
+    expect((await gw.handle(req(), manual)).status).toBe(429)
+    expect((await gw.handle(req(), manual)).status).toBe(429)
+    expect((await gw.handle(req(), session)).status).toBe(429)
+    expect(s.calls).toHaveLength(1)
+    advance(10_001)
+    expect((await gw.handle(req(), manual)).status).toBe(429)
+    expect(s.calls).toHaveLength(2)
+    expect(
+      (await gw.handle(req(), { sub: 'B', recheckPlanLimit: true })).body.ok,
+    ).toBe(true)
+    expect((await rows()).map((r) => r.attempts)).toEqual([1, 0, 0, 1, 1])
+  })
+
+  it('only one manual recheck can be in flight even after its cooldown expires', async () => {
+    let resolve!: (value: ProviderResult) => void
+    let calls = 0
+    const { gw, usage, advance } = await setup({
+      provider: {
+        id: 'chatgpt-plan',
+        respond: async () => {
+          calls++
+          return new Promise<ProviderResult>((yes) => {
+            resolve = yes
+          })
+        },
+      },
+    })
+    usage.forUser('A').pause(1_010_000)
+    const manual = { ...session, recheckPlanLimit: true }
+    const pending = gw.handle(req(), manual)
+    await Promise.resolve()
+    advance(20_000)
+    expect((await gw.handle(req(), manual)).status).toBe(429)
+    expect((await gw.handle(req(), session)).status).toBe(429)
+    expect(calls).toBe(1)
+    resolve(ok(make.visualPlan()))
+    await pending
+    expect(usage.forUser('A').pausedUntil()).toBeNull()
+  })
+
+  it('a completed check cannot clear a newer pause from an already-running request', async () => {
+    let resolve!: (value: ProviderResult) => void
+    const { gw, usage } = await setup({
+      provider: {
+        id: 'chatgpt-plan',
+        respond: async () =>
+          new Promise<ProviderResult>((yes) => {
+            resolve = yes
+          }),
+      },
+    })
+    usage.forUser('A').pause(2_000_000)
+    const pending = gw.handle(req(), { ...session, recheckPlanLimit: true })
+    await Promise.resolve()
+    usage.forUser('A').pause(3_000_000)
+    resolve(ok(make.visualPlan()))
+    await pending
+    expect(usage.forUser('A').pausedUntil()).toBe(3_000_000)
+  })
+
+  it('retains the upstream limit details without claiming the entire plan is exhausted', async () => {
+    const s = scripted(() => {
+      throw new ProviderError('plan-limit', 'Original limit message', {
+        status: 429,
+        code: 'subscription_sharing_usage_limit_exceeded',
+        param: 'model',
+        requestId: 'req_upstream',
+      })
+    })
+    const { gw, rows } = await setup(s)
+    const result = await gw.handle(req(), session)
+    expect(result.body).toMatchObject({
+      code: 'plan-limit',
+      message: expect.stringContaining('Original limit message'),
+    })
+    expect(await rows()).toEqual([
+      expect.objectContaining({
+        upstreamError: {
+          status: 429,
+          code: 'subscription_sharing_usage_limit_exceeded',
+          param: 'model',
+          requestId: 'req_upstream',
+        },
+      }),
+    ])
+  })
+
   it('500 requests reach the provider without local caps and credentials receive the account', async () => {
     const seen: string[] = []
     const s = scripted(

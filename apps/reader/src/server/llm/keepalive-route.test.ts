@@ -88,3 +88,23 @@ it('keeps aborting the upstream call when a slow response disconnects', async ()
   await done
   expect(res.end).not.toHaveBeenCalled()
 })
+
+it('forwards an explicit recheck header to the authenticated gateway context', async () => {
+  const res = response()
+  handle.mockResolvedValue({
+    status: 429,
+    body: { ok: false, code: 'plan-limit', message: 'limit' },
+  })
+  await handler(
+    {
+      ...req,
+      headers: { ...req.headers, 'x-illus-recheck-plan-limit': '1' },
+    } as unknown as NextApiRequest,
+    res as unknown as NextApiResponse,
+  )
+  expect(handle).toHaveBeenCalledWith(req.body, {
+    sub: 'test',
+    signal: expect.any(AbortSignal),
+    recheckPlanLimit: true,
+  })
+})

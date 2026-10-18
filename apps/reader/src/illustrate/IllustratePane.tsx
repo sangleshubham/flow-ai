@@ -21,6 +21,7 @@ import {
   pauseBookRun,
   reportError,
   requestVisual,
+  retryVisual,
   resumeBookRun,
   setPinned,
   startBookRun,
@@ -155,7 +156,7 @@ export function IllustratePane() {
           approve: () => {
             void approveIndexing()
           },
-          retry: () => requestVisual(),
+          retry: retryVisual,
           force: () => requestVisual({ force: true }),
           report: () => {
             void reportError()

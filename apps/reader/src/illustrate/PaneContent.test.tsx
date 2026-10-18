@@ -34,6 +34,19 @@ const commands = (): PaneCommands => ({
   bookResume: vi.fn(),
 })
 describe('every Illustrate pane state', () => {
+  it('labels the fallback as a local pause and explains that Retry checks again', () => {
+    const s = createPaneState()
+    s.status = 'plan-limit'
+    s.usage = { used5h: 7, usedDay: 9, pausedUntil: Date.now() + 1_800_000 }
+    const c = commands()
+    render(<PaneContent state={s} commands={c} renderVisual={() => null} />)
+    const alert = screen.getByRole('alert')
+    expect(alert.textContent).toContain('Local pause until')
+    expect(alert.textContent).not.toContain('Resets')
+    expect(alert.textContent).toContain('Retry checks your access again')
+    fireEvent.click(within(alert).getByRole('button', { name: 'Retry' }))
+    expect(c.retry).toHaveBeenCalledOnce()
+  })
   const expected = {
     idle: 'See what you’re reading',
     'indexing-required': 'Understand this book',
@@ -463,7 +476,7 @@ describe('whole-book bar (ADR 0057)', () => {
     press('Resume')
     expect(c.bookResume).toHaveBeenCalledOnce()
   })
-  it('paused-limit: says why, when the limit resets, and resumes', () => {
+  it('paused-limit: says why, labels the local pause, and offers an access check', () => {
     const resetAt = new Date(2030, 0, 1, 14, 5).getTime()
     const c = bar((s) => {
       s.bookRun.status = 'paused-limit'
@@ -471,14 +484,17 @@ describe('whole-book bar (ADR 0057)', () => {
       s.bookRun.message = 'Still paused by the ChatGPT plan limit.'
     })
     const text = region().textContent!
-    expect(text).toContain('Paused: ChatGPT plan limit reached. Resets at')
+    expect(text).toContain(
+      'Paused after an OpenAI usage-limit error. Local pause until',
+    )
+    expect(text).not.toContain('Resets')
     expect(text).toContain(
       new Date(resetAt).toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
       }),
     )
-    expect(text).toContain('Resume when you’re ready.')
+    expect(text).toContain('Resume checks your access again.')
     expect(text).toContain('Still paused by the ChatGPT plan limit.')
     press('Resume')
     expect(c.bookResume).toHaveBeenCalledOnce()
@@ -488,7 +504,7 @@ describe('whole-book bar (ADR 0057)', () => {
       s.bookRun.status = 'paused-limit'
     })
     expect(region().textContent).toContain(
-      'Paused: ChatGPT plan limit reached. Resume when you’re ready.',
+      'Paused after an OpenAI usage-limit error. Resume checks your access again.',
     )
   })
   it('done: reports completion, and retries failed items only when some failed', () => {

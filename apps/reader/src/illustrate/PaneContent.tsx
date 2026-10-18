@@ -191,8 +191,17 @@ export function PaneContent({
                 ? 'This server has no ChatGPT sign-in set up, so new illustrations cannot be generated. Your cached illustrations remain available.'
                 : s.message || 'Your cached illustrations remain available.'}
             </p>
-            {s.usage?.pausedUntil && (
-              <p>Resets {new Date(s.usage.pausedUntil).toLocaleString()}.</p>
+            {s.status === 'plan-limit' && s.usage?.pausedUntil && (
+              <p>
+                Local pause until{' '}
+                {new Date(s.usage.pausedUntil).toLocaleString()}. This is not a
+                confirmed ChatGPT reset time.
+              </p>
+            )}
+            {s.status === 'plan-limit' && (
+              <p>
+                Retry checks your access again if your allowance has recovered.
+              </p>
             )}
             {s.status === 'plan-limit' ? (
               <a
@@ -365,9 +374,9 @@ export function bookRunText(b: BookRunState): string {
     case 'paused':
       return `Paused at ${b.finished} / ${b.total}`
     case 'paused-limit':
-      return `Paused: ChatGPT plan limit reached.${
-        b.resetAt ? ` Resets at ${resetTime(b.resetAt)}.` : ''
-      } Resume when you’re ready.`
+      return `Paused after an OpenAI usage-limit error.${
+        b.resetAt ? ` Local pause until ${resetTime(b.resetAt)}.` : ''
+      } Resume checks your access again.`
     case 'done':
       return `Book illustrated${
         b.failedItems > 0 ? ` · ${b.failedItems} items failed` : ''

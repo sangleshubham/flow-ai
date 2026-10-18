@@ -36,6 +36,16 @@ it('counts each user separately, keeps pauses across tracker restarts, and expir
   const restarted = createUsageTracker({ db, now: () => t })
   expect(restarted.forUser('A').pausedUntil()).toBe(t + 10_000)
   expect(restarted.forUser('B').pausedUntil()).toBeNull()
+  restarted.forUser('A').resume(t + 5_000)
+  expect(restarted.forUser('A').pausedUntil()).toBe(t + 10_000)
+  restarted.forUser('A').resume(t + 10_000)
+  expect(restarted.forUser('A').pausedUntil()).toBeNull()
+  expect(tracker.forUser('A').pausedUntil()).toBeNull()
+  expect(
+    createUsageTracker({ db, now: () => t })
+      .forUser('A')
+      .pausedUntil(),
+  ).toBeNull()
   t += 6 * 3_600_000
   expect(restarted.forUser('A').summary()).toEqual({
     used5h: 0,
