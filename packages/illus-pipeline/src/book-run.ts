@@ -251,13 +251,18 @@ export function createBookRun(deps: BookRunDeps): BookRun {
       if (halt.paused) return finish('paused')
       if (pass.error?.code === 'plan-limit')
         return finish('paused-limit', { retryAfterMs: pass.error.retryAfterMs })
-      if (pass.error)
+      if (
+        pass.error &&
+        (STOP_CODES.has(pass.error.code) ||
+          pass.error.code === 'aborted' ||
+          (!pass.done && TRANSIENT_CODES.has(pass.error.code)))
+      )
         return finish('paused', {
           stoppedBy: { code: pass.error.code, message: pass.error.message },
         })
-      // Batches that failed twice no longer keep the pass from completing (`pass.failed`); the pipeline
-      // plans those few sections with partial context. Not done here means the pass was paused.
-      if (!pass.done) return finish('paused')
+      // Schema errors leave partial context; an incomplete transient failure indicates an outage (ADR 0061).
+      // An incomplete pass without an error stopped because it was paused (including going offline).
+      if (!pass.done && !pass.error) return finish('paused')
     } catch (e) {
       finish('paused')
       throw e

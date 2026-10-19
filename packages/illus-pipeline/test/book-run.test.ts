@@ -1,8 +1,9 @@
 // The whole-book run (ADR 0057): a fake pipeline whose handles are driven by hand and a fake concept pass.
 import { LlmError } from '@illus/core'
-import type { SectionNode } from '@illus/core'
+import type { LlmCall, SectionNode } from '@illus/core'
+import { createConceptPass } from '@illus/concepts'
 import type { ConceptPassProgress } from '@illus/concepts'
-import { make } from '@illus/core/testing'
+import { createMemoryRepos, make } from '@illus/core/testing'
 import { describe, expect, test, vi } from 'vitest'
 
 import {
@@ -186,16 +187,17 @@ describe('createBookRun (ADR 0057)', () => {
     expect(pipeline.requestSection).not.toHaveBeenCalled()
   })
 
-  test('any other concept-pass error, or an incomplete pass, pauses so the user can resume', async () => {
-    for (const p of [
-      {
+  test('blocking concept-pass errors, or a paused pass, request no sections', async () => {
+    const results: ConceptPassProgress[] = [
+      ...(['signin-required', 'auth', 'aborted'] as const).map((code) => ({
         indexed: 1,
         total: 3,
         done: false,
-        error: new LlmError('upstream', 'upstream failed'),
-      },
+        error: new LlmError(code, 'blocked'),
+      })),
       { indexed: 2, total: 3, done: false },
-    ]) {
+    ]
+    for (const p of results) {
       const pipeline = fakePipeline()
       const result = await createBookRun({
         pipeline,
@@ -205,10 +207,152 @@ describe('createBookRun (ADR 0057)', () => {
       expect(result.status).toBe('paused')
       expect(result.retryAfterMs).toBeUndefined()
       expect(result.stoppedBy).toEqual(
-        p.error ? { code: 'upstream', message: 'upstream failed' } : undefined,
+        p.error ? { code: p.error.code, message: 'blocked' } : undefined,
       )
       expect(pipeline.requestSection).not.toHaveBeenCalled()
     }
+  })
+
+  test.each(['schema', 'timeout', 'upstream'] as const)(
+    'an incomplete concept-pass %s error proceeds only for schema failures',
+    async (code) => {
+      const pipeline = fakePipeline()
+      const result = createBookRun({
+        pipeline,
+        concepts: fakeConcepts({
+          indexed: 2,
+          total: 3,
+          done: false,
+          error: new LlmError(code, 'context gap'),
+        }),
+        sections: BOOK,
+        concurrency: 4,
+      }).start()
+      await flush()
+      if (code !== 'schema') {
+        expect(await result).toMatchObject({
+          status: 'paused',
+          stoppedBy: { code, message: 'context gap' },
+        })
+        expect(pipeline.requestSection).not.toHaveBeenCalled()
+        return
+      }
+      expect(pipeline.requestSection).toHaveBeenCalledTimes(4)
+      for (const h of pipeline.open()) h.done()
+      expect(await result).toMatchObject({ status: 'done', finished: 4 })
+    },
+  )
+
+  test('glossary and summary gaps do not block any section on start or Resume', async () => {
+    const pipeline = fakePipeline()
+    const run = createBookRun({
+      pipeline,
+      concepts: fakeConcepts({
+        indexed: 2,
+        total: 3,
+        done: true,
+        failed: 1,
+        gaps: ['glossary', 'book-summary'],
+      }),
+      sections: BOOK,
+      concurrency: 4,
+    })
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const result = run.start()
+      await flush()
+      for (const h of pipeline.open()) h.done()
+      expect(await result).toMatchObject({ status: 'done', finished: 4 })
+    }
+    expect(pipeline.requestSection).toHaveBeenCalledTimes(8)
+  })
+
+  test('a real pass with indexer and context gaps illustrates every section; automatic indexNow and Resume skip gaps', async () => {
+    const repos = createMemoryRepos()
+    const book = make.bookMeta()
+    const sections = ['a', 'b', 'c'].map((id, i) =>
+      section(id, i, {
+        bookId: book.bookId,
+        blockIds: [`${id}:b0`],
+      }),
+    )
+    await repos.books.put(book)
+    await repos.sections.bulkPut(sections)
+    await repos.blocks.bulkPut(
+      sections.map((s) =>
+        make.block({
+          blockId: s.blockIds[0]!,
+          sectionId: s.sectionId,
+        }),
+      ),
+    )
+    const calls: string[] = []
+    const llm: LlmCall = {
+      async call(role) {
+        calls.push(role)
+        if (role !== 'indexer') throw new LlmError('schema', `${role} failed`)
+        return {
+          // A partial indexer response leaves c as a remembered index gap.
+          data: {
+            sections: sections.slice(0, 2).map((s) =>
+              make.sectionIndexOutput({
+                sectionId: s.sectionId,
+                defines: [],
+                uses: [{ name: 'log' }, { name: 'replicated log' }],
+              }),
+            ),
+          } as never,
+          model: 'replay',
+          effort: 'medium',
+          promptVersion: '1',
+          usage: { input: 1, output: 1, cachedInput: 0 },
+          latencyMs: 1,
+          requestId: 'r',
+        }
+      },
+    }
+    const pipeline = fakePipeline()
+    const request = pipeline.requestSection.getMockImplementation()!
+    const indexing: Promise<boolean>[] = []
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const concepts = createConceptPass({ bookId: book.bookId, repos, llm })
+      pipeline.requestSection.mockImplementation((id, opts) => {
+        // Match the real pipeline's automatic missing-section lookup.
+        indexing.push(concepts.indexNow(id))
+        return request(id, opts)
+      })
+      const result = createBookRun({
+        pipeline,
+        concepts,
+        sections,
+        concurrency: 3,
+      }).start()
+      await vi.waitFor(() => expect(pipeline.open()).toHaveLength(3))
+      for (const h of pipeline.open()) h.done()
+      expect(await result).toMatchObject({ status: 'done', finished: 3 })
+      expect(await concepts.progress()).toMatchObject({
+        done: true,
+        failed: 1,
+        gaps: ['glossary', 'book-summary'],
+      })
+    }
+    expect(await Promise.all(indexing)).toEqual([
+      true,
+      true,
+      false,
+      true,
+      true,
+      false,
+    ])
+    expect(calls).toEqual(['indexer', 'book-summary', 'glossary'])
+    expect((await repos.books.get(book.bookId))?.summary).toBeUndefined()
+    expect(pipeline.requestSection.mock.calls.map(([id]) => id)).toEqual([
+      'a',
+      'b',
+      'c',
+      'a',
+      'b',
+      'c',
+    ])
   })
 
   test('a pass that completed without its failed batches still illustrates every section', async () => {
