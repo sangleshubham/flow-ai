@@ -9,9 +9,17 @@ import type {
   SectionNode,
 } from '@illus/core'
 import { createMemoryRepos, make } from '@illus/core/testing'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, expectTypeOf, test } from 'vitest'
 
-import { GLOSSARY_EVERY, SUMMARY_AT, createConceptPass } from '../src/index.ts'
+import {
+  GLOSSARY_EVERY,
+  MAX_TRANSIENT_BATCHES_IN_A_ROW,
+  SUMMARY_AT,
+  conceptPassStateKey,
+  createConceptPass,
+  resetConceptPassState,
+} from '../src/index.ts'
+import type { ConceptPassGap, ConceptPassProgress } from '../src/index.ts'
 
 const BOOK = '0123456789abcdef'
 const N = 10
@@ -187,7 +195,8 @@ describe('concept pass', () => {
         .filter((c) => c.role === 'indexer')
         .map((c) => c.ctx.body.split('<section ').length - 1),
     ).toEqual([4, 4, 2])
-    expect(progress).toEqual([4, 8, 10])
+    // Every completed model call reports, including the glossary and both summaries; then done.
+    expect(progress).toEqual([4, 4, 8, 10, 10, 10, 10])
     expect(llm.calls.map((c) => c.role)).toEqual([
       'indexer',
       'book-summary',
@@ -294,7 +303,7 @@ describe('concept pass', () => {
     ])
   })
 
-  test('a batch that fails twice does not block completion; the next start() retries only its sections (ADR 0057)', async () => {
+  test('failed batches persist across Resume and recreation; explicit retry fills them (ADR 0061)', async () => {
     const { repos } = await book()
     let broken = true
     const llm = fakeLlm((c) => {
@@ -306,7 +315,7 @@ describe('concept pass', () => {
           /:0:s/.test(m[1]!),
         )
       )
-        throw new LlmError('upstream', 'down')
+        throw new LlmError('schema', 'bad batch')
       return answer(c)
     })
     const pass = createConceptPass({ bookId: BOOK, repos, llm })
@@ -320,11 +329,387 @@ describe('concept pass', () => {
 
     broken = false
     llm.calls.length = 0
-    const second = await pass.start()
+    const resumed = createConceptPass({ bookId: BOOK, repos, llm })
+    expect(await resumed.progress()).toMatchObject({ failed: 4 })
+    expect(await resumed.start()).toMatchObject({ done: true, failed: 4 })
+    expect(await pass.start()).toMatchObject({ done: true, failed: 4 })
+    expect(llm.calls).toHaveLength(0)
+    const second = await resumed.retryGaps()
     expect(second).toMatchObject({ done: true, indexed: N })
     expect(second.failed).toBeUndefined()
-    // Already complete: the retry indexes the gap without merging or summarising again.
-    expect(llm.calls.map((c) => c.role)).toEqual(['indexer'])
+    expect(llm.calls.filter((c) => c.role === 'indexer')).toHaveLength(1)
+    // Filling the gap refreshes context from the full book.
+    expect((await repos.books.get(BOOK))?.summary?.summary).toBe(
+      'Summary from 10 sections.',
+    )
+  })
+
+  test.each(['glossary', 'book-summary'] as const)(
+    '%s schema/timeout/upstream failures leave a usable book and a persisted, explicitly retryable gap',
+    async (role) => {
+      for (const code of ['schema', 'timeout', 'upstream'] as const) {
+        const { repos } = await book()
+        const llm = fakeLlm((c) => {
+          if (c.role === role) throw new LlmError(code, 'bad optional context')
+          return answer(c)
+        })
+        const seen: number[] = []
+        const pass = createConceptPass({
+          bookId: BOOK,
+          repos,
+          llm,
+          glossaryEvery: 4,
+          onProgress: () => seen.push(llm.calls.length),
+        })
+        expect(await pass.start()).toMatchObject({
+          indexed: N,
+          done: true,
+          gaps: [role],
+        })
+        expect((await repos.books.get(BOOK))?.indexStatus).toBe('complete')
+        expect(await repos.settings.get(`conceptPass:${BOOK}`)).toMatchObject({
+          version: 1,
+          gaps: { [role]: { code, message: 'bad optional context' } },
+        })
+        expect(llm.calls.filter((c) => c.role === role)).toHaveLength(1)
+        // Reports cover successful and failed calls, even when the index count is unchanged.
+        for (let count = 1; count <= llm.calls.length; count++)
+          expect(seen).toContain(count)
+        if (role === 'book-summary')
+          expect((await repos.books.get(BOOK))?.summary).toBeUndefined()
+        else expect(await repos.concepts.listByBook(BOOK)).toEqual([])
+
+        const healed = fakeLlm(answer)
+        const later = createConceptPass({ bookId: BOOK, repos, llm: healed })
+        expect(await later.progress()).toMatchObject({
+          done: true,
+          gaps: [role],
+        })
+        await later.start()
+        expect(healed.calls).toHaveLength(0)
+        expect((await later.retryGaps()).gaps).toBeUndefined()
+        expect(healed.calls.some((c) => c.role === role)).toBe(true)
+        expect((await repos.books.get(BOOK))?.summary).toBeDefined()
+        expect((await repos.concepts.listByBook(BOOK)).length).toBeGreaterThan(
+          0,
+        )
+      }
+    },
+  )
+
+  test('a remembered failed batch is skipped after a usage limit interrupts the pass', async () => {
+    const { repos } = await book()
+    let limit = true
+    const llm = fakeLlm((c) => {
+      if (c.role === 'indexer' && /:0:s/.test(c.ctx.body))
+        throw new LlmError('schema', 'bad batch')
+      if (c.role === 'indexer' && limit)
+        throw new LlmError('plan-limit', 'limit')
+      return answer(c)
+    })
+    expect(
+      await createConceptPass({ bookId: BOOK, repos, llm }).start(),
+    ).toMatchObject({
+      done: false,
+      failed: 4,
+      error: { code: 'plan-limit' },
+    })
+    llm.calls.length = 0
+    limit = false
+    const resumed = createConceptPass({ bookId: BOOK, repos, llm })
+    expect(await resumed.start()).toMatchObject({
+      done: true,
+      failed: 4,
+      indexed: N - 4,
+    })
+    expect(
+      llm.calls
+        .filter((c) => c.role === 'indexer')
+        .some((c) => /:0:s/.test(c.ctx.body)),
+    ).toBe(false)
+  })
+
+  test.each(['upstream', 'timeout'] as const)(
+    'three consecutive %s batches pause without persisting failures; start retries when healthy',
+    async (code) => {
+      const { repos } = await book(5000)
+      let offline = true
+      const llm = fakeLlm((c) => {
+        if (offline) throw new LlmError(code, 'network unavailable')
+        return answer(c)
+      })
+      const seen: number[] = []
+      const pass = createConceptPass({
+        bookId: BOOK,
+        repos,
+        llm,
+        onProgress: () => seen.push(llm.calls.length),
+      })
+      expect(MAX_TRANSIENT_BATCHES_IN_A_ROW).toBe(3)
+      expect(await pass.start()).toMatchObject({ done: false, error: { code } })
+      expect(llm.calls.map((c) => c.role)).toEqual(Array(6).fill('indexer'))
+      expect(await repos.settings.get(conceptPassStateKey(BOOK))).toMatchObject(
+        {
+          failedSectionIds: [],
+          gaps: {},
+        },
+      )
+      for (let count = 1; count <= 6; count++) expect(seen).toContain(count)
+      offline = false
+      expect(await pass.start()).toEqual({ indexed: N, total: N, done: true })
+    },
+  )
+
+  test('a successful batch resets the transient streak and skipped sections can be retried on start', async () => {
+    const { repos } = await book(5000)
+    let outage = true
+    const llm = fakeLlm((c) => {
+      if (c.role === 'indexer' && outage && /:(0|1|3|4):s/.test(c.ctx.body))
+        throw new LlmError('upstream', 'network unavailable')
+      return answer(c)
+    })
+    const pass = createConceptPass({ bookId: BOOK, repos, llm })
+    expect(await pass.start()).toMatchObject({ done: true, indexed: N - 4 })
+    expect(await repos.settings.get(conceptPassStateKey(BOOK))).toMatchObject({
+      failedSectionIds: [],
+    })
+    outage = false
+    expect(await pass.start()).toEqual({ indexed: N, total: N, done: true })
+  })
+
+  test('resetConceptPassState allows re-indexing with the same book ID and index version', async () => {
+    const { repos } = await book()
+    const bad = fakeLlm((c) => {
+      if (c.role === 'indexer') throw new LlmError('schema', 'bad batch')
+      return answer(c)
+    })
+    await createConceptPass({ bookId: BOOK, repos, llm: bad }).start()
+    expect(conceptPassStateKey(BOOK)).toBe(`conceptPass:${BOOK}`)
+    expect(await repos.settings.get(conceptPassStateKey(BOOK))).toMatchObject({
+      failedSectionIds: expect.arrayContaining([expect.any(String)]),
+    })
+    // The re-index caller deletes section indexes, then resets this book's pass state.
+    await repos.settings.set(conceptPassStateKey('fedcba9876543210'), {
+      untouched: true,
+    })
+    await repos.sectionIndex.deleteByBook(BOOK)
+    await resetConceptPassState(repos, BOOK)
+    expect(await repos.settings.get(conceptPassStateKey(BOOK))).toBeUndefined()
+    expect(
+      await repos.settings.get(conceptPassStateKey('fedcba9876543210')),
+    ).toEqual({ untouched: true })
+    const llm = fakeLlm(answer)
+    expect(
+      await createConceptPass({ bookId: BOOK, repos, llm }).start(),
+    ).toEqual({
+      indexed: N,
+      total: N,
+      done: true,
+    })
+    expect(llm.calls.some((c) => c.role === 'indexer')).toBe(true)
+  })
+
+  test('retryGaps with no gaps makes no calls or book-status changes', async () => {
+    const { repos } = await book()
+    const llm = fakeLlm(answer)
+    const pass = createConceptPass({ bookId: BOOK, repos, llm })
+    await pass.start()
+    llm.calls.length = 0
+    const before = await repos.books.get(BOOK)
+    expect(await pass.retryGaps()).toEqual({ indexed: N, total: N, done: true })
+    expect(llm.calls).toHaveLength(0)
+    expect(await repos.books.get(BOOK)).toEqual(before)
+  })
+
+  test('retryGaps waits again if Resume starts another run while it is waiting', async () => {
+    const { repos, sections } = await book(5000)
+    await createConceptPass({
+      bookId: BOOK,
+      repos,
+      llm: fakeLlm((c) => {
+        if (c.role === 'indexer') throw new LlmError('schema', 'bad batch')
+        return answer(c)
+      }),
+    }).start()
+    const gate = () => {
+      let release!: () => void
+      const promise = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      return { promise, release }
+    }
+    const firstEntered = gate()
+    const firstRelease = gate()
+    const secondEntered = gate()
+    const secondRelease = gate()
+    let attempts = 0
+    const llm = fakeLlm(async (c) => {
+      if (c.role === 'indexer') {
+        attempts++
+        if (attempts === 1) {
+          firstEntered.release()
+          await firstRelease.promise
+          throw new LlmError('plan-limit', 'limit')
+        }
+        if (attempts === 2) {
+          secondEntered.release()
+          await secondRelease.promise
+        }
+      }
+      return answer(c)
+    })
+    const pass = createConceptPass({ bookId: BOOK, repos, llm })
+    const urgent = pass.indexNow(sections[0]!.sectionId, { retryFailed: true })
+    await firstEntered.promise
+    // Resume's continuation is registered first, so it wins the first run's completion race.
+    const resumed = pass.start().then(() => pass.start())
+    const retry = pass.retryGaps()
+    firstRelease.release()
+    await secondEntered.promise
+    expect(attempts).toBe(2)
+    secondRelease.release()
+    expect(await urgent).toBe(false)
+    await resumed
+    expect(await retry).toEqual({ indexed: N, total: N, done: true })
+  })
+
+  test('the public gap type describes progress gaps', () => {
+    expectTypeOf<ConceptPassGap>().toEqualTypeOf<'glossary' | 'book-summary'>()
+    expectTypeOf<ConceptPassProgress['gaps']>().toEqualTypeOf<
+      ConceptPassGap[] | undefined
+    >()
+  })
+
+  test('Resume after an optional-step usage limit preserves an earlier glossary gap', async () => {
+    const { repos } = await book()
+    let limit = true
+    const llm = fakeLlm((c) => {
+      if (c.role === 'glossary') throw new LlmError('schema', 'bad glossary')
+      if (c.role === 'book-summary' && limit)
+        throw new LlmError('plan-limit', 'limit')
+      return answer(c)
+    })
+    expect(
+      await createConceptPass({
+        bookId: BOOK,
+        repos,
+        llm,
+        glossaryEvery: 4,
+      }).start(),
+    ).toMatchObject({
+      done: false,
+      gaps: ['glossary'],
+      error: { code: 'plan-limit' },
+    })
+    limit = false
+    llm.calls.length = 0
+    const resumed = createConceptPass({
+      bookId: BOOK,
+      repos,
+      llm,
+      glossaryEvery: 4,
+    })
+    expect(await resumed.start()).toMatchObject({
+      done: true,
+      indexed: N,
+      gaps: ['glossary'],
+    })
+    expect(llm.calls.some((c) => c.role === 'glossary')).toBe(false)
+  })
+
+  test('malformed and obsolete persisted failures do not suppress new indexing', async () => {
+    for (const saved of [
+      null,
+      {
+        version: 1,
+        indexVersion: -1,
+        failedSectionIds: ['irrelevant'],
+        gaps: {},
+      },
+      {
+        version: 1,
+        indexVersion: 1,
+        failedSectionIds: [42, null],
+        gaps: { glossary: null },
+      },
+    ]) {
+      const { repos } = await book()
+      await repos.settings.set(`conceptPass:${BOOK}`, saved)
+      const pass = createConceptPass({
+        bookId: BOOK,
+        repos,
+        llm: fakeLlm(answer),
+      })
+      expect(await pass.start()).toEqual({ indexed: N, total: N, done: true })
+    }
+  })
+
+  test('indexNow explicitly retries a remembered section without retrying its failed peers', async () => {
+    const { repos, sections } = await book()
+    const bad = fakeLlm((c) => {
+      if (c.role === 'indexer') throw new LlmError('schema', 'bad batch')
+      return answer(c)
+    })
+    await createConceptPass({ bookId: BOOK, repos, llm: bad }).start()
+    const llm = fakeLlm(answer)
+    const pass = createConceptPass({ bookId: BOOK, repos, llm })
+    // The pipeline automatically calls indexNow for missing sections, including on Resume.
+    expect(await pass.indexNow(sections[0]!.sectionId)).toBe(false)
+    expect(await pass.indexNow(sections[0]!.sectionId)).toBe(false)
+    expect(llm.calls).toHaveLength(0)
+    expect(
+      await pass.indexNow(sections[0]!.sectionId, { retryFailed: true }),
+    ).toBe(true)
+    expect(await pass.start()).toMatchObject({
+      done: true,
+      indexed: 1,
+      failed: N - 1,
+    })
+    expect(llm.calls.filter((c) => c.role === 'indexer')).toHaveLength(1)
+  })
+
+  test.each(['glossary', 'book-summary'] as const)(
+    '%s still stops on usage limits, sign-in failures, and abort',
+    async (role) => {
+      for (const code of [
+        'plan-limit',
+        'signin-required',
+        'auth',
+        'aborted',
+      ] as const) {
+        const { repos } = await book()
+        const llm = fakeLlm((c) => {
+          if (c.role === role) throw new LlmError(code, 'blocked')
+          return answer(c)
+        })
+        const result = await createConceptPass({
+          bookId: BOOK,
+          repos,
+          llm,
+        }).start()
+        expect(result.done).toBe(false)
+        expect(result.gaps).toBeUndefined()
+        expect(result.error?.code).toBe(code)
+        expect(llm.calls.filter((c) => c.role === role)).toHaveLength(1)
+      }
+    },
+  )
+
+  test('reports both indexer attempts when escalation fails', async () => {
+    const { repos } = await book(5000)
+    const seen: number[] = []
+    const llm = fakeLlm((c) => {
+      if (c.role === 'indexer') throw new LlmError('schema', 'bad batch')
+      return answer(c)
+    })
+    await createConceptPass({
+      bookId: BOOK,
+      repos,
+      llm,
+      onProgress: () => seen.push(llm.calls.length),
+    }).start()
+    for (let count = 1; count <= llm.calls.length; count++)
+      expect(seen).toContain(count)
   })
 
   test('pause() aborts the in-flight call and stops', async () => {
