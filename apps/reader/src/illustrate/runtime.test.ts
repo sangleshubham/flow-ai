@@ -194,6 +194,39 @@ describe('manual plan access checks', () => {
   })
 })
 
+describe('remembered diagram view', () => {
+  it.each([
+    undefined,
+    {},
+    { speed: 1.5 },
+    { diagramMode: 'invalid' },
+    { diagramMode: null },
+  ])(
+    'migrates missing or invalid diagramMode to static in %j',
+    async (saved) => {
+      if (saved)
+        await (await getRepos()).settings.set('illustratePreferences', saved)
+      pane.preferences.diagramMode = 'animated'
+      await loadPreferences()
+      expect(pane.preferences.diagramMode).toBe('static')
+    },
+  )
+
+  it.each(['static', 'animated'] as const)(
+    'persists and reloads %s mode',
+    async (diagramMode) => {
+      await savePreferences({ ...pane.preferences, diagramMode })
+      expect(
+        await (await getRepos()).settings.get('illustratePreferences'),
+      ).toMatchObject({ diagramMode })
+      pane.preferences.diagramMode =
+        diagramMode === 'static' ? 'animated' : 'static'
+      await loadPreferences()
+      expect(pane.preferences.diagramMode).toBe(diagramMode)
+    },
+  )
+})
+
 describe('remembered step highlights (ADR 0052)', () => {
   it.each([undefined, {}, { autoHighlight: false }])(
     'defaults missing highlightSteps to on in %j',

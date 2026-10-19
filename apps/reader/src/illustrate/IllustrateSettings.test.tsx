@@ -34,6 +34,23 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
+it('defaults diagram view to Static and saves either default choice', () => {
+  Object.assign(pane, createPaneState())
+  render(<IllustrateSettings />)
+  const mode = screen.getByRole('combobox', {
+    name: 'Default diagram view',
+  }) as HTMLSelectElement
+  expect(mode.value).toBe('static')
+  fireEvent.change(mode, { target: { value: 'animated' } })
+  expect(savePreferences).toHaveBeenLastCalledWith(
+    expect.objectContaining({ diagramMode: 'animated' }),
+  )
+  fireEvent.change(mode, { target: { value: 'static' } })
+  expect(savePreferences).toHaveBeenLastCalledWith(
+    expect.objectContaining({ diagramMode: 'static' }),
+  )
+})
+
 it('exposes the remembered step option independently of focus and hover highlighting', () => {
   Object.assign(pane, createPaneState())
   pane.preferences.autoHighlight = false
