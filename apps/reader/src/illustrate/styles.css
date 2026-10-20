@@ -99,6 +99,31 @@
 .illus-record {
   overflow: auto;
 }
+.illus-diagram-mode {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-self: flex-end;
+  margin: 8px 12px;
+  border: 1px solid rgb(var(--md-sys-color-outline));
+  border-radius: 18px;
+  background: rgb(var(--md-sys-color-surface));
+}
+.illus-diagram-mode button {
+  margin: 0;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 18px;
+  color: rgb(var(--md-sys-color-on-surface));
+  font-size: 13px;
+}
+.illus-diagram-mode button[aria-pressed='true'] {
+  background: rgb(var(--md-sys-color-secondary-container));
+  color: rgb(var(--md-sys-color-on-secondary-container));
+}
+.illus-diagram-mode button:focus-visible {
+  outline: 3px solid rgb(var(--md-sys-color-primary));
+  outline-offset: 2px;
+}
 .illus-player:focus {
   outline: none;
 }

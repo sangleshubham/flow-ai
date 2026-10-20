@@ -8,7 +8,12 @@ import React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { RecordView } from './RecordView'
-import { highlightEvidence, savePreferences } from './runtime'
+import {
+  activeSections,
+  getRepos,
+  highlightEvidence,
+  savePreferences,
+} from './runtime'
 import { DEFAULT_PREFERENCES, pane } from './state'
 
 const mocks = vi.hoisted(() => ({ visualProps: [] as any[] }))
@@ -49,10 +54,13 @@ vi.mock('@illus/render', async (importOriginal) => {
     },
   }
 })
+vi.mock('./ConceptModelView', () => ({
+  ConceptModelView: () => <div data-testid="concept-model" />,
+}))
 vi.mock('./runtime', async () => {
   const { IR } = await import('@illus/core')
   return {
-    activeSections: () => [],
+    activeSections: vi.fn(() => []),
     enabledKinds: () => [],
     getRepos: vi.fn(async () => ({})),
     highlightEvidence: vi.fn(async () => {}),
@@ -67,6 +75,7 @@ vi.mock('./runtime', async () => {
 const flags = (on: Partial<Record<FlagName, boolean>>) => {
   pane.preferences = {
     ...DEFAULT_PREFERENCES,
+    diagramMode: 'animated',
     flags: resolveFlags({ animations: true, sceneAnimations: false, ...on }),
   }
 }
@@ -101,6 +110,9 @@ beforeEach(() => {
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
   }))
+  pane.open = false
+  pane.open = true
+  vi.mocked(activeSections).mockReturnValue([])
   pane.items = []
   pane.announcement = ''
 })
@@ -108,6 +120,126 @@ afterEach(() => {
   cleanup()
   mocks.visualProps.length = 0
   vi.clearAllMocks()
+})
+
+describe('per-diagram view mode', () => {
+  it.each([false, true])(
+    'defaults to the full static diagram with sceneAnimations=%s',
+    (sceneAnimations) => {
+      flags({ sceneAnimations })
+      pane.preferences.diagramMode = DEFAULT_PREFERENCES.diagramMode
+      const record = make.visualRecord()
+      expect(record.animation!.initialHidden.length).toBeGreaterThan(0)
+      render(<RecordView record={record} />)
+      expect(
+        screen.getByRole('button', { name: 'Static', pressed: true }),
+      ).toBeDefined()
+      expect(screen.getByTestId('visual').getAttribute('data-frame')).toBe(
+        'static',
+      )
+      expect(calls(Player)).toHaveLength(0)
+      expect(calls(ScenePlayer)).toHaveLength(0)
+      expect(mocks.visualProps.every((p) => p.frame === undefined)).toBe(true)
+    },
+  )
+
+  it.each([false, true])(
+    'switches the player in and out with sceneAnimations=%s',
+    (sceneAnimations) => {
+      flags({ sceneAnimations })
+      pane.preferences.diagramMode = 'static'
+      render(<RecordView record={make.visualRecord()} />)
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Animated', pressed: false }),
+      )
+      expect(isScene()).toBe(sceneAnimations)
+      expect(
+        screen.getByRole('button', { name: 'Animated', pressed: true }),
+      ).toBeDefined()
+      fireEvent.click(screen.getByRole('button', { name: 'Static' }))
+      expect(
+        screen.queryByRole('region', { name: 'Animation player' }),
+      ).toBeNull()
+      expect(screen.getByTestId('visual').getAttribute('data-frame')).toBe(
+        'static',
+      )
+      expect(savePreferences).not.toHaveBeenCalled()
+    },
+  )
+
+  it('remembers each record independently across tab remounts until the pane closes', () => {
+    flags({})
+    pane.preferences.diagramMode = 'static'
+    const a = make.visualRecord({ cacheKey: 'a' })
+    const b = make.visualRecord({ cacheKey: 'b' })
+    const view = render(<RecordView key={a.cacheKey} record={a} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Animated' }))
+    view.rerender(<RecordView key={b.cacheKey} record={b} />)
+    expect(
+      screen.getByRole('button', { name: 'Static', pressed: true }),
+    ).toBeDefined()
+    view.rerender(
+      <RecordView
+        key={a.cacheKey}
+        record={{ ...a, feedback: { vote: 'up' } }}
+      />,
+    )
+    expect(
+      screen.getByRole('button', { name: 'Animated', pressed: true }),
+    ).toBeDefined()
+    view.unmount()
+    pane.open = false
+    pane.open = true
+    render(<RecordView record={a} />)
+    expect(
+      screen.getByRole('button', { name: 'Static', pressed: true }),
+    ).toBeDefined()
+  })
+
+  it('shows no toggle for a diagram without animation', () => {
+    flags({ sceneAnimations: true })
+    render(<RecordView record={make.visualRecord({ animation: undefined })} />)
+    expect(screen.queryByRole('group', { name: 'Diagram view' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Animated' })).toBeNull()
+    expect(screen.getByTestId('visual').getAttribute('data-frame')).toBe(
+      'static',
+    )
+  })
+
+  it('leaves concept-model views unchanged without a diagram toggle', async () => {
+    flags({ conceptModels: true, sceneAnimations: true })
+    const record = make.visualRecord()
+    const model = make.conceptModel()
+    const section = make.sectionNode({ sectionId: record.sectionId })
+    pane.items = [
+      make.planItem({
+        planItemId: record.planItemId,
+        conceptModelId: model.conceptModelId,
+      }),
+    ]
+    vi.mocked(activeSections).mockReturnValue([section])
+    vi.mocked(getRepos).mockResolvedValueOnce({
+      conceptModels: { get: async () => model },
+    } as never)
+    await act(async () => {
+      render(<RecordView record={record} />)
+    })
+    expect(screen.getByTestId('concept-model')).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Animated' })).toBeNull()
+    expect(calls(Player)).toHaveLength(0)
+    expect(calls(ScenePlayer)).toHaveLength(0)
+  })
+
+  it('forces static without a toggle when animations are disabled', () => {
+    flags({ animations: false, sceneAnimations: true })
+    render(<RecordView record={make.visualRecord()} />)
+    expect(screen.queryByRole('button', { name: 'Animated' })).toBeNull()
+    expect(screen.getByTestId('visual').getAttribute('data-frame')).toBe(
+      'static',
+    )
+    expect(calls(Player)).toHaveLength(0)
+    expect(calls(ScenePlayer)).toHaveLength(0)
+  })
 })
 
 describe('which player the Illustrate pane mounts for an animated visual', () => {

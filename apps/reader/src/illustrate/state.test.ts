@@ -47,6 +47,13 @@ function jobFake() {
     },
   }
 }
+describe('diagram view preferences', () => {
+  it('defaults new preferences to static', () => {
+    expect(DEFAULT_PREFERENCES.diagramMode).toBe('static')
+    expect(createPaneState().preferences.diagramMode).toBe('static')
+  })
+})
+
 describe('pipeline subscription', () => {
   it('takes plan and cached results immediately and ignores detached jobs', () => {
     const s = createPaneState()

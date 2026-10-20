@@ -95,6 +95,18 @@ export function IllustrateSettings() {
         </select>
       </label>
       <label>
+        Default diagram view
+        <select
+          value={s.preferences.diagramMode}
+          onChange={(e) =>
+            change('diagramMode', e.target.value as Preferences['diagramMode'])
+          }
+        >
+          <option value="static">Static</option>
+          <option value="animated">Animated</option>
+        </select>
+      </label>
+      <label>
         Animation speed
         <select
           value={s.preferences.speed}

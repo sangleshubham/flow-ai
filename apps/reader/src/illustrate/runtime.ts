@@ -162,6 +162,7 @@ export async function loadPreferences() {
     enabled: p.enabled === true,
     autoHighlight: p.autoHighlight !== false,
     highlightSteps: p.highlightSteps !== false,
+    diagramMode: p.diagramMode === 'animated' ? 'animated' : 'static',
     speed:
       typeof p.speed === 'number' && [0.5, 1, 1.5, 2].includes(p.speed)
         ? p.speed

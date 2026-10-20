@@ -38,6 +38,7 @@ export interface Preferences {
   autoHighlight: boolean
   /** "Highlight passage while playing" (ADR 0052): mark each animation step's passage in the book. */
   highlightSteps: boolean
+  diagramMode: 'static' | 'animated'
   speed: number
   reducedMotion: 'system' | 'on' | 'off'
   debugPrompts: boolean
@@ -49,6 +50,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   enabled: false,
   autoHighlight: true,
   highlightSteps: true,
+  diagramMode: 'static',
   speed: 1,
   reducedMotion: 'system',
   debugPrompts: false,

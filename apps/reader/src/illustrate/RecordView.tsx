@@ -26,6 +26,7 @@ import type { EvidenceEvent } from '@illus/render'
 import { TraceView } from '@illus/tracer'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { subscribeKey } from 'valtio/utils'
 
 import { ConceptModelView } from './ConceptModelView'
 import {
@@ -40,12 +41,24 @@ import {
   updateRecord,
 } from './runtime'
 import { pane } from './state'
+import type { Preferences } from './state'
+
+// Tabs remount RecordView by cache key; retain local choices only for this open pane.
+const diagramModes = new Map<string, Preferences['diagramMode']>()
+subscribeKey(
+  pane,
+  'open',
+  (open) => {
+    if (!open) diagramModes.clear()
+  },
+  true,
+)
 
 export function RecordView({ record }: { record: VisualRecord }) {
   return record.kind === 'trace' ? (
     <ExecutedTraceView record={record} />
   ) : (
-    <StaticRecordView record={record} />
+    <StaticRecordView key={record.cacheKey} record={record} />
   )
 }
 
@@ -210,6 +223,9 @@ function GraphScene({
 }
 
 function StaticRecordView({ record }: { record: VisualRecord }) {
+  const [diagramMode, setDiagramMode] = useState(
+    () => diagramModes.get(record.cacheKey) ?? pane.preferences.diagramMode,
+  )
   const [theme, setTheme] = useState<ThemeTokens>(() => readFlowTheme())
   const [instruction, setInstruction] = useState('')
   const [regenerate, setRegenerate] = useState(false)
@@ -399,6 +415,12 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
       actions={actions}
     />
   )
+  const hasAnimation =
+    pane.preferences.flags.animations &&
+    frames.length > 0 &&
+    !(conceptModelId && model === undefined) &&
+    !(model && section)
+  const animated = hasAnimation && diagramMode === 'animated'
   const body =
     conceptModelId && model === undefined ? (
       <p aria-busy="true">Loading concept model…</p>
@@ -427,7 +449,7 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
           onEvidenceHighlight: highlightStepEvidence,
         }}
       />
-    ) : pane.preferences.flags.animations &&
+    ) : animated &&
       pane.preferences.flags.sceneAnimations &&
       ir.type === 'graph' &&
       frames.length > 1 ? (
@@ -437,7 +459,7 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
         renderFrame={renderFrame}
         sceneInputs={[record, theme, expanded, flagsKey, mathBlock]}
       />
-    ) : pane.preferences.flags.animations && frames.length ? (
+    ) : animated ? (
       <Player
         frames={frames}
         renderFrame={renderFrame}
@@ -509,6 +531,27 @@ function StaticRecordView({ record }: { record: VisualRecord }) {
         )}
         {simulated && (
           <p role="status">Simulated illustration: {simulated.message}</p>
+        )}
+        {hasAnimation && (
+          <div
+            className="illus-diagram-mode"
+            role="group"
+            aria-label="Diagram view"
+          >
+            {(['static', 'animated'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={diagramMode === mode}
+                onClick={() => {
+                  diagramModes.set(record.cacheKey, mode)
+                  setDiagramMode(mode)
+                }}
+              >
+                {mode === 'static' ? 'Static' : 'Animated'}
+              </button>
+            ))}
+          </div>
         )}
         {body}
         {regenerate && (
