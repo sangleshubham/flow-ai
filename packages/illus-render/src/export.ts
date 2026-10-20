@@ -9,7 +9,8 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
 
 function sizeOf(svg: SVGSVGElement): { width: number; height: number } {
   const vb = svg.viewBox?.baseVal
-  if (vb && vb.width > 0 && vb.height > 0) return { width: vb.width, height: vb.height }
+  if (vb && vb.width > 0 && vb.height > 0)
+    return { width: vb.width, height: vb.height }
   const w = parseFloat(svg.getAttribute('width') ?? '')
   const h = parseFloat(svg.getAttribute('height') ?? '')
   if (w > 0 && h > 0) return { width: w, height: h }
@@ -19,18 +20,25 @@ function sizeOf(svg: SVGSVGElement): { width: number; height: number } {
 
 /** Standalone SVG markup of a rendered visual (the first `<svg>` inside `root`, or `root` itself). */
 export function exportSvg(root: Element, theme: ThemeTokens): string {
-  const svg = (root instanceof SVGSVGElement ? root : root.querySelector('svg')) as SVGSVGElement | null
-  if (!svg) throw new Error('exportSvg: nothing to export (no <svg> in this visual)')
+  const svg = (
+    root instanceof SVGSVGElement ? root : root.querySelector('svg')
+  ) as SVGSVGElement | null
+  if (!svg)
+    throw new Error('exportSvg: nothing to export (no <svg> in this visual)')
   const { width, height } = sizeOf(svg)
   const clone = svg.cloneNode(true) as SVGSVGElement
-  clone.setAttribute('xmlns', SVG_NS)
+  clone.setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns', SVG_NS)
   clone.setAttribute('width', String(Math.ceil(width)))
   clone.setAttribute('height', String(Math.ceil(height)))
-  if (!clone.getAttribute('viewBox')) clone.setAttribute('viewBox', `0 0 ${width} ${height}`)
+  if (!clone.getAttribute('viewBox'))
+    clone.setAttribute('viewBox', `0 0 ${width} ${height}`)
   const vars = Object.entries(themeVars(theme))
     .map(([k, v]) => `${k}: ${v}`)
     .join('; ')
-  clone.setAttribute('style', `${vars}; font-family: ${theme.font}; color: ${theme.fg}; background: ${theme.bg}`)
+  clone.setAttribute(
+    'style',
+    `${vars}; font-family: ${theme.font}; color: ${theme.fg}; background: ${theme.bg}`,
+  )
   clone.classList.add('illus-svg')
   const style = document.createElementNS(SVG_NS, 'style')
   style.textContent = SVG_CSS
@@ -47,9 +55,16 @@ export function exportSvg(root: Element, theme: ThemeTokens): string {
 }
 
 /** PNG of a rendered visual at `scale` (default 2×). */
-export async function exportPng(root: Element, theme: ThemeTokens, scale = 2): Promise<Blob> {
+export async function exportPng(
+  root: Element,
+  theme: ThemeTokens,
+  scale = 2,
+): Promise<Blob> {
   const markup = exportSvg(root, theme)
-  const doc = new DOMParser().parseFromString(markup, 'image/svg+xml').documentElement
+  const doc = new DOMParser().parseFromString(
+    markup,
+    'image/svg+xml',
+  ).documentElement
   const width = parseFloat(doc.getAttribute('width')!)
   const height = parseFloat(doc.getAttribute('height')!)
   const url = URL.createObjectURL(new Blob([markup], { type: 'image/svg+xml' }))
@@ -65,7 +80,11 @@ export async function exportPng(root: Element, theme: ThemeTokens, scale = 2): P
     ctx.scale(scale, scale)
     ctx.drawImage(img, 0, 0, width, height)
     return await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('exportPng: encoding failed'))), 'image/png'),
+      canvas.toBlob(
+        (b) =>
+          b ? resolve(b) : reject(new Error('exportPng: encoding failed')),
+        'image/png',
+      ),
     )
   } finally {
     URL.revokeObjectURL(url)
@@ -73,7 +92,11 @@ export async function exportPng(root: Element, theme: ThemeTokens, scale = 2): P
 }
 
 /** Saves a string or blob as a file through a temporary link. */
-export function download(data: string | Blob, filename: string, type = 'image/svg+xml'): void {
+export function download(
+  data: string | Blob,
+  filename: string,
+  type = 'image/svg+xml',
+): void {
   const blob = typeof data === 'string' ? new Blob([data], { type }) : data
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

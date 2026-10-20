@@ -56,6 +56,8 @@ it('exposes scene geometry and animation bodies without taking ownership of scen
     ),
   ).not.toBeNull()
   const group = camera.querySelector('[data-target="group:g"]')!
+  expect(group.getAttribute('data-color')).toBe('blue')
+  expect(node.getAttribute('data-color')).toBe('blue')
   expect(group.getAttribute('data-box')).toBe('10.1 20.3 120.4 100.4')
   expect(
     group.querySelector(
@@ -63,6 +65,7 @@ it('exposes scene geometry and animation bodies without taking ownership of scen
     ),
   ).not.toBeNull()
   const edge = camera.querySelector('[data-target="edge:a->b"]')!
+  expect(edge.hasAttribute('data-color')).toBe(false)
   expect(
     edge.querySelector(':scope > [data-anim-body] > .illus-edge-line'),
   ).not.toBeNull()

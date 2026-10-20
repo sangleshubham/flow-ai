@@ -14,6 +14,7 @@ import type {
 } from '@illus/core'
 
 import { GROUP_PADDING } from './elk.ts'
+import { assignGroupColors } from './group-colors.ts'
 import { ICON_SVGS } from './icons.generated.ts'
 import {
   canvasMeasure,
@@ -64,6 +65,7 @@ export function GraphView({
   onError,
 }: GraphViewProps) {
   const measure = useMemo(() => canvasMeasure(theme.font), [theme.font])
+  const colors = useMemo(() => assignGroupColors(ir), [ir])
   const added: AddedNode[] = useMemo(() => frame?.added ?? [], [frame?.added])
   const input = useMemo(
     () => graphLayoutInput(ir, measure, added),
@@ -153,7 +155,7 @@ export function GraphView({
               data-ir-id={g.id}
               data-target={`group:${g.id}`}
               data-box={boxData(b)}
-              data-color={g.color}
+              data-color={colors.groups.get(g.id)}
               tabIndex={0}
               aria-label={g.label}
             >
@@ -230,7 +232,7 @@ export function GraphView({
               data-target={`node:${n.id}`}
               data-box={boxData(b)}
               data-shape={n.shape}
-              data-color={n.color}
+              data-color={colors.nodes.get(n.id)}
               transform={`translate(${b.x}, ${b.y})`}
               tabIndex={n.added ? undefined : 0}
               aria-label={n.label}

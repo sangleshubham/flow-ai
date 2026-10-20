@@ -1,6 +1,15 @@
 import { expect, test } from '@playwright/test'
 
+import { GROUP_PALETTE } from '../../src/graph/palette.ts'
 import { open } from './helpers.ts'
+
+function rgb(hex: string): string {
+  return `rgb(${hex
+    .slice(1)
+    .match(/../g)!
+    .map((c) => parseInt(c, 16))
+    .join(', ')})`
+}
 
 test('graph bodies keep edge paths addressable and layout transforms on outer nodes', async ({
   page,
@@ -114,8 +123,8 @@ test('body wrappers preserve node and group accent colours', async ({
     }
   })
   expect(colours).toEqual({
-    node: 'rgb(22, 163, 74)',
-    group: 'rgb(37, 99, 235)',
-    label: 'rgb(37, 99, 235)',
+    node: rgb(GROUP_PALETTE.light.green.ink),
+    group: rgb(GROUP_PALETTE.light.blue.ink),
+    label: rgb(GROUP_PALETTE.light.blue.ink),
   })
 })
