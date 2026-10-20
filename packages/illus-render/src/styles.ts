@@ -1,6 +1,7 @@
 // Stylesheet for every renderer and the chrome. Uses `--illus-*` tokens only (§10); rendered once per
 // view as an inline <style> (Next.js 12 forbids global CSS imports from packages) and embedded into
 // exported SVGs so frame classes survive export.
+import { GROUP_COLOR_ORDER } from './graph/palette.ts'
 
 /** Rules that style SVG content (also embedded in exports). */
 export const SVG_CSS = `
@@ -37,21 +38,13 @@ export const SVG_CSS = `
 .illus-earlier :is(rect, polygon, circle, ellipse, path, line):not(.illus-label-bg, .background, .illus-icon *), :is(path, line).illus-earlier { stroke: var(--illus-earlier) !important; }
 .illus-icon { color: var(--illus-fg); overflow: visible; }
 .illus-icon * { transition: none; }
-${[
-  'blue:#2563eb',
-  'green:#16a34a',
-  'orange:#ea580c',
-  'red:#dc2626',
-  'purple:#9333ea',
-  'gray:#6b7280',
-]
-  .map((pair) => {
-    const [name, hex] = pair.split(':')
-    return `[data-color="${name}"] > .illus-shape, [data-color="${name}"] > .illus-node-body > .illus-shape { stroke: ${hex}; fill: color-mix(in srgb, ${hex} 12%, var(--illus-bg)); }
-[data-color="${name}"] > .illus-group-box, [data-color="${name}"] > .illus-group-body > .illus-group-box { stroke: ${hex}; fill: color-mix(in srgb, ${hex} 5%, transparent); }
-.illus-svg [data-color="${name}"] > .illus-group-label, .illus-svg [data-color="${name}"] > .illus-group-body > .illus-group-label { fill: ${hex}; }`
-  })
-  .join('\n')}
+${GROUP_COLOR_ORDER.map(
+  (
+    name,
+  ) => `[data-color="${name}"] > :is(.illus-shape, .illus-shape-back), [data-color="${name}"] > .illus-node-body > :is(.illus-shape, .illus-shape-back) { stroke: var(--illus-${name}-ink); fill: var(--illus-${name}-node-fill); }
+[data-color="${name}"] > .illus-group-box, [data-color="${name}"] > .illus-group-body > .illus-group-box { stroke: var(--illus-${name}-ink); stroke-width: 1.75px; fill: var(--illus-${name}-fill); }
+.illus-svg [data-color="${name}"] > .illus-group-label, .illus-svg [data-color="${name}"] > .illus-group-body > .illus-group-label, .illus-svg .illus-node[data-color="${name}"] text, .illus-svg .illus-node[data-color="${name}"] .illus-sub { fill: var(--illus-${name}-ink); }`,
+).join('\n')}
 .illus-term-active { color: var(--illus-accent); background: var(--illus-highlight); border-radius: 2px; }
 `
 

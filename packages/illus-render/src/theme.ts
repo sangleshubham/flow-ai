@@ -5,10 +5,15 @@ import { useEffect, useState } from 'react'
 import { THEME_TOKEN_VARS } from '@illus/core'
 import type { ThemeTokens } from '@illus/core'
 
+import { GROUP_PALETTE } from './graph/palette.ts'
+
 type Colour = Exclude<keyof ThemeTokens, 'font' | 'mono' | 'dark'>
 
 /** Flow variable (space-separated RGB triple) behind each colour token, plus a CSS system colour fallback. */
-const FLOW_COLOURS: Record<Exclude<Colour, 'highlight'>, [flowVar: string, fallback: string]> = {
+const FLOW_COLOURS: Record<
+  Exclude<Colour, 'highlight'>,
+  [flowVar: string, fallback: string]
+> = {
   bg: ['--md-sys-color-surface', 'Canvas'],
   fg: ['--md-sys-color-on-surface', 'CanvasText'],
   muted: ['--md-sys-color-on-surface-variant', 'GrayText'],
@@ -21,14 +26,20 @@ const FLOW_FONT = '--md-sys-typescale-body-medium-family'
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace'
 
 /** Builds tokens from a variable reader (e.g. `getComputedStyle(html).getPropertyValue`). Pure. */
-export function tokensFromFlowVars(read: (name: string) => string, dark: boolean): ThemeTokens {
+export function tokensFromFlowVars(
+  read: (name: string) => string,
+  dark: boolean,
+): ThemeTokens {
   const rgb = (name: string, fallback: string, alpha?: number) => {
     const v = read(name).trim()
     if (!v) return fallback
     return alpha === undefined ? `rgb(${v})` : `rgb(${v} / ${alpha})`
   }
   const colours = Object.fromEntries(
-    Object.entries(FLOW_COLOURS).map(([k, [name, fallback]]) => [k, rgb(name, fallback)]),
+    Object.entries(FLOW_COLOURS).map(([k, [name, fallback]]) => [
+      k,
+      rgb(name, fallback),
+    ]),
   ) as Record<Exclude<Colour, 'highlight'>, string>
   const font = read(FLOW_FONT).trim()
   return {
@@ -41,16 +52,24 @@ export function tokensFromFlowVars(read: (name: string) => string, dark: boolean
 }
 
 /** Reads Flow's active theme from `<html>`: Material tokens plus the `dark` class. */
-export function readFlowTheme(root: HTMLElement = document.documentElement): ThemeTokens {
+export function readFlowTheme(
+  root: HTMLElement = document.documentElement,
+): ThemeTokens {
   const style = getComputedStyle(root)
-  return tokensFromFlowVars((n) => style.getPropertyValue(n), root.classList.contains('dark'))
+  return tokensFromFlowVars(
+    (n) => style.getPropertyValue(n),
+    root.classList.contains('dark'),
+  )
 }
 
 /**
  * Calls `cb` whenever Flow's theme changes: the `dark` class on `<html>` or the injected
  * `<style id="theme">` (source-colour change). Returns an unsubscribe function.
  */
-export function watchFlowTheme(cb: (t: ThemeTokens) => void, root: HTMLElement = document.documentElement): () => void {
+export function watchFlowTheme(
+  cb: (t: ThemeTokens) => void,
+  root: HTMLElement = document.documentElement,
+): () => void {
   let last = JSON.stringify(readFlowTheme(root))
   const observer = new MutationObserver(() => {
     const next = readFlowTheme(root)
@@ -60,8 +79,16 @@ export function watchFlowTheme(cb: (t: ThemeTokens) => void, root: HTMLElement =
       cb(next)
     }
   })
-  observer.observe(root, { attributes: true, attributeFilter: ['class', 'style'] })
-  if (root.ownerDocument.head) observer.observe(root.ownerDocument.head, { childList: true, subtree: true, characterData: true })
+  observer.observe(root, {
+    attributes: true,
+    attributeFilter: ['class', 'style'],
+  })
+  if (root.ownerDocument.head)
+    observer.observe(root.ownerDocument.head, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    })
   return () => observer.disconnect()
 }
 
@@ -77,7 +104,19 @@ export function useFlowTheme(): ThemeTokens {
 
 /** The `--illus-*` CSS variables for a token set, as a React `style` object. */
 export function themeVars(t: ThemeTokens): Record<string, string> {
-  return Object.fromEntries(Object.entries(THEME_TOKEN_VARS).map(([k, v]) => [v, t[k as keyof typeof THEME_TOKEN_VARS]]))
+  return Object.fromEntries([
+    ...Object.entries(THEME_TOKEN_VARS).map(([k, v]) => [
+      v,
+      t[k as keyof typeof THEME_TOKEN_VARS],
+    ]),
+    ...Object.entries(GROUP_PALETTE[t.dark ? 'dark' : 'light']).flatMap(
+      ([name, entry]) => [
+        [`--illus-${name}-fill`, entry.fill],
+        [`--illus-${name}-node-fill`, entry.nodeFill],
+        [`--illus-${name}-ink`, entry.ink],
+      ],
+    ),
+  ])
 }
 
 /**
@@ -97,7 +136,10 @@ let ctxCache: CanvasRenderingContext2D | null | undefined
 function colourCtx(): CanvasRenderingContext2D | null {
   if (ctxCache !== undefined) return ctxCache
   try {
-    ctxCache = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d')
+    ctxCache =
+      typeof document === 'undefined'
+        ? null
+        : document.createElement('canvas').getContext('2d')
   } catch {
     ctxCache = null
   }
@@ -107,6 +149,16 @@ function colourCtx(): CanvasRenderingContext2D | null {
 /** Token set with every colour resolved by `resolveColour`. */
 export function resolveTokens(t: ThemeTokens): ThemeTokens {
   const out = { ...t }
-  for (const k of ['bg', 'fg', 'muted', 'line', 'accent', 'new', 'earlier', 'highlight'] as const) out[k] = resolveColour(t[k])
+  for (const k of [
+    'bg',
+    'fg',
+    'muted',
+    'line',
+    'accent',
+    'new',
+    'earlier',
+    'highlight',
+  ] as const)
+    out[k] = resolveColour(t[k])
   return out
 }

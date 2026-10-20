@@ -5,7 +5,15 @@ import 'katex/dist/katex.min.css'
 import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
-import { exportPng, exportSvg, irElements, layoutGraph, readFlowTheme, useFlowTheme, VisualView } from '../../src/index.ts'
+import {
+  exportPng,
+  exportSvg,
+  irElements,
+  layoutGraph,
+  readFlowTheme,
+  useFlowTheme,
+  VisualView,
+} from '../../src/index.ts'
 import type { EvidenceEvent } from '../../src/index.ts'
 
 import { FIXTURES } from './fixtures.ts'
@@ -19,6 +27,7 @@ declare global {
     __evidenceIds: string[]
     __actions: string[]
     __exportSvg: () => string
+    __exportPngBlob: (scale?: number) => Promise<Blob>
     __exportPng: () => Promise<{ width: number; height: number; bytes: number }>
     __layout: typeof layoutGraph
   }
@@ -32,23 +41,36 @@ window.__actions = []
 // Zod 4 probes `new Function` once (caught) to decide on its JIT; the app silences it with
 // `z.config({ jitless: true })`. Every other violation fails the specs.
 document.addEventListener('securitypolicyviolation', (e) => {
-  if (!/\/zod\.js/.test(e.sourceFile)) window.__csp.push(`${e.violatedDirective} ${e.blockedURI} ${e.sourceFile}:${e.lineNumber}`)
+  if (!/\/zod\.js/.test(e.sourceFile))
+    window.__csp.push(
+      `${e.violatedDirective} ${e.blockedURI} ${e.sourceFile}:${e.lineNumber}`,
+    )
 })
 window.addEventListener('message', (e) => {
-  if (e.data && typeof e.data === 'object' && 'probe' in e.data) window.__probe = e.data.probe
+  if (e.data && typeof e.data === 'object' && 'probe' in e.data)
+    window.__probe = e.data.probe
 })
 window.__layout = layoutGraph
 
 const fixture = FIXTURES[name]
 if (!fixture) throw new Error(`unknown fixture ${name}`)
-window.__evidenceIds = irElements(fixture.spec.ir).filter((e) => e.evidence).map((e) => e.id)
+window.__evidenceIds = irElements(fixture.spec.ir)
+  .filter((e) => e.evidence)
+  .map((e) => e.id)
 
 function App() {
   const theme = useFlowTheme()
   const [vote, setVote] = useState<'up' | 'down'>()
-  window.__exportSvg = () => exportSvg(document.querySelector('.illus-canvas svg')!, readFlowTheme())
+  window.__exportSvg = () =>
+    exportSvg(document.querySelector('.illus-canvas svg')!, readFlowTheme())
+  window.__exportPngBlob = (scale) =>
+    exportPng(
+      document.querySelector('.illus-canvas svg')!,
+      readFlowTheme(),
+      scale,
+    )
   window.__exportPng = async () => {
-    const blob = await exportPng(document.querySelector('.illus-canvas svg')!, readFlowTheme())
+    const blob = await window.__exportPngBlob()
     const bmp = await createImageBitmap(blob)
     return { width: bmp.width, height: bmp.height, bytes: blob.size }
   }

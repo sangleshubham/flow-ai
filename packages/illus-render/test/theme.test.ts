@@ -2,6 +2,7 @@ import { THEME_TOKEN_VARS } from '@illus/core'
 import { make } from '@illus/core/testing'
 import { describe, expect, it } from 'vitest'
 
+import { GROUP_PALETTE } from '../src/graph/palette.ts'
 import { themeVars, tokensFromFlowVars } from '../src/theme.ts'
 
 const LIGHT: Record<string, string> = {
@@ -38,14 +39,33 @@ describe('tokensFromFlowVars', () => {
     expect(t.bg).toBe('Canvas')
     expect(t.fg).toBe('CanvasText')
     expect(t.dark).toBe(true)
-    for (const v of [t.bg, t.fg, t.muted, t.line, t.accent, t.new, t.earlier, t.highlight]) expect(v).not.toMatch(/#|rgb/)
+    for (const v of [
+      t.bg,
+      t.fg,
+      t.muted,
+      t.line,
+      t.accent,
+      t.new,
+      t.earlier,
+      t.highlight,
+    ])
+      expect(v).not.toMatch(/#|rgb/)
   })
 })
 
 describe('themeVars', () => {
   it('emits every --illus-* variable', () => {
     const vars = themeVars(make.themeTokens())
-    expect(Object.keys(vars).sort()).toEqual(Object.values(THEME_TOKEN_VARS).sort())
+    expect(Object.keys(vars).sort()).toEqual(
+      [
+        ...Object.values(THEME_TOKEN_VARS),
+        ...Object.keys(GROUP_PALETTE.light).flatMap((name) =>
+          ['fill', 'node-fill', 'ink'].map(
+            (suffix) => `--illus-${name}-${suffix}`,
+          ),
+        ),
+      ].sort(),
+    )
     expect(vars['--illus-accent']).toBe('#0ea5e9')
   })
 })
