@@ -33,6 +33,8 @@ const commands = (): PaneCommands => ({
   bookPause: vi.fn(),
   bookResume: vi.fn(),
   bookRetry: vi.fn(),
+  bookStop: vi.fn(),
+  goToSection: vi.fn(),
 })
 describe('every Illustrate pane state', () => {
   it('labels the fallback as a local pause and explains that Retry checks again', () => {
@@ -427,7 +429,7 @@ describe('whole-book bar (ADR 0057)', () => {
     })
     expect(
       within(region()).getByText(
-        'Preparing the book: Opening the book… Will start when ready.',
+        'Preparing the book: Opening the book… Will start when the book is ready.',
       ),
     ).toBeDefined()
     expect(
@@ -515,7 +517,7 @@ describe('whole-book bar (ADR 0057)', () => {
       s.bookRun.failedItems = 2
     })
     expect(
-      within(region()).getByText('Illustrating book: 5 / 12 · 2 failed'),
+      within(region()).getByText('Illustrating book: 5 / 12 · 2 items failed'),
     ).toBeDefined()
     expect(region().querySelector('progress')!.value).toBe(5)
     expect(region().querySelector('[aria-live="polite"]')).not.toBeNull()
@@ -567,7 +569,9 @@ describe('whole-book bar (ADR 0057)', () => {
       s.bookRun.status = 'done'
     })
     expect(within(region()).getByText('Book illustrated')).toBeDefined()
-    expect(within(region()).queryByRole('button')).toBeNull()
+    expect(
+      within(region()).queryByRole('button', { name: 'Retry failed' }),
+    ).toBeNull()
     cleanup()
     const c = bar((s) => {
       s.bookRun.status = 'done'
@@ -578,5 +582,220 @@ describe('whole-book bar (ADR 0057)', () => {
     ).toBeDefined()
     press('Retry failed')
     expect(c.bookStart).toHaveBeenCalledOnce()
+  })
+})
+
+describe('book progress panel', () => {
+  afterEach(() => localStorage.clear())
+  const setup = () => {
+    const s = createPaneState()
+    s.bookId = 'book'
+    s.signedIn = true
+    s.bookRun.status = 'illustrating'
+    s.bookRun.total = 6
+    s.bookRun.finished = 4
+    s.bookRun.sections = {
+      a: 'done',
+      b: 'cached',
+      c: 'no-visual',
+      d: 'failed',
+      e: 'running',
+      f: 'pending',
+    }
+    s.bookRun.inProgress = ['e']
+    s.bookRun.cursor = 'f'
+    const c = commands()
+    const sections = Object.keys(s.bookRun.sections).map((sectionId, ordinal) =>
+      make.sectionNode({
+        sectionId,
+        ordinal,
+        title: `Section ${sectionId}`,
+        parentId: ordinal ? 'a' : undefined,
+      }),
+    )
+    const ui = () => (
+      <PaneContent
+        state={s}
+        commands={c}
+        sections={sections}
+        renderVisual={() => null}
+      />
+    )
+    return { s, c, ui, ...render(ui()) }
+  }
+  it('offers Stop during preparation only when a start is queued', () => {
+    const { s, c, ui, rerender } = setup()
+    s.bookRun.status = 'preparing'
+    s.bookRun.queued = null
+    rerender(ui())
+    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull()
+    expect(c.bookStop).not.toHaveBeenCalled()
+    s.bookRun.queued = 'start'
+    rerender(ui())
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Stop run' }))
+    expect(c.bookStop).toHaveBeenCalledOnce()
+  })
+  it.each(['idle', 'paused', 'paused-limit', 'done'] as const)(
+    'labels the progress bar as completed sections in %s',
+    (status) => {
+      const { s, ui, rerender } = setup()
+      s.bookRun.status = status
+      rerender(ui())
+      expect(
+        screen.getByRole('progressbar', { name: 'Sections illustrated' }),
+      ).toBeDefined()
+      expect(
+        screen.queryByRole('progressbar', { name: 'Illustrating the book' }),
+      ).toBeNull()
+    },
+  )
+  it('keeps the idle breakdown without a duplicate count paragraph', () => {
+    const { s, ui, rerender } = setup()
+    s.bookRun.status = 'idle'
+    rerender(ui())
+    expect(screen.getByText('0 of 6 sections illustrated')).toBeDefined()
+    expect(document.querySelector('.illus-book-run-count')).toBeNull()
+    expect(
+      screen.getByRole('list', { name: 'Section breakdown' }),
+    ).toBeDefined()
+  })
+  it('distinguishes failed items in the status from failed sections in the breakdown', () => {
+    const { s, ui, rerender } = setup()
+    s.bookRun.failedItems = 2
+    rerender(ui())
+    expect(
+      screen.getByText('Illustrating book: 4 / 6 · 2 items failed'),
+    ).toBeDefined()
+    expect(
+      screen.getByRole('list', { name: 'Section breakdown' }).textContent,
+    ).toContain('1 failed')
+  })
+  it('shows a readable summary, a determinate bar, elapsed time and a delayed ETA', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(300_000)
+      const { s, ui, rerender } = setup()
+      s.bookRun.startedAt = 0
+      s.bookRun.session = { startedAt: 0, done: 1, avgSectionMs: 1_440_000 }
+      rerender(ui())
+      expect(screen.getByText('4 of 6 sections')).toBeDefined()
+      for (const text of ['1 new', '1 cached', '1 no visual', '1 failed'])
+        expect(screen.getByText(text, { exact: false })).toBeDefined()
+      expect(screen.getByText('5 min 0 s elapsed')).toBeDefined()
+      expect(screen.queryByText(/min left/)).toBeNull()
+      s.bookRun.session.done = 2
+      rerender(ui())
+      expect(screen.getByText(/about 12 min left/)).toBeDefined()
+      act(() => vi.advanceTimersByTime(1000))
+      expect(
+        screen.getByText('5 min 1 s elapsed', { exact: false }),
+      ).toBeDefined()
+      const progress = screen.getByRole('progressbar', {
+        name: 'Illustrating the book',
+      }) as HTMLProgressElement
+      expect([progress.value, progress.max]).toEqual([4, 6])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+  it('requires an inline Stop confirmation and lets the user keep running', () => {
+    const { c } = setup()
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+    expect(
+      screen.getByText('Stop the run? Saved illustrations are kept.'),
+    ).toBeDefined()
+    expect(c.bookStop).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Keep running' }))
+    expect(c.bookStop).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Stop run' }))
+    expect(c.bookStop).toHaveBeenCalledOnce()
+  })
+  it('groups titled section links, highlights running and cursor rows, and filters statuses', () => {
+    const { c } = setup()
+    const expand = screen.getByRole('button', { name: /Sections/ })
+    expect(expand.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByRole('button', { name: /Section e/ })).toBeNull()
+    fireEvent.click(expand)
+    const list = within(screen.getByRole('region', { name: 'Run sections' }))
+    expect(list.getAllByRole('listitem')).toHaveLength(6)
+    const running = list.getByRole('button', { name: /Section e Running/ })
+    expect(running.parentElement!.getAttribute('data-running')).toBe('true')
+    const cursor = list.getByRole('button', {
+      name: /Section f Pending · Resume here/,
+    })
+    expect(cursor.parentElement!.getAttribute('data-cursor')).toBe('true')
+    fireEvent.click(running)
+    expect(c.goToSection).toHaveBeenCalledWith('e')
+    const filters = within(
+      screen.getByRole('group', { name: 'Filter sections' }),
+    )
+    for (const [filter, count] of [
+      ['Failed', 1],
+      ['Pending', 2],
+      ['Done', 3],
+      ['All', 6],
+    ] as const) {
+      fireEvent.click(filters.getByRole('button', { name: filter }))
+      expect(list.getAllByRole('listitem')).toHaveLength(count)
+    }
+  })
+  it('remembers expansion for this viewer and survives blocked storage', () => {
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: /Sections/ }))
+    cleanup()
+    setup()
+    expect(
+      screen
+        .getByRole('button', { name: /Sections/ })
+        .getAttribute('aria-expanded'),
+    ).toBe('true')
+    cleanup()
+    const get = vi
+      .spyOn(Storage.prototype, 'getItem')
+      .mockImplementation(() => {
+        throw new Error('blocked')
+      })
+    const set = vi
+      .spyOn(Storage.prototype, 'setItem')
+      .mockImplementation(() => {
+        throw new Error('blocked')
+      })
+    try {
+      setup()
+      fireEvent.click(screen.getByRole('button', { name: /Sections/ }))
+      expect(screen.getByRole('region', { name: 'Run sections' })).toBeDefined()
+    } finally {
+      get.mockRestore()
+      set.mockRestore()
+    }
+  })
+  it('shows known preparation progress and leaves unknown preparation indeterminate', () => {
+    const { s, ui, rerender } = setup()
+    s.bookRun.status = 'preparing'
+    s.bookRun.preparing = { label: 'Indexing', done: 3, total: 10 }
+    rerender(ui())
+    const progress = screen.getByRole('progressbar', {
+      name: 'Preparing the book',
+    }) as HTMLProgressElement
+    expect([progress.value, progress.max]).toEqual([3, 10])
+    s.bookRun.preparing = { label: 'Opening' }
+    rerender(ui())
+    expect(progress.hasAttribute('value')).toBe(false)
+  })
+  it('renders 500 navigable targets only when expanded', () => {
+    const { s, ui, rerender } = setup()
+    s.bookRun.sections = Object.fromEntries(
+      Array.from({ length: 500 }, (_, i) => [`target-${i}`, 'pending']),
+    )
+    rerender(ui())
+    expect(screen.queryByRole('region', { name: 'Run sections' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Sections/ }))
+    const list = within(screen.getByRole('region', { name: 'Run sections' }))
+    expect(list.getAllByRole('listitem')).toHaveLength(500)
+    expect(
+      list.getByRole('button', { name: 'target-499 Pending' }),
+    ).toBeDefined()
   })
 })

@@ -1,16 +1,20 @@
-import type { VisualRecord } from '@illus/core'
+import type { SectionNode, VisualRecord } from '@illus/core'
 import React from 'react'
 import type { ReactNode } from 'react'
 
+import { BookRunPanel } from './BookRunPanel'
+import type { BookRunCommands } from './BookRunPanel'
 import {
   catchUpText,
   dwellSecondsLeft,
   PLANNING_TEXT,
   stageLabel,
 } from './state'
-import type { BookRunState, PaneState } from './state'
+import type { PaneState } from './state'
 
-export interface PaneCommands {
+export { bookRunText } from './book-run-view'
+
+export interface PaneCommands extends BookRunCommands {
   close(): void
   pin(): void
   approve(): void
@@ -22,20 +26,11 @@ export interface PaneCommands {
   select(id: string): void
   /** Skip the dwell and illustrate the open section now. */
   now(): void
-  /** Show the whole-book confirm card (estimate first). */
-  bookConfirm(): void
-  /** Start the confirmed whole-book run, or retry its failed items. */
-  bookStart(): void
-  /** Dismiss the confirm card. */
-  bookCancel(): void
-  bookPause(): void
-  bookResume(): void
-  /** Set the book up again after it could not be prepared (ADR 0064). */
-  bookRetry(): void
 }
 export interface PaneContentProps {
   state: PaneState
   commands: PaneCommands
+  sections?: readonly SectionNode[]
   renderVisual(record: VisualRecord): ReactNode
 }
 
@@ -43,6 +38,7 @@ export interface PaneContentProps {
 export function PaneContent({
   state: s,
   commands: c,
+  sections,
   renderVisual,
 }: PaneContentProps) {
   // A stored record wins; a preview (ADR 0054) fills in while its item finishes.
@@ -84,7 +80,12 @@ export function PaneContent({
         </button>
       </header>
       {s.bookId && s.preferences.flags.wholeBook && (
-        <BookRunBar state={s} commands={c} />
+        <BookRunPanel
+          key={s.bookId}
+          state={s}
+          commands={c}
+          sections={sections}
+        />
       )}
       {!showVisual && (
         <div className="illus-meta">
@@ -319,181 +320,6 @@ export function PaneContent({
         {s.announcement}
       </div>
     </section>
-  )
-}
-
-/** Tracks `navigator.onLine` so the whole-book buttons enable and disable as the network changes. */
-export function useOnline(): boolean {
-  const [online, setOnline] = React.useState(
-    () => typeof navigator === 'undefined' || navigator.onLine !== false,
-  )
-  React.useEffect(() => {
-    const update = () => setOnline(navigator.onLine !== false)
-    window.addEventListener('online', update)
-    window.addEventListener('offline', update)
-    return () => {
-      window.removeEventListener('online', update)
-      window.removeEventListener('offline', update)
-    }
-  }, [])
-  return online
-}
-
-/** Whether a new whole-book run can be requested now (offline, or no ChatGPT account, blocks it). */
-export function canStartBookRun(s: PaneState, online: boolean): boolean {
-  return (
-    online && s.status !== 'offline' && !(!s.signedIn && s.signinConfigured)
-  )
-}
-
-function resetTime(at: number): string {
-  return new Date(at).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-/** The whole-book status as one sentence (ADR 0057, ADR 0064); the pane bar and the settings share it. */
-export function bookRunText(b: BookRunState): string {
-  switch (b.status) {
-    case 'preparing': {
-      const p = b.preparing
-      const step = p
-        ? `: ${p.label}${
-            p.done !== undefined && p.total ? ` ${p.done} / ${p.total}` : ''
-          }`
-        : ''
-      return `Preparing the book${step}…${
-        b.queued ? ' Will start when ready.' : ''
-      }`
-    }
-    case 'stopping':
-      return 'Stopping the previous run…'
-    case 'error':
-      return 'The book could not be prepared.'
-    case 'idle':
-      return b.total
-        ? `${b.cachedCount} of ${b.total} sections illustrated`
-        : 'Preparing the book…'
-    case 'confirm':
-      return `Illustrate the remaining ${Math.max(
-        0,
-        b.total - b.cachedCount,
-      )} sections?`
-    case 'understanding':
-      return b.indexed
-        ? `Understanding the book: ${b.indexed.indexed} of ${b.indexed.total} sections`
-        : 'Understanding the book…'
-    case 'illustrating':
-      return `Illustrating book: ${b.finished} / ${b.total}${
-        b.failedItems > 0 ? ` · ${b.failedItems} failed` : ''
-      }`
-    case 'paused':
-      return `Paused at ${b.finished} / ${b.total}`
-    case 'paused-limit':
-      return `Paused after an OpenAI usage-limit error.${
-        b.resetAt ? ` Local pause until ${resetTime(b.resetAt)}.` : ''
-      } Resume checks your access again.`
-    case 'done':
-      return `Book illustrated${
-        b.failedItems > 0 ? ` · ${b.failedItems} items failed` : ''
-      }`
-  }
-}
-
-/** The run's `<progress>` while it works; `null` otherwise. */
-export function BookRunProgress({ bookRun: b }: { bookRun: BookRunState }) {
-  if (b.status === 'understanding')
-    return (
-      <progress
-        aria-label="Understanding the book"
-        {...(b.indexed
-          ? { value: b.indexed.indexed, max: Math.max(1, b.indexed.total) }
-          : {})}
-      />
-    )
-  if (b.status === 'illustrating')
-    return (
-      <progress
-        aria-label="Illustrating the book"
-        value={b.finished}
-        max={Math.max(1, b.total)}
-      />
-    )
-  return null
-}
-
-/** Whole-book run controls, between the header and the section meta (ADR 0057). */
-function BookRunBar({
-  state: s,
-  commands: c,
-}: {
-  state: PaneState
-  commands: PaneCommands
-}) {
-  const b = s.bookRun
-  const online = useOnline()
-  const status = (
-    <p className="illus-book-run-status" aria-live="polite">
-      {b.status === 'confirm' ? null : bookRunText(b)}
-      {b.message ? (
-        <span className="illus-book-run-note"> {b.message}</span>
-      ) : null}
-    </p>
-  )
-  return (
-    <div
-      className="illus-book-run"
-      role="region"
-      aria-label="Whole book"
-      data-run={b.status}
-    >
-      {b.status === 'confirm' ? (
-        <div className="illus-book-run-confirm">
-          {status}
-          <p>
-            <strong>{bookRunText(b)}</strong> This uses{' '}
-            {b.estimate === null ? 'some' : `about ${b.estimate}`} requests from
-            your ChatGPT plan (the 5-hour window is shared with ChatGPT). It
-            runs while this book is open, even with this pane closed; the
-            section you’re reading always goes first. If the plan limit is
-            reached it pauses until you resume.
-          </p>
-          <button onClick={c.bookStart}>Start</button>
-          <button onClick={c.bookCancel}>Cancel</button>
-        </div>
-      ) : (
-        <>
-          {status}
-          <BookRunProgress bookRun={b} />
-          <span className="illus-book-run-actions">
-            {(b.status === 'idle' ||
-              (b.status === 'preparing' && !b.queued)) && (
-              <button
-                onClick={c.bookConfirm}
-                disabled={!canStartBookRun(s, online)}
-              >
-                Illustrate whole book
-              </button>
-            )}
-            {(b.status === 'understanding' ||
-              b.status === 'illustrating' ||
-              b.status === 'stopping') && (
-              <button onClick={c.bookPause}>Pause</button>
-            )}
-            {b.status === 'error' && (
-              <button onClick={c.bookRetry}>Retry</button>
-            )}
-            {(b.status === 'paused' || b.status === 'paused-limit') && (
-              <button onClick={c.bookResume}>Resume</button>
-            )}
-            {b.status === 'done' && b.failedItems > 0 && (
-              <button onClick={c.bookStart}>Retry failed</button>
-            )}
-          </span>
-        </>
-      )}
-    </div>
   )
 }
 

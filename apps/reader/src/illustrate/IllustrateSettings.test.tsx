@@ -9,6 +9,8 @@ import {
   confirmBookRun,
   pauseBookRun,
   resumeBookRun,
+  retryActivate,
+  stopBookRun,
   savePreferences,
   startBookRun,
   togglePane,
@@ -20,6 +22,8 @@ vi.mock('./runtime', () => ({
   confirmBookRun: vi.fn(),
   pauseBookRun: vi.fn(),
   resumeBookRun: vi.fn(),
+  retryActivate: vi.fn(),
+  stopBookRun: vi.fn(),
   startBookRun: vi.fn(),
   clearVisuals: vi.fn(),
   downloadCache: vi.fn(),
@@ -178,5 +182,67 @@ describe('whole-book setting', () => {
       s.bookId = null
     })
     expect(screen.queryByText('2 of 8 sections illustrated')).toBeNull()
+  })
+})
+
+describe('shared whole-book progress in Settings', () => {
+  it('shows the same counts, timing and Stop confirmation as the pane', () => {
+    Object.assign(pane, createPaneState())
+    pane.bookId = 'book'
+    Object.assign(pane.bookRun, {
+      status: 'illustrating',
+      total: 6,
+      finished: 4,
+      startedAt: Date.now() - 120_000,
+      sections: {
+        a: 'done',
+        b: 'cached',
+        c: 'no-visual',
+        d: 'failed',
+        e: 'pending',
+        f: 'pending',
+      },
+      session: {
+        startedAt: Date.now() - 120_000,
+        done: 2,
+        avgSectionMs: 720_000,
+      },
+    })
+    render(<IllustrateSettings />)
+    expect(screen.getByText('4 of 6 sections')).toBeDefined()
+    expect(
+      screen.getByRole('list', { name: 'Section breakdown' }).textContent,
+    ).toContain('1 cached')
+    expect(screen.getByText(/elapsed/).textContent).toContain(
+      'about 12 min left',
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+    expect(stopBookRun).not.toHaveBeenCalled()
+    expect(
+      screen.getByText('Stop the run? Saved illustrations are kept.'),
+    ).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: 'Stop run' }))
+    expect(stopBookRun).toHaveBeenCalledOnce()
+  })
+  it('shows preparation progress and queued text, and offers Retry on a preparation error', () => {
+    Object.assign(pane, createPaneState())
+    pane.bookId = 'book'
+    Object.assign(pane.bookRun, {
+      status: 'preparing',
+      preparing: { label: 'Indexing', done: 3, total: 10 },
+      queued: 'start',
+    })
+    render(<IllustrateSettings />)
+    expect(screen.getByText(/Will start when the book is ready/)).toBeDefined()
+    expect((screen.getByRole('progressbar') as HTMLProgressElement).value).toBe(
+      3,
+    )
+    cleanup()
+    pane.bookRun.status = 'error'
+    pane.bookRun.message = 'Cannot open the book.'
+    render(<IllustrateSettings />)
+    expect(screen.getByText('Cannot open the book.')).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(retryActivate).toHaveBeenCalledOnce()
   })
 })
