@@ -20,6 +20,8 @@ export type {
   PipelineDeps,
   RequestOptions,
   ReviewHook,
+  SectionCacheState,
+  SectionCacheStatus,
   SectionJob,
   SectionJobEvent,
   SectionJobEvents,
@@ -39,4 +41,5 @@ export type {
   BookRunDeps,
   BookRunProgress,
   BookRunStatus,
+  SectionRunState,
 } from './book-run.ts'

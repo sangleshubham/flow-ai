@@ -9,7 +9,9 @@ const BOOK = join(__dirname, '../../../fixtures/books/synthetic.epub')
 // ADR 0050 / R7: the graph scene player is behind `flags.sceneAnimations` (off by default, so illustrate.e2e.ts
 // never reaches it). Replay has no graph animation for the synthetic book, so this seeds the stores like the
 // concept-model part of illustrate.e2e.ts: the visual the replay produced becomes a three-node graph with a
-// two-step animation, the flag is switched on, and the model is paused so the saved visual is drawn.
+// two-step animation, the flag and the animated diagram mode are switched on, and the model is paused so the
+// saved visual is drawn. The plan is kept as replayed: the graph record keeps its cache key, so it stands in
+// for a kind-override record of that plan item and is still current (ADR 0064).
 test('sceneAnimations on: a graph is played by the scene player, steps follow the book, and expanding keeps it', async ({
   context,
   page,
@@ -132,9 +134,6 @@ async function seedGraphWithAnimation() {
   const visual = (await run<any[]>('visuals', (s) => s.getAll())).sort(
     (a, b) => b.createdAt - a.createdAt,
   )[0]
-  const plan = (await run<any[]>('plans', (s) => s.getAll()))
-    .filter((p) => p.sectionId === visual.sectionId)
-    .sort((a, b) => b.createdAt - a.createdAt)[0]
   const find = (v: any): any => {
     if (!v || typeof v !== 'object') return undefined
     if (v.evidence) return v.evidence
@@ -200,11 +199,6 @@ async function seedGraphWithAnimation() {
     ],
   }
   await run('visuals', (s) => s.put(visual))
-  const item = plan.plan.items.find(
-    (i: any) => i.planItemId === visual.planItemId,
-  )
-  Object.assign(item, { kind: 'graph' })
-  await run('plans', (s) => s.put(plan))
   const settings = await run<any>('settings', (s) =>
     s.get('illustratePreferences'),
   )
@@ -213,6 +207,7 @@ async function seedGraphWithAnimation() {
       key: 'illustratePreferences',
       value: {
         ...settings.value,
+        diagramMode: 'animated',
         flags: {
           ...settings.value.flags,
           animations: true,

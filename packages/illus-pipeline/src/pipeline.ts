@@ -210,8 +210,38 @@ export interface PipelineDeps {
   maxSections?: number
 }
 
+/**
+ * What a default request for a section would find in the cache now (ADR 0064), using the same keys as
+ * `requestSection`: the current flags, prompt versions and model routes, with the ADR 0060 escalated-key
+ * fallback for visuals. `cached`: the plan and every enabled item's visual; `no-visual`: the plan says
+ * there is nothing to draw (or every item's kind is off); `partial`: the plan but not every visual;
+ * `missing`: no current plan (or an unknown section). Records under older keys never count.
+ */
+export type SectionCacheState = 'cached' | 'no-visual' | 'partial' | 'missing'
+export interface SectionCacheStatus {
+  state: SectionCacheState
+  /** The section a request generates (`mergedInto` resolved); absent for an unknown section. */
+  sectionId?: string
+  /** The current-key plan. */
+  plan?: PlanRecord
+  /** Current-key visuals of the plan's enabled items, in priority order. */
+  visuals: VisualRecord[]
+}
+
 export interface Pipeline {
   requestSection(sectionId: string, opts?: RequestOptions): SectionJob
+  /** ADR 0064: cache state per requested id, with batched reads (one `bulkGet` per store and merge level). */
+  sectionCacheStatus(
+    sectionIds: readonly string[],
+  ): Promise<Map<string, SectionCacheStatus>>
+  /**
+   * ADR 0064: the section's current plan and every saved visual made from it, including "Regenerate
+   * with instruction" and kind-override records. Visuals of an older plan or key are left out.
+   */
+  cachedSection(sectionId: string): Promise<{
+    status: SectionCacheStatus
+    records: VisualRecord[]
+  }>
   /** "Illustrate selection" (§8): a synthetic section of the selected blocks, with the parent as path context. */
   requestSelection(
     sel: { parentSectionId: string; blockIds: string[] },
@@ -366,6 +396,169 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       if (hit) return hit
     }
     return undefined
+  }
+
+  /** The flag-gated kinds that are on, as they enter the plan key (§15 step 3). */
+  function kindsKey(flags: Flags) {
+    return VisualKind.options
+      .filter((k) => KIND_FLAG[k] && kindEnabled(k, flags))
+      .sort()
+      .join(',')
+  }
+
+  /** Plan keys a lookup tries, in order: one per expected planner run. */
+  function planKeysOf(section: SectionNode, kinds: string) {
+    return expectedRuns('planner').map((planner) =>
+      planKey({
+        bookId: section.bookId,
+        sectionId: section.sectionId,
+        contentHash: section.contentHash,
+        contextVersion: CONTEXT_VERSION,
+        planner,
+        kinds,
+      }),
+    )
+  }
+
+  /** Visual keys a lookup tries, in order (ADR 0060 `lookupRuns`). */
+  function visualKeysOf(
+    planCacheKey: string,
+    item: PlanItem,
+    instruction?: string,
+  ) {
+    return lookupRuns(roleForKind(item.kind)).map((extractor) =>
+      visualKey({
+        planKey: planCacheKey,
+        planItem: item,
+        extractor,
+        compilerVersion: COMPILER_VERSION,
+        ...(instruction && { instruction }),
+      }),
+    )
+  }
+
+  /** Requested ids → the section a request generates (`mergedInto` resolved as `requestSection` does). */
+  async function resolveSections(ids: readonly string[]) {
+    const known = new Map<string, SectionNode>()
+    let want = [...new Set(ids)]
+    // One batched read per merge level; merge chains are short.
+    for (let depth = 0; want.length && depth < 8; depth++) {
+      const got = await repos.sections.bulkGet(want)
+      for (const s of got) if (s) known.set(s.sectionId, s)
+      want = [
+        ...new Set(
+          got.flatMap((s) =>
+            s?.mergedInto && !known.has(s.mergedInto) ? [s.mergedInto] : [],
+          ),
+        ),
+      ]
+    }
+    const resolved = new Map<string, SectionNode>()
+    for (const id of ids) {
+      let section = known.get(id)
+      const seen = new Set<string>()
+      while (section?.mergedInto && !seen.has(section.sectionId)) {
+        seen.add(section.sectionId)
+        const into = known.get(section.mergedInto)
+        if (!into) break
+        section = into
+      }
+      if (section) resolved.set(id, section)
+    }
+    return resolved
+  }
+
+  /** Batched: every key is computed first, then one `bulkGet`; the first hit per group wins, as in `firstHit`. */
+  async function firstHits<T>(
+    groups: Promise<string>[][],
+    bulkGet: (keys: readonly string[]) => Promise<(T | undefined)[]>,
+  ): Promise<(T | undefined)[]> {
+    const keys = await Promise.all(groups.map((g) => Promise.all(g)))
+    const flat = keys.flat()
+    const rows = flat.length ? await bulkGet(flat) : []
+    const found = new Map<string, T>()
+    flat.forEach((k, i) => {
+      const row = rows[i]
+      if (row) found.set(k, row)
+    })
+    return keys.map((g) => {
+      for (const k of g) {
+        const hit = found.get(k)
+        if (hit) return hit
+      }
+      return undefined
+    })
+  }
+
+  async function sectionCacheStatus(
+    ids: readonly string[],
+  ): Promise<Map<string, SectionCacheStatus>> {
+    const flags = flagsNow()
+    const kinds = kindsKey(flags)
+    const resolved = await resolveSections(ids)
+    const sections = [
+      ...new Map([...resolved.values()].map((s) => [s.sectionId, s])).values(),
+    ]
+    const plans = await firstHits(
+      sections.map((s) => planKeysOf(s, kinds)),
+      (keys) => repos.plans.bulkGet(keys),
+    )
+    const planOf = new Map(sections.map((s, i) => [s.sectionId, plans[i]]))
+    // The items a default request draws, as `runJob` filters and orders them.
+    const itemsOf = (record: PlanRecord) =>
+      record.plan.needsVisual
+        ? record.plan.items
+            .filter((i) => kindEnabled(i.kind, flags))
+            .sort((a, b) => a.priority - b.priority)
+        : []
+    const wanted = sections.flatMap((s) => {
+      const record = planOf.get(s.sectionId)
+      return record
+        ? itemsOf(record).map((item) => ({ section: s, record, item }))
+        : []
+    })
+    const visuals = await firstHits(
+      wanted.map((w) =>
+        // A template item without its template id always fails, so it is never cached.
+        w.item.kind === 'template' && !w.item.templateId
+          ? []
+          : visualKeysOf(w.record.cacheKey, w.item),
+      ),
+      (keys) => repos.visuals.bulkGet(keys),
+    )
+    const visualsOf = new Map<string, (VisualRecord | undefined)[]>()
+    wanted.forEach((w, i) =>
+      visualsOf.set(w.section.sectionId, [
+        ...(visualsOf.get(w.section.sectionId) ?? []),
+        visuals[i],
+      ]),
+    )
+    const out = new Map<string, SectionCacheStatus>()
+    for (const id of ids) {
+      const section = resolved.get(id)
+      const record = section && planOf.get(section.sectionId)
+      if (!section || !record) {
+        out.set(id, {
+          state: 'missing',
+          ...(section && { sectionId: section.sectionId }),
+          visuals: [],
+        })
+        continue
+      }
+      const hits = visualsOf.get(section.sectionId) ?? []
+      const found = hits.filter((v): v is VisualRecord => !!v)
+      out.set(id, {
+        state: !hits.length
+          ? 'no-visual'
+          : found.length === hits.length
+          ? 'cached'
+          : 'partial',
+        sectionId: section.sectionId,
+        plan: record,
+        visuals: found,
+      })
+    }
+    return out
   }
 
   type Listener = (p: never) => void
@@ -570,6 +763,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
         if (await repos.sectionIndex.get(target.indexId)) return false
         if (!deps.concepts) return true
         let timer: ReturnType<typeof setTimeout> | undefined
+        let onAbort: (() => void) | undefined
         const timeout = new Promise<boolean>(
           (r) =>
             (timer = setTimeout(
@@ -577,11 +771,19 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
               deps.indexWaitMs ?? INDEX_WAIT_MS,
             )),
         )
+        // ADR 0064: a cancelled job stops waiting at once, so it never holds its section slot for the wait.
+        const aborted = new Promise<boolean>((r) => {
+          onAbort = () => r(false)
+          if (signal.aborted) onAbort()
+          else signal.addEventListener('abort', onAbort, { once: true })
+        })
         const indexed = await Promise.race([
           deps.concepts.indexNow(target.indexId).catch(() => false),
           timeout,
+          aborted,
         ])
         clearTimeout(timer)
+        signal.removeEventListener('abort', onAbort!)
         return !indexed
       })())
 
@@ -590,20 +792,8 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
 
     // §15 step 3: plan. The enabled flag-gated kinds enter the key, so toggling a flag re-plans.
     const enabled = VisualKind.options.filter((k) => kindEnabled(k, flags))
-    const kinds = enabled
-      .filter((k) => KIND_FLAG[k])
-      .sort()
-      .join(',')
-    const planKeys = expectedRuns('planner').map((planner) =>
-      planKey({
-        bookId: section.bookId,
-        sectionId: section.sectionId,
-        contentHash: section.contentHash,
-        contextVersion: CONTEXT_VERSION,
-        planner,
-        kinds,
-      }),
-    )
+    const kinds = kindsKey(flags)
+    const planKeys = planKeysOf(section, kinds)
     let record = opts.force
       ? undefined
       : await firstHit(planKeys, (k) => repos.plans.get(k))
@@ -795,15 +985,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       )
     const role = roleForKind(item.kind)
     const instruction = opts.instruction?.trim() || undefined
-    const keys = lookupRuns(role).map((extractor) =>
-      visualKey({
-        planKey: plan.cacheKey,
-        planItem: item,
-        extractor,
-        compilerVersion: COMPILER_VERSION,
-        ...(instruction && { instruction }),
-      }),
-    )
+    const keys = visualKeysOf(plan.cacheKey, item, instruction)
     const hit = await firstHit(keys, (k) => repos.visuals.get(k))
     if (hit) {
       progress('cached')
@@ -1469,6 +1651,52 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
   }
 
   return {
+    sectionCacheStatus,
+
+    async cachedSection(sectionId) {
+      const status = (await sectionCacheStatus([sectionId])).get(sectionId)!
+      const record = status.plan
+      if (!record) return { status, records: [] }
+      const all = await repos.visuals.listBySection(
+        record.bookId,
+        record.sectionId,
+      )
+      // A record is current when its key is one a request for its plan item would look up: the plain
+      // request, or a kind override to any kind (a fallback can store another kind than the override
+      // asked for), with the record's instruction. Key sets are shared per item and instruction.
+      const keySets = new Map<string, Promise<Set<string>>>()
+      const keysFor = (item: PlanItem, instruction: string | undefined) => {
+        const id = JSON.stringify([item.planItemId, instruction ?? null])
+        let keys = keySets.get(id)
+        if (!keys) {
+          const candidates = [
+            item,
+            ...VisualKind.options
+              .filter((k) => k !== item.kind)
+              .map((k) => overrideKind(item, k)),
+          ]
+          keys = Promise.all(
+            candidates.flatMap((c) =>
+              visualKeysOf(record.cacheKey, c, instruction),
+            ),
+          ).then((list) => new Set(list))
+          keySets.set(id, keys)
+        }
+        return keys
+      }
+      const current = await Promise.all(
+        all.map(async (r) => {
+          const item = record.plan.items.find(
+            (i) => i.planItemId === r.planItemId,
+          )
+          if (!item) return false
+          const keys = await keysFor(item, r.instruction?.trim() || undefined)
+          return keys.has(r.cacheKey)
+        }),
+      )
+      return { status, records: all.filter((_, i) => current[i]) }
+    },
+
     requestSection(sectionId, opts = {}) {
       return start(sectionId, opts, false, async (job) => {
         let section = await repos.sections.get(sectionId)

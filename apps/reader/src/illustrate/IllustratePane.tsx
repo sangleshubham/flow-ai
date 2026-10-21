@@ -23,6 +23,7 @@ import {
   requestVisual,
   retryVisual,
   resumeBookRun,
+  retryActivate,
   setPinned,
   startBookRun,
   togglePane,
@@ -179,6 +180,9 @@ export function IllustratePane() {
           bookPause: pauseBookRun,
           bookResume: () => {
             void resumeBookRun()
+          },
+          bookRetry: () => {
+            void retryActivate()
           },
         }}
         renderVisual={(record) => (

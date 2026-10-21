@@ -17,6 +17,8 @@ import {
 import type {
   BookRunProgress,
   RequestOptions,
+  SectionCacheState,
+  SectionCacheStatus,
   SectionJob,
   SectionJobEvent,
   SectionJobEvents,
@@ -441,6 +443,10 @@ describe('createBookRun (ADR 0057)', () => {
       failedItems: 2,
       inProgress: [],
       indexed: { indexed: 3, total: 3 },
+      sections: { a: 'no-visual', b: 'failed', c: 'failed', d: 'cached' },
+      startedAt: expect.any(Number),
+      sessionDone: 2,
+      avgSectionMs: expect.any(Number),
     })
     expect(run.progress).toEqual(final)
     const finished = seen.map((p) => p.finished)
@@ -718,5 +724,203 @@ describe('createBookRun (ADR 0057)', () => {
     const p = run.progress
     p.inProgress.push('x')
     expect(run.progress.inProgress).toEqual([])
+  })
+})
+
+describe('resumable runs (ADR 0064)', () => {
+  /** A fake `sectionCacheStatus` over a mutable state map; unknown ids are `missing`. */
+  const cacheOf = (states: Record<string, SectionCacheState>) =>
+    vi.fn(async (ids: readonly string[]) => {
+      return new Map<string, SectionCacheStatus>(
+        ids.map((id) => [id, { state: states[id] ?? 'missing', visuals: [] }]),
+      )
+    })
+
+  test('cached and no-visual sections count from the first report and are never requested', async () => {
+    const states: Record<string, SectionCacheState> = {
+      a: 'cached',
+      b: 'partial',
+      c: 'no-visual',
+    }
+    const pipeline = { ...fakePipeline(), sectionCacheStatus: cacheOf(states) }
+    const seen: BookRunProgress[] = []
+    const run = createBookRun({
+      pipeline,
+      concepts: fakeConcepts(),
+      sections: BOOK,
+      concurrency: 4,
+      onProgress: (p) => seen.push(p),
+    })
+    const result = run.start()
+    await flush()
+    expect(pipeline.sectionCacheStatus).toHaveBeenCalledWith([
+      'a',
+      'b',
+      'c',
+      'd',
+    ])
+    expect(seen[0]).toMatchObject({
+      status: 'understanding',
+      finished: 2,
+      noVisual: 1,
+      sections: { a: 'cached', b: 'pending', c: 'no-visual', d: 'pending' },
+    })
+    expect(seen.every((p) => p.finished >= 2)).toBe(true)
+    expect(pipeline.requestSection.mock.calls.map((c) => c[0])).toEqual([
+      'b',
+      'd',
+    ])
+    for (const h of pipeline.open()) h.done()
+    expect(await result).toMatchObject({ status: 'done', finished: 4 })
+
+    // A later start() never drops the count: it starts from what is cached now.
+    states.b = 'cached'
+    states.d = 'cached'
+    seen.length = 0
+    const again = await run.start()
+    expect(seen[0]!.finished).toBe(4)
+    expect(again).toMatchObject({ status: 'done', finished: 4 })
+    expect(pipeline.requestSection).toHaveBeenCalledTimes(2)
+  })
+
+  test('a failing cache check falls back to requesting every section', async () => {
+    const pipeline = {
+      ...fakePipeline(),
+      sectionCacheStatus: vi.fn(async () => {
+        throw new Error('db closed')
+      }),
+    }
+    const result = createBookRun({
+      pipeline,
+      concepts: fakeConcepts(),
+      sections: BOOK,
+      concurrency: 4,
+    }).start()
+    await flush()
+    expect(pipeline.requestSection).toHaveBeenCalledTimes(4)
+    for (const h of pipeline.open()) h.done()
+    expect(await result).toMatchObject({ status: 'done', finished: 4 })
+  })
+
+  test('the per-section map and the cursor follow the run in its order', async () => {
+    const pipeline = fakePipeline()
+    const run = createBookRun({
+      pipeline,
+      concepts: fakeConcepts(),
+      sections: BOOK,
+      startAt: 'c',
+      concurrency: 1,
+    })
+    const result = run.start()
+    const next = async () => {
+      await flush()
+      return pipeline.open()[0]!
+    }
+    let h = await next()
+    expect(run.progress.sections).toEqual({
+      a: 'pending',
+      b: 'pending',
+      c: 'running',
+      d: 'pending',
+    })
+    expect(run.progress.cursor).toBe('c')
+    h.emit('item-ready', {
+      planItemId: 'p1',
+      record: make.visualRecord(),
+      fromCache: false,
+    })
+    h.done()
+    h = await next()
+    expect(run.progress.sections.c).toBe('done')
+    expect(run.progress.cursor).toBe('d')
+    h.emit('item-failed', { planItemId: 'p1', code: 'schema', message: 'x' })
+    h.done()
+    h = await next()
+    h.emit('no-visual', { reason: 'nothing' })
+    h.done()
+    h = await next()
+    h.emit('plan', {
+      plan: make.visualPlan(),
+      record: make.planRecord(),
+      partialContext: false,
+      fromCache: true,
+    })
+    h.emit('item-ready', {
+      planItemId: 'p1',
+      record: make.visualRecord(),
+      fromCache: true,
+    })
+    h.done()
+    const final = await result
+    expect(final.sections).toEqual({
+      c: 'done',
+      d: 'failed',
+      a: 'no-visual',
+      b: 'cached',
+    })
+    expect(final.cursor).toBeUndefined()
+  })
+
+  test('pause puts the open sections back to pending and the cursor on the first unfinished one', async () => {
+    const pipeline = fakePipeline()
+    const run = createBookRun({
+      pipeline,
+      concepts: fakeConcepts(),
+      sections: BOOK,
+      startAt: 'b',
+      concurrency: 2,
+    })
+    const result = run.start()
+    await flush()
+    pipeline.open()[1]!.done() // c finishes first; b is still open.
+    await flush()
+    expect(run.progress.cursor).toBe('b')
+    run.pause()
+    const final = await result
+    expect(final.sections).toEqual({
+      a: 'pending',
+      b: 'pending',
+      c: 'cached',
+      d: 'pending',
+    })
+    expect(final.cursor).toBe('b')
+    expect(final.finished).toBe(1)
+  })
+
+  test('timing counts only sections that did work in this session', async () => {
+    let now = 1_000
+    const pipeline = {
+      ...fakePipeline(),
+      sectionCacheStatus: cacheOf({ a: 'cached' }),
+    }
+    const run = createBookRun({
+      pipeline,
+      concepts: fakeConcepts(),
+      sections: BOOK,
+      concurrency: 1,
+      now: () => now,
+    })
+    const result = run.start()
+    const work = async (ms: number, fromCache: boolean) => {
+      await flush()
+      const h = pipeline.open()[0]!
+      now += ms
+      h.emit('item-ready', {
+        planItemId: 'p1',
+        record: make.visualRecord(),
+        fromCache,
+      })
+      h.done()
+    }
+    await work(4_000, false) // b
+    await work(10, true) // c: served from the cache by the job
+    await work(8_000, false) // d
+    const final = await result
+    expect(final).toMatchObject({
+      startedAt: 1_000,
+      sessionDone: 2,
+      avgSectionMs: 6_000,
+      finished: 4,
+    })
   })
 })

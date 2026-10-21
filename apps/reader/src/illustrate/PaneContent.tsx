@@ -30,6 +30,8 @@ export interface PaneCommands {
   bookCancel(): void
   bookPause(): void
   bookResume(): void
+  /** Set the book up again after it could not be prepared (ADR 0064). */
+  bookRetry(): void
 }
 export interface PaneContentProps {
   state: PaneState
@@ -351,9 +353,24 @@ function resetTime(at: number): string {
   })
 }
 
-/** The whole-book status as one sentence (ADR 0057); the pane bar and the settings share it. */
+/** The whole-book status as one sentence (ADR 0057, ADR 0064); the pane bar and the settings share it. */
 export function bookRunText(b: BookRunState): string {
   switch (b.status) {
+    case 'preparing': {
+      const p = b.preparing
+      const step = p
+        ? `: ${p.label}${
+            p.done !== undefined && p.total ? ` ${p.done} / ${p.total}` : ''
+          }`
+        : ''
+      return `Preparing the book${step}…${
+        b.queued ? ' Will start when ready.' : ''
+      }`
+    }
+    case 'stopping':
+      return 'Stopping the previous run…'
+    case 'error':
+      return 'The book could not be prepared.'
     case 'idle':
       return b.total
         ? `${b.cachedCount} of ${b.total} sections illustrated`
@@ -450,7 +467,8 @@ function BookRunBar({
           {status}
           <BookRunProgress bookRun={b} />
           <span className="illus-book-run-actions">
-            {b.status === 'idle' && (
+            {(b.status === 'idle' ||
+              (b.status === 'preparing' && !b.queued)) && (
               <button
                 onClick={c.bookConfirm}
                 disabled={!canStartBookRun(s, online)}
@@ -458,8 +476,13 @@ function BookRunBar({
                 Illustrate whole book
               </button>
             )}
-            {(b.status === 'understanding' || b.status === 'illustrating') && (
+            {(b.status === 'understanding' ||
+              b.status === 'illustrating' ||
+              b.status === 'stopping') && (
               <button onClick={c.bookPause}>Pause</button>
+            )}
+            {b.status === 'error' && (
+              <button onClick={c.bookRetry}>Retry</button>
             )}
             {(b.status === 'paused' || b.status === 'paused-limit') && (
               <button onClick={c.bookResume}>Resume</button>

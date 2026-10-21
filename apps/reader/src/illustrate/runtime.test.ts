@@ -2,13 +2,19 @@ import { makeBookId } from '@illus/core'
 import { make } from '@illus/core/testing'
 import { httpTransport } from '@illus/llm'
 import { createPipeline } from '@illus/pipeline'
-import type { BookRunDeps, BookRunProgress } from '@illus/pipeline'
+import type {
+  BookRunDeps,
+  BookRunProgress,
+  SectionCacheState,
+  SectionCacheStatus,
+} from '@illus/pipeline'
 import type { BridgeRendition } from '@illus/reader-bridge'
 import type { EvidenceEvent } from '@illus/render'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Book } from '@flow/epubjs'
 
+import { bookRunText } from './PaneContent'
 import {
   activate,
   cancelBookRunConfirm,
@@ -21,11 +27,15 @@ import {
   paneClosed,
   paneOpened,
   pauseBookRun,
+  reindex,
   resumeBookRun,
   requestVisual,
+  retryActivate,
   retryVisual,
   savePreferences,
   startBookRun,
+  STOP_WAIT_MS,
+  stopBookRun,
 } from './runtime'
 import { createPaneState, pane } from './state'
 
@@ -36,8 +46,12 @@ interface FakeBookRun {
   pause: ReturnType<typeof vi.fn>
   settle(status: BookRunProgress['status'], o?: Partial<BookRunProgress>): void
 }
-const { bookRuns } = vi.hoisted(() => ({
+const { bookRuns, cacheStates, cacheHold } = vi.hoisted(() => ({
   bookRuns: { created: [] as FakeBookRun[] },
+  /** While `promise` is set, the cache check waits for it (the book stays `preparing`). */
+  cacheHold: { promise: null as Promise<void> | null },
+  /** What the pipeline's cache-status helpers report per section id (default `missing`). */
+  cacheStates: {} as Record<string, SectionCacheState>,
 }))
 vi.mock('@illus/llm', async (importOriginal) => {
   const real = await importOriginal<typeof import('@illus/llm')>()
@@ -47,7 +61,25 @@ vi.mock('@illus/pipeline', async (importOriginal) => {
   const real = await importOriginal<typeof import('@illus/pipeline')>()
   return {
     ...real,
-    createPipeline: vi.fn(real.createPipeline),
+    // The real pipeline, with its cache-status helpers reading `cacheStates` (they need real prompts).
+    createPipeline: vi.fn((deps: Parameters<typeof real.createPipeline>[0]) => {
+      const pipeline = real.createPipeline(deps)
+      const statusOf = (id: string): SectionCacheStatus => ({
+        state: cacheStates[id] ?? 'missing',
+        sectionId: id,
+        visuals: [],
+      })
+      return Object.assign(pipeline, {
+        sectionCacheStatus: vi.fn(async (ids: readonly string[]) => {
+          await cacheHold.promise
+          return new Map(ids.map((id) => [id, statusOf(id)]))
+        }),
+        cachedSection: vi.fn(async (id: string) => ({
+          status: statusOf(id),
+          records: [],
+        })),
+      })
+    }),
     createBookRun: vi.fn((deps: BookRunDeps) => {
       const progress = (
         status: BookRunProgress['status'],
@@ -59,6 +91,8 @@ vi.mock('@illus/pipeline', async (importOriginal) => {
         noVisual: 0,
         failedItems: 0,
         inProgress: [],
+        sections: {},
+        sessionDone: 0,
         ...o,
       })
       let resolve!: (p: BookRunProgress) => void
@@ -119,15 +153,16 @@ vi.mock('@illus/tracer', () => ({
   createTraceRunner: vi.fn(),
   TRACER_VERSION: 'test',
 }))
-vi.mock('../db', () => ({
-  db: {
-    files: {
-      get: async () => ({
+const { files } = vi.hoisted(() => ({
+  files: {
+    get: vi.fn(
+      async (): Promise<unknown> => ({
         file: { arrayBuffer: async () => new ArrayBuffer(0) },
       }),
-    },
+    ),
   },
 }))
+vi.mock('../db', () => ({ db: { files } }))
 vi.mock('./prompt-files', () => ({ PROMPT_FILES: {} }))
 
 const block = make.block()
@@ -460,7 +495,14 @@ describe('whole-book run (ADR 0057)', () => {
     expect(await (await settings()).get(`indexingApproved:${bookId}`)).toBe(
       true,
     )
-    expect(await saved()).toEqual({ [FLOW_ID]: { status: 'running' } })
+    expect(await saved()).toEqual({
+      [FLOW_ID]: {
+        v: 2,
+        status: 'running',
+        cursor: sectionId,
+        startedAt: expect.any(Number),
+      },
+    })
     // A second start while running does nothing.
     await startBookRun()
     expect(bookRuns.created).toHaveLength(1)
@@ -484,18 +526,25 @@ describe('whole-book run (ADR 0057)', () => {
     expect(pane.bookRun.status).toBe('paused')
     expect(pane.runningBooks).toEqual([])
     await flush()
-    expect(await saved()).toEqual({ [FLOW_ID]: { status: 'paused' } })
+    expect(await saved()).toMatchObject({
+      [FLOW_ID]: { v: 2, status: 'paused' },
+    })
 
     const resumed = resumeBookRun()
     await flush()
     const second = bookRuns.created[1]!
     expect(second.start).not.toHaveBeenCalled()
-    expect(pane.bookRun.status).toBe('understanding')
+    // ADR 0064: waiting for the paused run has its own status, and aborts it again.
+    expect(pane.bookRun.status).toBe('stopping')
+    expect(first!.pause).toHaveBeenCalledTimes(2)
     first!.settle('paused', { finished: 7 })
     await flush()
     expect(second.start).toHaveBeenCalledOnce()
+    expect(pane.bookRun.status).toBe('understanding')
     expect(pane.bookRun.finished).toBe(0)
-    expect(await saved()).toEqual({ [FLOW_ID]: { status: 'running' } })
+    expect(await saved()).toMatchObject({
+      [FLOW_ID]: { v: 2, status: 'running' },
+    })
     second.settle('done')
     await resumed
     expect(pane.bookRun.status).toBe('done')
@@ -513,8 +562,8 @@ describe('whole-book run (ADR 0057)', () => {
     const resetAt = pane.bookRun.resetAt!
     expect(resetAt).toBeGreaterThanOrEqual(before + 60_000)
     expect(pane.runningBooks).toEqual([])
-    expect(await saved()).toEqual({
-      [FLOW_ID]: { status: 'paused-limit', resetAt },
+    expect(await saved()).toMatchObject({
+      [FLOW_ID]: { v: 2, status: 'paused-limit', resetAt },
     })
 
     expect(bookRuns.created).toHaveLength(1) // Never auto-resume.
@@ -536,12 +585,16 @@ describe('whole-book run (ADR 0057)', () => {
     expect(bookRuns.created[0]!.pause).toHaveBeenCalledOnce()
     expect(pane.bookRun.status).toBe('idle')
     await flush()
-    expect(await saved()).toEqual({ [FLOW_ID]: { status: 'running' } })
+    expect(await saved()).toMatchObject({
+      [FLOW_ID]: { v: 2, status: 'running' },
+    })
     expect(pane.runningBooks).toEqual([FLOW_ID])
 
     await activate(tab())
     await flush()
     expect(bookRuns.created).toHaveLength(2)
+    // ADR 0064: the closed book's run belongs to another setup, so it is never waited for.
+    expect(bookRuns.created[1]!.start).toHaveBeenCalledOnce()
     expect(pane.bookRun.status).toBe('understanding')
   })
 
@@ -555,7 +608,9 @@ describe('whole-book run (ADR 0057)', () => {
     expect(bookRuns.created[0]!.pause).toHaveBeenCalledOnce()
     expect(pane.bookRun.status).toBe('paused')
     await flush()
-    expect(await saved()).toEqual({ [FLOW_ID]: { status: 'running' } })
+    expect(await saved()).toMatchObject({
+      [FLOW_ID]: { v: 2, status: 'running' },
+    })
     expect(pane.runningBooks).toEqual([FLOW_ID])
     bookRuns.created[0]!.settle('paused')
     nav.onLine = true
@@ -642,7 +697,9 @@ describe('whole-book run (ADR 0057)', () => {
       'ChatGPT needs you to sign in again. Sign in, then resume.',
     )
     expect(pane.runningBooks).toEqual([])
-    expect(await saved()).toEqual({ [FLOW_ID]: { status: 'paused' } })
+    expect(await saved()).toMatchObject({
+      [FLOW_ID]: { v: 2, status: 'paused' },
+    })
   })
 
   it('never starts a dwell with the pane closed, and sets the section up on reopening', async () => {
@@ -660,5 +717,409 @@ describe('whole-book run (ADR 0057)', () => {
     paneOpened()
     await publish(sectionId)
     expect(pane.status).toBe('waiting')
+  })
+})
+
+describe('resumable whole-book runs (ADR 0064)', () => {
+  const FLOW_ID = 'flow-book'
+  const IDS = ['s2', 's3', 's4']
+  const flush = async () => {
+    for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0))
+  }
+  const tab = () => ({
+    book: { id: FLOW_ID },
+    epub: {} as Book,
+    rendition: {} as BridgeRendition,
+  })
+  const settings = async () => (await getRepos()).settings
+  const saved = async () =>
+    ((await (await settings()).get('bookRuns')) ?? {}) as Record<
+      string,
+      Record<string, unknown>
+    >
+  const save = async (record: unknown) =>
+    (await settings()).set('bookRuns', { [FLOW_ID]: record })
+  let bookId: string
+  /** The book's first target (`make.sectionNode`, ordinal 1), then s2, s3, s4. */
+  let first: string
+  const publish = async (id: string | null) => {
+    const calls = bridge.onLocationChange.mock.calls as unknown as [
+      (l: unknown) => void,
+    ][]
+    calls.at(-1)![0]({ bookId, cfi: 'epubcfi(/6/2!/4/2)', sectionId: id })
+    await flush()
+  }
+
+  beforeEach(async () => {
+    vi.stubGlobal('navigator', { storage: {}, onLine: true })
+    bookId = await makeBookId(new Uint8Array())
+    const repos = await getRepos()
+    first = (await repos.sections.listByBook(bookId))[0]!.sectionId
+    await repos.sections.bulkPut(
+      IDS.map((sectionId, i) =>
+        make.sectionNode({ bookId, sectionId, ordinal: i + 2 }),
+      ),
+    )
+    await (await settings()).delete('bookRuns')
+    pane.open = true
+  })
+  afterEach(async () => {
+    deactivate()
+    for (const r of bookRuns.created) r.settle('paused')
+    bookRuns.created.length = 0
+    for (const id of Object.keys(cacheStates)) delete cacheStates[id]
+    cacheHold.promise = null
+    pane.preferences.flags = { ...pane.preferences.flags, wholeBook: true }
+    const repos = await getRepos()
+    for (const id of IDS) await repos.sections.delete(id)
+    vi.useRealTimers()
+    await flush()
+  })
+
+  it('after a reload the bar shows the real count, map and cursor from the cache and the saved record', async () => {
+    cacheStates[first] = 'cached'
+    cacheStates.s2 = 'no-visual'
+    cacheStates.s3 = 'partial'
+    await save({
+      v: 2,
+      status: 'paused',
+      cursor: 's3',
+      startedAt: 5,
+      failed: ['s4'],
+      failedItems: 2,
+    })
+    await activate(tab())
+    await flush()
+    expect(bookRuns.created).toHaveLength(0)
+    expect(pane.bookRun).toMatchObject({
+      status: 'paused',
+      total: 4,
+      finished: 3,
+      cachedCount: 2,
+      noVisual: 1,
+      failedItems: 2,
+      cursor: 's3',
+      startedAt: 5,
+      sections: {
+        [first]: 'cached',
+        s2: 'no-visual',
+        s3: 'pending',
+        s4: 'failed',
+      },
+      preparing: null,
+    })
+    expect(bookRunText(pane.bookRun)).toBe('Paused at 3 / 4')
+  })
+
+  it('reads a version 1 record and shows cached sections, never 0', async () => {
+    cacheStates[first] = 'cached'
+    cacheStates.s3 = 'cached'
+    await save({ status: 'paused' })
+    await activate(tab())
+    await flush()
+    expect(pane.bookRun).toMatchObject({
+      status: 'paused',
+      finished: 2,
+      cursor: null,
+    })
+  })
+
+  it("resumes from the saved cursor, not the reader's section; a new run starts at the reader", async () => {
+    await save({ v: 2, status: 'paused', cursor: 's3', startedAt: 5 })
+    await activate(tab())
+    await publish(first)
+    void resumeBookRun()
+    await flush()
+    expect(bookRuns.created[0]!.deps.startAt).toBe('s3')
+    expect(pane.bookRun.startedAt).toBe(5)
+    expect((await saved())[FLOW_ID]).toMatchObject({
+      status: 'running',
+      cursor: 's3',
+      startedAt: 5,
+    })
+    // The run's progress moves the saved cursor.
+    bookRuns.created[0]!.deps.onProgress!({
+      status: 'illustrating',
+      total: 4,
+      finished: 2,
+      noVisual: 0,
+      failedItems: 1,
+      inProgress: ['s4'],
+      sections: {
+        [first]: 'pending',
+        s2: 'pending',
+        s3: 'failed',
+        s4: 'running',
+      },
+      cursor: 's4',
+      startedAt: 10,
+      sessionDone: 1,
+    })
+    await flush()
+    expect((await saved())[FLOW_ID]).toMatchObject({
+      status: 'running',
+      cursor: 's4',
+      failed: ['s3'],
+      failedItems: 1,
+    })
+    expect(pane.bookRun.session).toEqual({
+      startedAt: 10,
+      done: 1,
+      avgSectionMs: null,
+    })
+    bookRuns.created[0]!.settle('done', { finished: 4, total: 4 })
+    await flush()
+    expect(await saved()).toEqual({})
+
+    // No record any more: a new run starts where the reader is.
+    await publish('s2')
+    void startBookRun()
+    await flush()
+    expect(bookRuns.created[1]!.deps.startAt).toBe('s2')
+  })
+
+  it('a saved running run resumes from its cursor when the book opens', async () => {
+    cacheStates[first] = 'cached'
+    await save({ v: 2, status: 'running', cursor: 's4', startedAt: 7 })
+    await activate(tab())
+    await flush()
+    expect(bookRuns.created).toHaveLength(1)
+    expect(bookRuns.created[0]!.deps.startAt).toBe('s4')
+    expect(pane.bookRun).toMatchObject({ status: 'understanding', finished: 1 })
+  })
+
+  it('shows the preparing step, then an error with a retry instead of preparing forever', async () => {
+    files.get.mockResolvedValueOnce(undefined)
+    const opening = activate(tab())
+    expect(pane.bookRun.status).toBe('preparing')
+    expect(pane.bookRun.preparing).toEqual({ label: 'Opening the book' })
+    await opening
+    expect(pane.bookRun.status).toBe('error')
+    expect(pane.bookRun.message).toBe(
+      'The EPUB file is unavailable. Re-open it from the library.',
+    )
+    expect(pane.bookRun.preparing).toBeNull()
+    await retryActivate()
+    await flush()
+    expect(pane.bookRun).toMatchObject({ status: 'idle', total: 4 })
+    // Only after a failure.
+    const created = vi.mocked(createPipeline).mock.calls.length
+    await retryActivate()
+    expect(vi.mocked(createPipeline).mock.calls.length).toBe(created)
+  })
+
+  it('a confirm pressed while preparing is queued visibly and shown once ready, however long it takes', async () => {
+    let now = Date.now()
+    vi.spyOn(Date, 'now').mockImplementation(() => now)
+    let release!: () => void
+    files.get.mockImplementationOnce(
+      () =>
+        new Promise((r) => {
+          release = () =>
+            r({ file: { arrayBuffer: async () => new ArrayBuffer(0) } })
+        }),
+    )
+    const opening = activate(tab())
+    await confirmBookRun()
+    expect(pane.bookRun).toMatchObject({
+      status: 'preparing',
+      queued: 'confirm',
+    })
+    expect(bookRunText(pane.bookRun)).toContain('Will start when ready.')
+    now += 5 * 60_000
+    release()
+    await opening
+    await flush()
+    expect(pane.bookRun).toMatchObject({ status: 'confirm', queued: null })
+  })
+
+  it('a start queued before the book is ready resumes a saved paused run once it is', async () => {
+    await save({ v: 2, status: 'paused', cursor: 's2' })
+    let release!: () => void
+    files.get.mockImplementationOnce(
+      () =>
+        new Promise((r) => {
+          release = () =>
+            r({ file: { arrayBuffer: async () => new ArrayBuffer(0) } })
+        }),
+    )
+    const opening = activate(tab())
+    await startBookRun()
+    expect(pane.bookRun.queued).toBe('start')
+    release()
+    await opening
+    await flush()
+    expect(bookRuns.created).toHaveLength(1)
+    expect(bookRuns.created[0]!.deps.startAt).toBe('s2')
+  })
+
+  it('waiting for the previous run is bounded: abort, then go on after STOP_WAIT_MS', async () => {
+    await activate(tab())
+    void startBookRun()
+    await flush()
+    const [stuck] = bookRuns.created
+    pauseBookRun()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    void resumeBookRun()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(pane.bookRun.status).toBe('stopping')
+    expect(stuck!.pause).toHaveBeenCalledTimes(2)
+    const second = bookRuns.created[1]!
+    expect(second.start).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(STOP_WAIT_MS)
+    expect(second.start).toHaveBeenCalledOnce()
+    expect(pane.bookRun.status).toBe('understanding')
+  })
+
+  it('stop ends the run and forgets its record, but keeps every cached visual', async () => {
+    const repos = await getRepos()
+    const plan = make.planRecord({ bookId, sectionId: first })
+    await repos.plans.put(plan)
+    cacheStates[first] = 'cached'
+    await activate(tab())
+    void startBookRun()
+    await flush()
+    expect(pane.runningBooks).toEqual([FLOW_ID])
+    await stopBookRun()
+    expect(bookRuns.created[0]!.pause).toHaveBeenCalledOnce()
+    expect(await saved()).toEqual({})
+    expect(pane.runningBooks).toEqual([])
+    expect(pane.bookRun).toMatchObject({
+      status: 'idle',
+      cursor: null,
+      startedAt: null,
+      finished: 1,
+      cachedCount: 1,
+    })
+    expect(await repos.plans.get(plan.cacheKey)).toEqual(plan)
+    // Pause, unlike stop, keeps the record for Resume.
+    void startBookRun()
+    await flush()
+    pauseBookRun()
+    await flush()
+    expect((await saved())[FLOW_ID]).toMatchObject({ status: 'paused' })
+  })
+
+  /** Keeps the book `preparing` (in its cache check) until the returned function is called. */
+  const holdCacheCheck = () => {
+    let release!: () => void
+    cacheHold.promise = new Promise<void>((r) => (release = r))
+    return () => {
+      cacheHold.promise = null
+      release()
+    }
+  }
+
+  it("a book switch while preparing never writes into the new book's state", async () => {
+    const repos = await getRepos()
+    let release: (() => void) | undefined
+    vi.spyOn(repos.sectionIndex, 'listByBook').mockImplementationOnce(
+      () =>
+        new Promise((r) => {
+          release = () => r([])
+        }),
+    )
+    const opening = activate(tab())
+    await vi.waitFor(() => expect(release).toBeDefined())
+    deactivate() // Another book takes over the pane.
+    pane.estimate = null
+    pane.indexingApproved = false
+    release!()
+    await opening
+    await flush()
+    expect(pane.estimate).toBeNull()
+    expect(pane.indexingApproved).toBe(false)
+    expect(bridge.onLocationChange).not.toHaveBeenCalled()
+  })
+
+  it('wholeBook turned off during the cache check leaves the bar idle, not preparing', async () => {
+    const release = holdCacheCheck()
+    const opening = activate(tab())
+    await vi.waitFor(() =>
+      expect(pane.bookRun.preparing?.label).toBe(
+        'Checking saved illustrations',
+      ),
+    )
+    pane.preferences.flags = { ...pane.preferences.flags, wholeBook: false }
+    release()
+    await opening
+    expect(pane.bookRun).toMatchObject({ status: 'idle', preparing: null })
+  })
+
+  it('wholeBook turned on over an open book prepares it and shows a queued confirm', async () => {
+    cacheStates[first] = 'cached'
+    pane.preferences.flags = { ...pane.preferences.flags, wholeBook: false }
+    await activate(tab())
+    expect(pane.bookRun).toMatchObject({ status: 'idle', total: 0 })
+    await savePreferences({
+      ...pane.preferences,
+      flags: { ...pane.preferences.flags, wholeBook: true },
+    })
+    await flush()
+    expect(pane.bookRun).toMatchObject({
+      status: 'idle',
+      total: 4,
+      finished: 1,
+    })
+    await confirmBookRun()
+    expect(pane.bookRun.status).toBe('confirm')
+  })
+
+  it('stop while preparing forgets a saved running run, so nothing starts once ready', async () => {
+    await save({ v: 2, status: 'running', cursor: 's2' })
+    const release = holdCacheCheck()
+    const opening = activate(tab())
+    await vi.waitFor(() =>
+      expect(pane.bookRun.preparing?.label).toBe(
+        'Checking saved illustrations',
+      ),
+    )
+    await stopBookRun()
+    expect(pane.bookRun.status).toBe('preparing')
+    release()
+    await opening
+    await flush()
+    expect(bookRuns.created).toHaveLength(0)
+    expect(await saved()).toEqual({})
+    expect(pane.bookRun).toMatchObject({ status: 'idle', cursor: null })
+  })
+
+  it("a run of a closed book never delays the next book's run", async () => {
+    await activate(tab())
+    void startBookRun()
+    await flush()
+    deactivate() // The run is paused but its start() never settles.
+    await activate({ ...tab(), book: { id: 'other-book' } })
+    void startBookRun()
+    await flush()
+    expect(bookRuns.created).toHaveLength(2)
+    expect(bookRuns.created[1]!.start).toHaveBeenCalledOnce()
+    expect(pane.bookRun.status).toBe('understanding')
+  })
+
+  it('pause during stopping keeps the run paused once the wait ends', async () => {
+    await activate(tab())
+    void startBookRun()
+    await flush()
+    pauseBookRun()
+    void resumeBookRun()
+    await flush()
+    expect(pane.bookRun.status).toBe('stopping')
+    pauseBookRun()
+    expect(pane.bookRun.status).toBe('paused')
+    bookRuns.created[0]!.settle('paused')
+    await flush()
+    expect(bookRuns.created[1]!.start).not.toHaveBeenCalled()
+    expect(pane.bookRun.status).toBe('paused')
+    expect((await saved())[FLOW_ID]).toMatchObject({ status: 'paused' })
+  })
+
+  it('reindex forgets the concept pass gaps', async () => {
+    await activate(tab())
+    await (await settings()).set(`conceptPass:${bookId}`, { failed: ['x'] })
+    await reindex()
+    expect(
+      await (await settings()).get(`conceptPass:${bookId}`),
+    ).toBeUndefined()
   })
 })
