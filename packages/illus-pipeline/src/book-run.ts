@@ -1,6 +1,8 @@
 // The whole-book run (ADR 0057): the concept pass first, then every section in reading order through
-// the shared section jobs, `BOOK_RUN_SECTIONS` at a time, as background requests. Cache-first jobs make
-// a cached section cost nothing, so resuming simply walks the book again. Pure and DOM-free.
+// the shared section jobs, `BOOK_RUN_SECTIONS` at a time, as background requests. ADR 0064: sections
+// whose current-key plan and visuals are cached count as finished from the first report and are never
+// requested, and the progress carries a per-section map, a cursor to resume from and timing for an ETA.
+// Pure and DOM-free.
 import type { SectionNode } from '@illus/core'
 import type { ConceptPass } from '@illus/concepts'
 
@@ -24,12 +26,25 @@ export type BookRunStatus =
   | 'paused-limit'
   | 'done'
 
+/**
+ * One target section in a run (ADR 0064): `pending` (not reached, or put back by a pause), `running`,
+ * `done` (drawn with at least one model call this session), `cached` (nothing to do: cached before the
+ * run, or the job was served from the cache), `failed` (an item or the plan failed) or `no-visual`.
+ */
+export type SectionRunState =
+  | 'pending'
+  | 'running'
+  | 'done'
+  | 'cached'
+  | 'failed'
+  | 'no-visual'
+
 export interface BookRunProgress {
   /** `paused` before the first `start()`. */
   status: BookRunStatus
   /** Target sections (`bookRunTargets`). */
   total: number
-  /** Target sections whose job reached `done` this run (cached ones count, instantly). */
+  /** Target sections that are not `pending` or `running`: cached ones count from the first report. */
   finished: number
   noVisual: number
   failedItems: number
@@ -44,6 +59,16 @@ export interface BookRunProgress {
    * on a transient error, or the concept pass stopped on an error. Absent when the user paused it.
    */
   stoppedBy?: { code: string; message: string }
+  /** Target section id → its state. Every target has an entry. */
+  sections: Record<string, SectionRunState>
+  /** The first `pending` or `running` section in the run's order: where a resume should start. Absent when none is left. */
+  cursor?: string
+  /** Epoch ms of this `start()` (a session); absent before the first one. */
+  startedAt?: number
+  /** Sections finished in this session that needed a model call (`done`, `failed`, or a fresh `no-visual`). */
+  sessionDone: number
+  /** Mean wall time, request to `done`, of those sections; absent until one finishes. */
+  avgSectionMs?: number
 }
 
 export interface BookRun {
@@ -56,18 +81,25 @@ export interface BookRun {
 }
 
 export interface BookRunDeps {
-  pipeline: Pick<Pipeline, 'requestSection'>
+  /**
+   * `sectionCacheStatus`, when given, is checked at each `start()`: `cached` and `no-visual` sections are
+   * finished at once and never requested (ADR 0064).
+   */
+  pipeline: Pick<Pipeline, 'requestSection'> &
+    Partial<Pick<Pipeline, 'sectionCacheStatus'>>
   /** `pause`, when given, lets `pause()` stop the concept pass too. */
   concepts: Pick<ConceptPass, 'start'> & Partial<Pick<ConceptPass, 'pause'>>
   sections: readonly SectionNode[]
   /**
-   * The section being read (ADR 0057 decision 3): the run takes targets in reading order from it,
-   * then wraps around to the earlier ones. Default: the first section.
+   * Where the run starts (ADR 0057 decision 3, ADR 0064): the run takes targets in reading order from
+   * it, then wraps around to the earlier ones. A resume passes the saved `cursor`; a fresh run the
+   * section being read. Default: the first section.
    */
   startAt?: string
   /** Sections in flight (default `BOOK_RUN_SECTIONS`). */
   concurrency?: number
   onProgress?(p: BookRunProgress): void
+  now?: () => number
 }
 
 /** Sections a run illustrates: not merged into another, with at least one block, in reading order. */
@@ -111,7 +143,10 @@ export function createBookRun(deps: BookRunDeps): BookRun {
     1,
     Math.floor(deps.concurrency ?? BOOK_RUN_SECTIONS),
   )
+  const now = deps.now ?? Date.now
   let state: BookRunProgress = fresh('paused')
+  /** Summed wall time of the `sessionDone` sections. */
+  let sessionMs = 0
   let running: Promise<BookRunProgress> | null = null
   /** Why this run stops taking sections; reset by each `start()`. */
   let halt = newHalt()
@@ -137,15 +172,54 @@ export function createBookRun(deps: BookRunDeps): BookRun {
       noVisual: 0,
       failedItems: 0,
       inProgress: [],
+      sections: Object.fromEntries(
+        targets.map((t) => [t.sectionId, 'pending' as SectionRunState]),
+      ),
+      sessionDone: 0,
     }
   }
 
-  const snapshot = (): BookRunProgress => ({
-    ...state,
-    inProgress: [...state.inProgress],
-    ...(state.indexed && { indexed: { ...state.indexed } }),
-    ...(state.stoppedBy && { stoppedBy: { ...state.stoppedBy } }),
-  })
+  function cursor() {
+    return order.find((t) => {
+      const s = state.sections[t.sectionId]
+      return s === 'pending' || s === 'running'
+    })?.sectionId
+  }
+
+  const snapshot = (): BookRunProgress => {
+    const at = cursor()
+    return {
+      ...state,
+      inProgress: [...state.inProgress],
+      sections: { ...state.sections },
+      ...(at !== undefined && { cursor: at }),
+      ...(state.indexed && { indexed: { ...state.indexed } }),
+      ...(state.stoppedBy && { stoppedBy: { ...state.stoppedBy } }),
+    }
+  }
+
+  /** Marks a section finished, once. */
+  function settle(sectionId: string, to: SectionRunState) {
+    state.sections[sectionId] = to
+    state.finished++
+    if (to === 'no-visual') state.noVisual++
+  }
+
+  /** ADR 0064: sections a default request would serve from the cache now. A failed check skips nothing. */
+  async function markCached() {
+    if (!pipeline.sectionCacheStatus) return
+    let cache: Awaited<ReturnType<NonNullable<Pipeline['sectionCacheStatus']>>>
+    try {
+      cache = await pipeline.sectionCacheStatus(targets.map((t) => t.sectionId))
+    } catch {
+      return
+    }
+    for (const t of targets) {
+      const c = cache.get(t.sectionId)?.state
+      if (c === 'cached' || c === 'no-visual')
+        settle(t.sectionId, c === 'cached' ? 'cached' : 'no-visual')
+    }
+  }
 
   function report() {
     deps.onProgress?.(snapshot())
@@ -171,12 +245,18 @@ export function createBookRun(deps: BookRunDeps): BookRun {
       background: true,
       keepOthers: true,
     })
+    const startedAt = now()
     held.add(h)
     state.inProgress.push(section.sectionId)
+    state.sections[section.sectionId] = 'running'
     report()
     /** Something drew (or the planner said there is nothing to draw): the requests are getting through. */
     let healthy = false
     let transient: { code: string; message: string } | null = null
+    /** ADR 0064: the section needed a model call (anything not served from the cache). */
+    let worked = false
+    let failedHere = false
+    let noVisualHere = false
     // A section that could not plan counts as one failed item; its job still ends with `done`.
     const failed = (e: {
       code: string
@@ -186,23 +266,43 @@ export function createBookRun(deps: BookRunDeps): BookRun {
       if (e.code === 'plan-limit') return hitLimit(e.retryAfterMs)
       if (STOP_CODES.has(e.code)) return hitError(e)
       if (TRANSIENT_CODES.has(e.code)) transient = e
+      worked = true
+      failedHere = true
       state.failedItems++
       report()
     }
     const off = [
+      h.on('plan', ({ fromCache }) => {
+        if (!fromCache) worked = true
+      }),
       h.on('no-visual', () => {
         healthy = true
-        state.noVisual++
-        report()
+        noVisualHere = true
       }),
-      h.on('item-ready', () => {
+      h.on('item-ready', ({ fromCache }) => {
         healthy = true
+        if (!fromCache) worked = true
       }),
       h.on('item-failed', failed),
       h.on('error', failed),
       h.on('done', ({ cancelled }) => {
-        if (!cancelled) {
-          state.finished++
+        if (cancelled) state.sections[section.sectionId] = 'pending'
+        else {
+          settle(
+            section.sectionId,
+            noVisualHere
+              ? 'no-visual'
+              : failedHere
+              ? 'failed'
+              : worked
+              ? 'done'
+              : 'cached',
+          )
+          if (worked) {
+            sessionMs += now() - startedAt
+            state.sessionDone++
+            state.avgSectionMs = sessionMs / state.sessionDone
+          }
           failedInARow = healthy || !transient ? 0 : failedInARow + 1
           if (transient && failedInARow >= MAX_FAILED_IN_A_ROW)
             hitError(transient)
@@ -218,6 +318,8 @@ export function createBookRun(deps: BookRunDeps): BookRun {
     } finally {
       held.delete(h)
       for (const unsubscribe of off) unsubscribe()
+      if (state.sections[section.sectionId] === 'running')
+        state.sections[section.sectionId] = 'pending'
     }
   }
 
@@ -234,6 +336,8 @@ export function createBookRun(deps: BookRunDeps): BookRun {
   ) {
     state.status = status
     state.inProgress = []
+    for (const id of Object.keys(state.sections))
+      if (state.sections[id] === 'running') state.sections[id] = 'pending'
     if (o.retryAfterMs !== undefined) state.retryAfterMs = o.retryAfterMs
     if (o.stoppedBy) state.stoppedBy = o.stoppedBy
     report()
@@ -243,7 +347,12 @@ export function createBookRun(deps: BookRunDeps): BookRun {
   async function run(): Promise<BookRunProgress> {
     halt = newHalt()
     failedInARow = 0
+    sessionMs = 0
     state = fresh('understanding')
+    state.startedAt = now()
+    // The first report already counts what is cached, so a resumed run never shows 0 (ADR 0064).
+    await markCached()
+    if (halt.paused) return finish('paused')
     report()
     try {
       const pass = await concepts.start()
@@ -270,7 +379,7 @@ export function createBookRun(deps: BookRunDeps): BookRun {
 
     state.status = 'illustrating'
     report()
-    const queue = [...order]
+    const queue = order.filter((t) => state.sections[t.sectionId] === 'pending')
     // Every worker settles before the run does, so a later `start()` never overlaps a leftover one.
     const results = await Promise.allSettled(
       Array.from({ length: Math.min(concurrency, queue.length) }, () =>

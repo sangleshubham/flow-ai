@@ -6,10 +6,12 @@ import type {
   SectionJobEvents,
 } from '@illus/pipeline'
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import {
   applyBookRunProgress,
   bindJob,
+  bookRunFromCache,
   bookRunStopMessage,
   createBookRunState,
   createDwell,
@@ -18,6 +20,7 @@ import {
   dwellDelay,
   dwellSecondsLeft,
   evidenceAction,
+  migrateBookRuns,
   migrateDwellMs,
   parseBookRuns,
   parseDwellMs,
@@ -351,6 +354,8 @@ describe('whole-book run state (ADR 0057)', () => {
     noVisual: 1,
     failedItems: 2,
     inProgress: ['a', 'b'],
+    sections: {},
+    sessionDone: 0,
     ...o,
   })
 
@@ -422,8 +427,140 @@ describe('whole-book run state (ADR 0057)', () => {
       ['__proto__']: { status: 'paused' },
     })
     expect(Object.keys(runs).sort()).toEqual(['__proto__', 'a', 'b'])
-    expect(runs.b).toEqual({ status: 'paused-limit', resetAt: 9 })
+    expect(runs.b).toEqual({ v: 2, status: 'paused-limit', resetAt: 9 })
     expect(Object.getPrototypeOf(runs)).toBe(Object.prototype)
+  })
+})
+
+describe('resumable run state (ADR 0064)', () => {
+  const progress = (o: Partial<BookRunProgress> = {}): BookRunProgress => ({
+    status: 'illustrating',
+    total: 4,
+    finished: 2,
+    noVisual: 0,
+    failedItems: 0,
+    inProgress: ['c'],
+    sections: { a: 'cached', b: 'done', c: 'running', d: 'pending' },
+    cursor: 'c',
+    startedAt: 1_000,
+    sessionDone: 1,
+    avgSectionMs: 4_000,
+    ...o,
+  })
+
+  it('maps the per-section map, the cursor and the session timing', () => {
+    const s = createBookRunState()
+    const p = progress()
+    applyBookRunProgress(s, p)
+    expect(s).toMatchObject({
+      sections: { a: 'cached', b: 'done', c: 'running', d: 'pending' },
+      cursor: 'c',
+      session: { startedAt: 1_000, done: 1, avgSectionMs: 4_000 },
+    })
+    expect(s.sections).not.toBe(p.sections)
+    applyBookRunProgress(
+      s,
+      progress({ cursor: undefined, avgSectionMs: undefined, sessionDone: 0 }),
+    )
+    expect(s.cursor).toBeNull()
+    expect(s.session).toEqual({ startedAt: 1_000, done: 0, avgSectionMs: null })
+  })
+
+  it('derives counts from the current-key cache and the saved record, never 0 with cached sections', () => {
+    const s = createBookRunState()
+    bookRunFromCache(s, {
+      targets: ['a', 'b', 'c', 'd', 'e'],
+      cache: new Map([
+        ['a', { state: 'cached' as const }],
+        ['b', { state: 'no-visual' as const }],
+        ['c', { state: 'partial' as const }],
+        ['e', { state: 'missing' as const }],
+      ]),
+      saved: {
+        v: 2,
+        status: 'paused',
+        cursor: 'c',
+        startedAt: 5,
+        failed: ['d', 'a'],
+        failedItems: 3,
+      },
+    })
+    expect(s).toMatchObject({
+      total: 5,
+      finished: 3,
+      cachedCount: 2,
+      noVisual: 1,
+      failedItems: 3,
+      cursor: 'c',
+      startedAt: 5,
+      sections: {
+        a: 'cached',
+        b: 'no-visual',
+        c: 'pending',
+        d: 'failed',
+        e: 'pending',
+      },
+    })
+    // A cursor that is no longer a target is ignored; no record means no run.
+    bookRunFromCache(s, {
+      targets: ['a'],
+      cache: new Map(),
+      saved: { v: 2, status: 'paused', cursor: 'gone' },
+    })
+    expect(s).toMatchObject({ cursor: null, finished: 0, failedItems: 0 })
+    bookRunFromCache(s, { targets: ['a'], cache: new Map(), saved: null })
+    expect(s.startedAt).toBeNull()
+  })
+
+  it('migrates version 1 records on read and reports it without writing (dry run)', () => {
+    const stored = {
+      old: { status: 'running' },
+      limit: { status: 'paused-limit', resetAt: 9 },
+      cur: {
+        v: 2,
+        status: 'paused',
+        cursor: 's3',
+        startedAt: 1,
+        failed: ['x'],
+      },
+      future: { v: 3, status: 'paused' },
+      bad: { v: 2, status: 'paused', cursor: 4 },
+    }
+    const before = structuredClone(stored)
+    const r = migrateBookRuns(stored)
+    expect(stored).toEqual(before)
+    expect(r.migrated.sort()).toEqual(['limit', 'old'])
+    expect(r.dropped.sort()).toEqual(['bad', 'future'])
+    expect(r.runs).toEqual({
+      old: { v: 2, status: 'running' },
+      limit: { v: 2, status: 'paused-limit', resetAt: 9 },
+      cur: {
+        v: 2,
+        status: 'paused',
+        cursor: 's3',
+        startedAt: 1,
+        failed: ['x'],
+      },
+    })
+    expect(parseBookRuns(stored)).toEqual(r.runs)
+  })
+
+  it('rollback: the schema of builds before ADR 0064 still reads a version 2 record', () => {
+    const previous = z.object({
+      status: z.enum(['running', 'paused', 'paused-limit']),
+      resetAt: z.number().optional(),
+    })
+    expect(
+      previous.parse({
+        v: 2,
+        status: 'paused-limit',
+        resetAt: 7,
+        cursor: 's3',
+        startedAt: 1,
+        failed: ['x'],
+        failedItems: 1,
+      }),
+    ).toEqual({ status: 'paused-limit', resetAt: 7 })
   })
 })
 

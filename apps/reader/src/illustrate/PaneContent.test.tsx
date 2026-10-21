@@ -32,6 +32,7 @@ const commands = (): PaneCommands => ({
   bookCancel: vi.fn(),
   bookPause: vi.fn(),
   bookResume: vi.fn(),
+  bookRetry: vi.fn(),
 })
 describe('every Illustrate pane state', () => {
   it('labels the fallback as a local pause and explains that Retry checks again', () => {
@@ -405,6 +406,60 @@ describe('whole-book bar (ADR 0057)', () => {
       s.bookRun.total = 0
     })
     expect(within(region()).getByText('Preparing the book…')).toBeDefined()
+  })
+  it('preparing: names the step with its progress and queues a press visibly (ADR 0064)', () => {
+    const c = bar((s) => {
+      s.bookRun.status = 'preparing'
+      s.bookRun.preparing = { label: 'Indexing the book', done: 3, total: 10 }
+    })
+    expect(
+      within(region()).getByText(
+        'Preparing the book: Indexing the book 3 / 10…',
+      ),
+    ).toBeDefined()
+    press('Illustrate whole book')
+    expect(c.bookConfirm).toHaveBeenCalledOnce()
+    cleanup()
+    bar((s) => {
+      s.bookRun.status = 'preparing'
+      s.bookRun.preparing = { label: 'Opening the book' }
+      s.bookRun.queued = 'confirm'
+    })
+    expect(
+      within(region()).getByText(
+        'Preparing the book: Opening the book… Will start when ready.',
+      ),
+    ).toBeDefined()
+    expect(
+      within(region()).queryByRole('button', { name: 'Illustrate whole book' }),
+    ).toBeNull()
+  })
+  it('stopping and error have their own text; an error shows why and retries (ADR 0064)', () => {
+    let c = bar((s) => {
+      s.bookRun.status = 'stopping'
+    })
+    expect(
+      within(region()).getByText('Stopping the previous run…'),
+    ).toBeDefined()
+    press('Pause')
+    expect(c.bookPause).toHaveBeenCalledOnce()
+    cleanup()
+    c = bar((s) => {
+      s.bookRun.status = 'error'
+      s.bookRun.message = 'The EPUB file is unavailable.'
+    })
+    press('Retry')
+    expect(c.bookRetry).toHaveBeenCalledOnce()
+    expect(
+      within(region()).getByText('The book could not be prepared.', {
+        exact: false,
+      }),
+    ).toBeDefined()
+    expect(
+      within(region()).getByText('The EPUB file is unavailable.', {
+        exact: false,
+      }),
+    ).toBeDefined()
   })
   it('idle: the button is disabled offline and when signed out with sign-in configured', () => {
     const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)

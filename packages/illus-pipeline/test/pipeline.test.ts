@@ -12,7 +12,7 @@ import { make } from '@illus/core/testing'
 import { DEFAULT_MODELS, resolveRoute } from '@illus/llm'
 import { describe, expect, test, vi } from 'vitest'
 
-import { createLimiter, reportBlock } from '../src/index.ts'
+import { createLimiter, overrideKind, reportBlock } from '../src/index.ts'
 import type { PipelineDeps, ReviewHook, SectionJob } from '../src/index.ts'
 import {
   CHAPTER_ID,
@@ -1817,5 +1817,238 @@ describe('shared jobs (ADR 0057)', () => {
         retryAfterMs: 60_000,
       },
     ])
+  })
+})
+
+describe('sectionCacheStatus and cachedSection (ADR 0064)', () => {
+  const drawing = () =>
+    fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphSource(),
+      }),
+    )
+  const versions = (over: Partial<Record<Call['role'], string>>) => ({
+    get: (role: Call['role']) => ({
+      version: over[role] ?? '1.0.0',
+      budgetTokens: 12_000,
+    }),
+  })
+
+  test('reports cached, no-visual and missing sections with the current-key plan and visuals', async () => {
+    const repos = await seededRepos()
+    const llm = fakeLlm(
+      byRole({
+        planner: (c) =>
+          c.opts.sectionId === CHAPTER_ID
+            ? plan({ needsVisual: false, reason: 'Intro.', items: [] })
+            : plan(),
+        'extractor.graph': () => make.graphSource(),
+      }),
+    )
+    const pipeline = pipelineWith(repos, llm)
+    const drawn = await collect(pipeline.requestSection(L))
+    await collect(pipeline.requestSection(CHAPTER_ID))
+    const status = await pipeline.sectionCacheStatus([L, CHAPTER_ID, C, 'nope'])
+    expect(status.get(L)).toMatchObject({
+      state: 'cached',
+      sectionId: L,
+      plan: drawn.of('plan')[0]!.record,
+      visuals: [drawn.of('item-ready')[0]!.record],
+    })
+    expect(status.get(CHAPTER_ID)).toMatchObject({ state: 'no-visual' })
+    expect(status.get(C)).toMatchObject({ state: 'missing', visuals: [] })
+    expect(status.get('nope')).toEqual({ state: 'missing', visuals: [] })
+  })
+
+  test('stale records (another prompt version or flag set) are not current; a missing visual is partial', async () => {
+    const repos = await seededRepos()
+    await collect(pipelineWith(repos, drawing()).requestSection(L))
+    const none = fakeLlm(() => {
+      throw new Error('no model call expected')
+    })
+    const planner2 = pipelineWith(repos, none, {
+      prompts: versions({ planner: '2.0.0' }),
+    })
+    expect((await planner2.sectionCacheStatus([L])).get(L)).toEqual({
+      state: 'missing',
+      sectionId: L,
+      visuals: [],
+    })
+    const extractor2 = pipelineWith(repos, none, {
+      prompts: versions({ 'extractor.graph': '2.0.0' }),
+    })
+    const partial = (await extractor2.sectionCacheStatus([L])).get(L)!
+    expect(partial.state).toBe('partial')
+    expect(partial.plan).toBeDefined()
+    expect(partial.visuals).toEqual([])
+    const templatesOn = pipelineWith(repos, none, {
+      flags: flagsOff({ templates: true }),
+    })
+    expect((await templatesOn.sectionCacheStatus([L])).get(L)!.state).toBe(
+      'missing',
+    )
+    expect(none.calls).toHaveLength(0)
+  })
+
+  test('a visual stored under the escalated-route key still counts (ADR 0060)', async () => {
+    const repos = await seededRepos()
+    const first = await collect(
+      pipelineWith(repos, drawing()).requestSection(L),
+    )
+    const planRecord = first.of('plan')[0]!.record
+    const record = first.of('item-ready')[0]!.record
+    const deep = resolveRoute(DEFAULT_MODELS, 'extractor.graph', true).chain[0]!
+    const legacyKey = await visualKey({
+      planKey: planRecord.cacheKey,
+      planItem: planRecord.plan.items[0]!,
+      extractor: { promptVersion: '1.0.0', ...deep },
+      compilerVersion: COMPILER_VERSION,
+    })
+    await repos.visuals.delete(record.cacheKey)
+    await repos.visuals.put({ ...record, cacheKey: legacyKey })
+    const status = await pipelineWith(repos, drawing()).sectionCacheStatus([L])
+    expect(status.get(L)).toMatchObject({
+      state: 'cached',
+      visuals: [{ cacheKey: legacyKey }],
+    })
+  })
+
+  test('resolves merged sections and batches its reads for many sections', async () => {
+    const repos = await seededRepos()
+    await collect(pipelineWith(repos, drawing()).requestSection(L))
+    await repos.sections.put({
+      ...(await repos.sections.get(C))!,
+      mergedInto: L,
+    })
+    const pipeline = pipelineWith(repos, drawing())
+    const spies = {
+      planGet: vi.spyOn(repos.plans, 'get'),
+      visualGet: vi.spyOn(repos.visuals, 'get'),
+      planBulk: vi.spyOn(repos.plans, 'bulkGet'),
+      visualBulk: vi.spyOn(repos.visuals, 'bulkGet'),
+    }
+    const ids = [
+      C,
+      L,
+      CHAPTER_ID,
+      ...Array.from({ length: 50 }, (_, i) => `x${i}`),
+    ]
+    const status = await pipeline.sectionCacheStatus(ids)
+    expect(status.get(C)).toMatchObject({ state: 'cached', sectionId: L })
+    expect(status.get(L)!.state).toBe('cached')
+    expect(spies.planGet).not.toHaveBeenCalled()
+    expect(spies.visualGet).not.toHaveBeenCalled()
+    expect(spies.planBulk).toHaveBeenCalledOnce()
+    expect(spies.visualBulk).toHaveBeenCalledOnce()
+  })
+
+  test('cachedSection returns the current plan with its default, regenerated and kind-override visuals, never stale ones', async () => {
+    const repos = await seededRepos()
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphSource(),
+        'extractor.timeline': () => make.timelineIR(),
+      }),
+    )
+    const pipeline = pipelineWith(repos, llm)
+    const base = await collect(pipeline.requestSection(L))
+    const regenerated = await collect(
+      pipeline.requestSection(L, { instruction: 'Fewer nodes' }),
+    )
+    const overridden = await collect(
+      pipeline.requestSection(L, { kindOverride: 'timeline' }),
+    )
+    const stale = {
+      ...base.of('item-ready')[0]!.record,
+      cacheKey: 'stale-key',
+      createdAt: 1,
+    }
+    await repos.visuals.put(stale)
+    const r = await pipeline.cachedSection(L)
+    expect(r.status.state).toBe('cached')
+    expect(r.status.plan).toEqual(base.of('plan')[0]!.record)
+    expect(r.records.map((x) => x.cacheKey).sort()).toEqual(
+      [
+        base.of('item-ready')[0]!.record.cacheKey,
+        regenerated.of('item-ready')[0]!.record.cacheKey,
+        overridden.of('item-ready')[0]!.record.cacheKey,
+      ].sort(),
+    )
+    // Nothing is current once the plan's key changes.
+    const other = pipelineWith(repos, llm, {
+      prompts: versions({ planner: '2.0.0' }),
+    })
+    expect(await other.cachedSection(L)).toEqual({
+      status: { state: 'missing', sectionId: L, visuals: [] },
+      records: [],
+    })
+  })
+})
+
+describe('cachedSection kind overrides (ADR 0064)', () => {
+  test('a kind-override record stored under another kind (trace that fell back to timeline) is still current', async () => {
+    const repos = await seededRepos()
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphSource(),
+      }),
+    )
+    const pipeline = pipelineWith(repos, llm)
+    const base = await collect(pipeline.requestSection(L))
+    const planRecord = base.of('plan')[0]!.record
+    const drawn = base.of('item-ready')[0]!.record
+    const item = planRecord.plan.items[0]!
+    // A trace override whose route fell back to a timeline: keyed by the trace request, stored as timeline.
+    const translator = resolveRoute(DEFAULT_MODELS, 'translator').chain[0]!
+    const fallback = {
+      ...drawn,
+      cacheKey: await visualKey({
+        planKey: planRecord.cacheKey,
+        planItem: overrideKind(item, 'trace'),
+        extractor: { promptVersion: '1.0.0', ...translator },
+        compilerVersion: COMPILER_VERSION,
+      }),
+      kind: 'timeline' as const,
+      ir: make.timelineIR(),
+      createdAt: drawn.createdAt + 1,
+    }
+    await repos.visuals.put(fallback)
+    const r = await pipeline.cachedSection(L)
+    expect(r.records.map((x) => x.cacheKey).sort()).toEqual(
+      [drawn.cacheKey, fallback.cacheKey].sort(),
+    )
+  })
+})
+
+describe('index wait (ADR 0064)', () => {
+  test('a cancelled job stops waiting for indexNow at once instead of after INDEX_WAIT_MS', async () => {
+    const repos = await seededRepos()
+    await repos.sectionIndex.delete(L)
+    const llm = fakeLlm(
+      byRole({
+        planner: () => plan(),
+        'extractor.graph': () => make.graphSource(),
+      }),
+    )
+    const asked: string[] = []
+    const pipeline = pipelineWith(repos, llm, {
+      maxSections: 1,
+      concepts: { indexNow: (id) => (asked.push(id), new Promise(() => {})) },
+    })
+    const job = pipeline.requestSection(L)
+    const r = collect(job)
+    await vi.waitFor(() => expect(asked).toEqual([L]))
+    const started = Date.now()
+    job.cancel()
+    await r
+    expect(Date.now() - started).toBeLessThan(1_000)
+    expect(llm.calls).toHaveLength(0)
+    // Its section slot is free again: the next foreground section plans.
+    const next = await collect(pipeline.requestSection(C))
+    expect(next.of('plan')).toHaveLength(1)
+    expect(llm.calls[0]!.role).toBe('planner')
   })
 })

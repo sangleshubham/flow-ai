@@ -10,7 +10,9 @@ import type {
   BookRunProgress,
   ItemStage,
   ReviewHook,
+  SectionCacheState,
   SectionJob,
+  SectionRunState,
 } from '@illus/pipeline'
 import { proxy } from 'valtio'
 import { z } from 'zod'
@@ -98,15 +100,35 @@ export function createDwell() {
     cancel,
   }
 }
-/** The whole-book run as the pane shows it (ADR 0057). `confirm` is the card before it starts. */
+/**
+ * The whole-book run as the pane shows it (ADR 0057, ADR 0064). `preparing`: the book is being opened,
+ * indexed and its cache counted (see `preparing`). `confirm` is the card before a run starts.
+ * `stopping`: a new run waits (bounded) for the previous one to settle. `error`: the book could not be
+ * prepared; `message` says why and the runtime's `retryActivate` tries again.
+ */
 export type BookRunUiStatus =
+  | 'preparing'
   | 'idle'
   | 'confirm'
+  | 'stopping'
   | 'understanding'
   | 'illustrating'
   | 'paused'
   | 'paused-limit'
   | 'done'
+  | 'error'
+/**
+ * The state contract for the whole-book UI (ADR 0064). Counts are always real: after a reload they
+ * are derived from the current-key cache and the saved record, so `finished` is never 0 while
+ * sections are cached.
+ *
+ * - `sections`: target section id → `SectionRunState` (`pending`, `running`, `done`, `cached`,
+ *   `failed`, `no-visual`); empty until the book is prepared.
+ * - `finished`: sections not `pending`/`running`; `total`: target sections.
+ * - `cursor`: where Resume continues (the first unfinished section in the run's order), else null.
+ * - ETA: `session.avgSectionMs` × sections still `pending` ÷ `BOOK_RUN_SECTIONS` in flight; `session`
+ *   is this page load's run (cached sections excluded from `done` and the mean).
+ */
 export interface BookRunState {
   status: BookRunUiStatus
   /** Target sections (`bookRunTargets`). */
@@ -116,7 +138,7 @@ export interface BookRunState {
   failedItems: number
   /** Section ids. */
   inProgress: string[]
-  /** Sections with a saved plan, counted when the book activates and after the run. */
+  /** Sections whose current-key plan and visuals are cached, or that have nothing to draw. */
   cachedCount: number
   /** Requests, while `confirm`. */
   estimate: number | null
@@ -124,8 +146,24 @@ export interface BookRunState {
   resetAt: number | null
   /** Concept-pass progress while `understanding`. */
   indexed: { indexed: number; total: number } | null
-  /** Why the run stopped or cannot resume yet; empty otherwise. */
+  /** Why the run stopped, cannot resume yet, or (with `error`) why the book could not be prepared. */
   message: string
+  /** While `preparing`: the current step, with done/total when known. */
+  preparing: { label: string; done?: number; total?: number } | null
+  /** A confirm or start pressed before the book was ready; it happens once the book is ready. */
+  queued: 'confirm' | 'start' | null
+  /** Target section id → its state in the run (see above). */
+  sections: Record<string, SectionRunState>
+  /** The section Resume continues from; null without a saved run or once every section is finished. */
+  cursor: string | null
+  /** Epoch ms the saved run was first started (kept across reloads); null without one. */
+  startedAt: number | null
+  /** This page load's run: when it started, sections it finished with model calls, their mean time. */
+  session: {
+    startedAt: number
+    done: number
+    avgSectionMs: number | null
+  } | null
 }
 export const createBookRunState = (): BookRunState => ({
   status: 'idle',
@@ -139,6 +177,12 @@ export const createBookRunState = (): BookRunState => ({
   resetAt: null,
   indexed: null,
   message: '',
+  preparing: null,
+  queued: null,
+  sections: {},
+  cursor: null,
+  startedAt: null,
+  session: null,
 })
 /** Maps the run's progress onto the pane. `resetAt` is the runtime's (it asks the gateway). */
 export function applyBookRunProgress(
@@ -151,11 +195,65 @@ export function applyBookRunProgress(
   state.noVisual = p.noVisual
   state.failedItems = p.failedItems
   state.inProgress = [...p.inProgress]
+  state.sections = { ...p.sections }
+  state.cursor = p.cursor ?? null
+  if (p.startedAt !== undefined)
+    state.session = {
+      startedAt: p.startedAt,
+      done: p.sessionDone,
+      avgSectionMs: p.avgSectionMs ?? null,
+    }
   if (p.indexed) state.indexed = { ...p.indexed }
   state.estimate = null
   if (p.status !== 'paused-limit') state.resetAt = null
   if (p.status === 'understanding' || p.status === 'illustrating')
     state.message = ''
+}
+/**
+ * ADR 0064: counts and the per-section map from the cache (current keys only) and the saved record,
+ * when the book opens or a run is stopped. Sections the saved run recorded as failed stay `failed`
+ * until they are cached.
+ */
+export function bookRunFromCache(
+  state: BookRunState,
+  o: {
+    targets: readonly string[]
+    cache: ReadonlyMap<string, { state: SectionCacheState }>
+    saved: PersistedBookRun | null
+  },
+): void {
+  const failed = new Set(o.saved?.failed ?? [])
+  const sections: Record<string, SectionRunState> = {}
+  let cached = 0
+  let noVisual = 0
+  let finished = 0
+  for (const id of o.targets) {
+    const c = o.cache.get(id)?.state
+    const s: SectionRunState =
+      c === 'cached'
+        ? 'cached'
+        : c === 'no-visual'
+        ? 'no-visual'
+        : failed.has(id)
+        ? 'failed'
+        : 'pending'
+    sections[id] = s
+    if (s === 'cached') cached++
+    if (s === 'no-visual') noVisual++
+    if (s !== 'pending') finished++
+  }
+  state.total = o.targets.length
+  state.sections = sections
+  state.cachedCount = cached + noVisual
+  state.noVisual = noVisual
+  state.finished = finished
+  state.inProgress = []
+  state.failedItems = o.saved?.failedItems ?? 0
+  state.cursor =
+    o.saved?.cursor && o.targets.includes(o.saved.cursor)
+      ? o.saved.cursor
+      : null
+  state.startedAt = o.saved?.startedAt ?? null
 }
 /** Why a run paused itself, for the bar (ADR 0057). Without a reason, the concept pass was stopped. */
 export function bookRunStopMessage(stoppedBy?: {
@@ -168,24 +266,77 @@ export function bookRunStopMessage(stoppedBy?: {
     return 'ChatGPT needs you to sign in again. Sign in, then resume.'
   return `Paused because requests keep failing (${stoppedBy.message}). Resume to try again.`
 }
-/** A book's run as saved in settings `bookRuns` (Flow book id → this). Stored settings are untrusted. */
-export const PersistedBookRun = z.object({
-  status: z.enum(['running', 'paused', 'paused-limit']),
+/** Storage version of a saved run (ADR 0064). Version 1 (no `v`) had only `status` and `resetAt`. */
+export const BOOK_RUN_VERSION = 2
+const SavedStatus = z.enum(['running', 'paused', 'paused-limit'])
+const PersistedBookRunV2 = z.object({
+  v: z.literal(BOOK_RUN_VERSION),
+  status: SavedStatus,
   resetAt: z.number().optional(),
+  /** The section to continue from (`BookRunState.cursor`). */
+  cursor: z.string().min(1).optional(),
+  /** Epoch ms of the run's first start. */
+  startedAt: z.number().optional(),
+  /** Sections the run finished as failed, so a reload shows them; retried on Resume. */
+  failed: z.array(z.string().min(1)).max(100_000).optional(),
+  failedItems: z.number().int().nonnegative().optional(),
 })
-export type PersistedBookRun = z.infer<typeof PersistedBookRun>
+/** Version 1, migrated on read; the next write stores version 2. */
+const PersistedBookRunV1 = z
+  .object({
+    v: z.undefined().optional(),
+    status: SavedStatus,
+    resetAt: z.number().optional(),
+  })
+  .transform(
+    ({ status, resetAt }): z.output<typeof PersistedBookRunV2> => ({
+      v: BOOK_RUN_VERSION,
+      status,
+      ...(resetAt !== undefined && { resetAt }),
+    }),
+  )
+/**
+ * A book's run as saved in settings `bookRuns` (Flow book id → this). Stored settings are untrusted.
+ * Rollback: builds before ADR 0064 parse `{ status, resetAt }` with a non-strict object schema, so they
+ * read version 2 records too (the extra fields are dropped); no down-migration is needed.
+ */
+export const PersistedBookRun = z.union([
+  PersistedBookRunV2,
+  PersistedBookRunV1,
+])
+export type PersistedBookRun = z.output<typeof PersistedBookRunV2>
+/**
+ * Parses settings `bookRuns` and reports what reading it migrates, without writing anything (the dry
+ * run). `migrated`: version 1 entries now read as version 2; `dropped`: malformed entries left out.
+ */
+export function migrateBookRuns(value: unknown): {
+  runs: Record<string, PersistedBookRun>
+  migrated: string[]
+  dropped: string[]
+} {
+  const migrated: string[] = []
+  const dropped: string[] = []
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    return { runs: {}, migrated, dropped }
+  // `fromEntries` defines own properties, so a stored `__proto__` key stays an ordinary entry.
+  const runs = Object.fromEntries(
+    Object.entries(value).flatMap(([id, entry]) => {
+      const parsed = PersistedBookRun.safeParse(entry)
+      if (!parsed.success) {
+        dropped.push(id)
+        return []
+      }
+      if ((entry as { v?: unknown }).v === undefined) migrated.push(id)
+      return [[id, parsed.data] as const]
+    }),
+  )
+  return { runs, migrated, dropped }
+}
 /** Parses settings `bookRuns`, dropping anything malformed (one bad entry never hides the others). */
 export function parseBookRuns(
   value: unknown,
 ): Record<string, PersistedBookRun> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
-  // `fromEntries` defines own properties, so a stored `__proto__` key stays an ordinary entry.
-  return Object.fromEntries(
-    Object.entries(value).flatMap(([id, entry]) => {
-      const parsed = PersistedBookRun.safeParse(entry)
-      return parsed.success ? [[id, parsed.data] as const] : []
-    }),
-  )
+  return migrateBookRuns(value).runs
 }
 
 export interface PaneState {
