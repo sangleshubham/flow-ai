@@ -375,21 +375,27 @@
 .illus-rail {
   position: relative;
   flex-shrink: 0;
-  width: 32px;
+  width: 40px;
   height: 100%;
   padding-top: 8px;
   border-left: 1px solid rgb(var(--md-sys-color-outline-variant));
   background: rgb(var(--md-sys-color-surface));
 }
 .illus-toggle {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
   margin: 0 auto;
-  padding: 12px 4px;
-  writing-mode: vertical-rl;
+  padding: 12px 2px;
   border-radius: 14px;
   background: rgb(var(--md-sys-color-primary-container));
   color: rgb(var(--md-sys-color-on-primary-container));
   font-size: 14px;
+}
+.illus-toggle-label {
+  writing-mode: vertical-rl;
 }
 .illus-settings {
   padding-top: 24px;
@@ -458,85 +464,220 @@
   font-size: 13px;
 }
 
-/* Whole-book run (ADR 0057): a compact bar under the header, and a thin fill on the closed rail. */
+/* Whole-book progress: shared by the pane and Settings. All colours follow the Material theme. */
 .illus-book-run {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px 8px;
-  padding: 6px 16px;
-  font-size: 12px;
-  color: var(--illus-muted);
-  border-bottom: 1px solid var(--illus-line);
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 65%;
+  overflow-y: auto;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgb(var(--md-sys-color-on-surface));
+  background: rgb(var(--md-sys-color-surface));
+  border-bottom: 1px solid rgb(var(--md-sys-color-outline-variant));
 }
 .illus-settings .illus-book-run {
-  padding: 4px 0;
+  max-height: none;
+  padding: 12px 0;
   border-bottom: 0;
-  font-size: 13px;
+}
+.illus-book-run h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
 }
 .illus-book-run p {
-  margin: 0;
+  margin: 4px 0;
   overflow-wrap: anywhere;
 }
-.illus-book-run-status {
-  flex: 1 1 auto;
-  min-width: 0;
+.illus-book-run-status,
+.illus-book-run-count {
+  font-weight: 600;
 }
-.illus-book-run-note {
-  color: var(--illus-fg);
+.illus-book-run-note,
+.illus-book-run-timing {
+  color: rgb(var(--md-sys-color-on-surface-variant));
 }
-.illus-book-run-confirm {
-  flex: 1 1 100%;
-  padding: 8px 10px;
-  color: var(--illus-fg);
-  border: 1px solid var(--illus-line);
-  border-radius: 6px;
+.illus-book-run[data-run='error'] .illus-book-run-status {
+  color: rgb(var(--md-sys-color-error));
 }
-.illus-book-run-confirm p {
-  margin: 0 0 6px;
+.illus-book-run-confirm,
+.illus-book-run-stop {
+  flex-basis: 100%;
+  padding: 8px;
+  border: 1px solid rgb(var(--md-sys-color-outline));
+  border-radius: 8px;
 }
-.illus-book-run-actions {
-  flex: 0 0 auto;
+.illus-book-run-actions,
+.illus-book-run-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
 }
 .illus-book-run progress {
-  flex: 1 1 100%;
+  display: block;
   width: 100%;
-  height: 4px;
+  height: 8px;
+  margin: 10px 0;
   border: 0;
-  border-radius: 2px;
+  border-radius: 4px;
   overflow: hidden;
   appearance: none;
-  background: var(--illus-line);
-  accent-color: var(--illus-accent);
+  background: rgb(var(--md-sys-color-outline-variant));
+  accent-color: rgb(var(--md-sys-color-primary));
 }
 .illus-book-run progress::-webkit-progress-bar {
-  background: var(--illus-line);
+  background: rgb(var(--md-sys-color-outline-variant));
 }
 .illus-book-run progress::-webkit-progress-value {
-  background: var(--illus-accent);
+  background: rgb(var(--md-sys-color-primary));
 }
 .illus-book-run progress::-moz-progress-bar {
-  background: var(--illus-accent);
+  background: rgb(var(--md-sys-color-primary));
 }
 .illus-pane .illus-book-run button,
 .illus-settings .illus-book-run button {
+  min-height: 32px;
   margin: 0;
-  padding: 2px 8px;
-  font-size: 12px;
+  padding: 5px 9px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: rgb(var(--md-sys-color-on-surface));
+  background: rgb(var(--md-sys-color-surface));
+  border: 1px solid rgb(var(--md-sys-color-outline));
+  border-radius: 6px;
 }
-.illus-rail[data-running]::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 3px;
-  height: var(--illus-run-progress, 0%);
+.illus-book-run button:disabled {
+  opacity: 0.6;
+}
+.illus-book-run button:focus-visible,
+.illus-book-run-list:focus-visible {
+  outline: 2px solid rgb(var(--md-sys-color-primary));
+  outline-offset: 2px;
+}
+.illus-book-run button[aria-pressed='true'] {
+  color: rgb(var(--md-sys-color-on-primary-container));
+  background: rgb(var(--md-sys-color-primary-container));
+  border-color: rgb(var(--md-sys-color-primary));
+}
+.illus-book-run-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  padding: 0;
+  margin: 4px 0;
+  list-style: none;
+}
+.illus-book-run [data-status='done'],
+.illus-book-run [data-status='running'] {
+  color: rgb(var(--md-sys-color-primary));
+}
+.illus-book-run [data-status='cached'] {
+  color: rgb(var(--md-sys-color-tertiary));
+}
+.illus-book-run [data-status='failed'] {
+  color: rgb(var(--md-sys-color-error));
+}
+.illus-book-run-sections {
+  margin-top: 10px;
+}
+.illus-book-run-list {
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-top: 8px;
+}
+.illus-book-run-list h4 {
+  margin: 10px 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.illus-book-run-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.illus-pane .illus-book-run-list button {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 0 6px;
+  width: 100%;
+  padding: 7px;
+  text-align: left;
+  border-color: rgb(var(--md-sys-color-outline-variant));
+  color: rgb(var(--md-sys-color-on-surface));
+}
+.illus-book-run-list li + li {
+  margin-top: 4px;
+}
+.illus-run-section-title {
+  overflow-wrap: anywhere;
+}
+.illus-run-section-status {
+  grid-column: 2;
+  font-size: 13px;
+  color: inherit;
+}
+.illus-book-run-list li[data-status='done'] .illus-run-section-status,
+.illus-book-run-list li[data-status='running'] .illus-run-section-status {
+  color: rgb(var(--md-sys-color-primary));
+}
+.illus-book-run-list li[data-status='cached'] .illus-run-section-status {
+  color: rgb(var(--md-sys-color-tertiary));
+}
+.illus-book-run-list li[data-status='failed'] .illus-run-section-status {
+  color: rgb(var(--md-sys-color-error));
+}
+.illus-book-run-list li[data-status='pending'] button > span:first-child {
+  color: rgb(var(--md-sys-color-outline));
+}
+.illus-book-run-list li[data-running] button {
+  border-color: rgb(var(--md-sys-color-primary));
+  background: rgb(var(--md-sys-color-primary-container));
+  color: rgb(var(--md-sys-color-on-primary-container));
+}
+.illus-book-run-list li[data-cursor] button {
+  border-inline-start: 4px solid rgb(var(--md-sys-color-primary));
+}
+.illus-run-spinner {
+  display: inline-block;
+  align-self: start;
+  animation: illus-run-spin 1s linear infinite;
+}
+@keyframes illus-run-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.illus-run-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  writing-mode: horizontal-tb;
+  color: rgb(var(--md-sys-color-on-primary-container));
+}
+.illus-run-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 50%;
   background: rgb(var(--md-sys-color-primary));
-  pointer-events: none;
-  transition: height 0.3s;
+  color: rgb(var(--md-sys-color-on-primary));
+}
+.illus-run-dot[data-kind='error'] {
+  background: rgb(var(--md-sys-color-error));
+  color: rgb(var(--md-sys-color-on-error));
 }
 @media (prefers-reduced-motion: reduce) {
-  .illus-rail[data-running]::after {
-    transition: none;
+  .illus-run-spinner {
+    animation: none;
   }
 }

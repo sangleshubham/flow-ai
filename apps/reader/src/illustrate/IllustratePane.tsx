@@ -4,15 +4,19 @@ import { useSnapshot } from 'valtio'
 import { useSplitViewItem } from '../components/base'
 import { reader, useReaderSnapshot } from '../models'
 
+import { BookRunBadge } from './BookRunPanel'
 import { PaneContent } from './PaneContent'
 import { RecordView } from './RecordView'
+import { bookRunText } from './book-run-view'
 import {
   activate,
+  activeSections,
   approveIndexing,
   cancelBookRunConfirm,
   confirmBookRun,
   deactivate,
   goPrevious,
+  goToSection,
   illustrateSelection,
   loadPreferences,
   networkChanged,
@@ -26,10 +30,15 @@ import {
   retryActivate,
   setPinned,
   startBookRun,
+  stopBookRun,
   togglePane,
 } from './runtime'
 import { pane } from './state'
 import type { PaneState } from './state'
+
+const navigateToSection = (id: string) => {
+  void goToSection(id)
+}
 
 export function IllustratePane() {
   const s = useSnapshot(pane) as unknown as PaneState
@@ -106,49 +115,31 @@ export function IllustratePane() {
   if (!s.open) {
     if (!r.focusedBookTab) return null
     const b = s.bookRun
-    const running =
-      s.preferences.flags.wholeBook &&
-      (b.status === 'understanding' || b.status === 'illustrating')
-    const paused =
-      s.preferences.flags.wholeBook &&
-      (b.status === 'paused' || b.status === 'paused-limit')
-    const label = running
-      ? b.status === 'understanding'
-        ? 'Open Illustrate. Understanding the book'
-        : `Open Illustrate. Illustrating book ${b.finished} of ${b.total}`
-      : paused
-      ? 'Open Illustrate. Book illustration paused'
+    const showRun = !!s.bookId && s.preferences.flags.wholeBook
+    const label = showRun
+      ? `Open Illustrate. ${bookRunText(b)}${b.message ? ` ${b.message}` : ''}`
       : 'Open Illustrate'
     return (
-      <div
-        className="illus-rail"
-        data-running={running || undefined}
-        style={
-          running
-            ? ({
-                '--illus-run-progress': `${
-                  b.total ? Math.min(100, (b.finished / b.total) * 100) : 0
-                }%`,
-              } as React.CSSProperties)
-            : undefined
-        }
-      >
+      <div className="illus-rail">
         <button
           className="illus-toggle"
           onClick={togglePane}
           aria-label={label}
-          title={running || paused ? label : undefined}
+          title={label}
           aria-keyshortcuts="Alt+I"
         >
-          Illustrate
+          <span className="illus-toggle-label">Illustrate</span>
+          {showRun && <BookRunBadge bookRun={b} />}
         </button>
       </div>
     )
   }
+
   return (
     <div className="illus-pane-slot" style={{ width: size }}>
       <PaneContent
         state={s}
+        sections={activeSections()}
         commands={{
           close: togglePane,
           pin: () => {
@@ -181,6 +172,10 @@ export function IllustratePane() {
           bookResume: () => {
             void resumeBookRun()
           },
+          bookStop: () => {
+            void stopBookRun()
+          },
+          goToSection: navigateToSection,
           bookRetry: () => {
             void retryActivate()
           },

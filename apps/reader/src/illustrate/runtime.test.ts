@@ -21,6 +21,7 @@ import {
   confirmBookRun,
   deactivate,
   getRepos,
+  goToSection,
   highlightEvidence,
   loadPreferences,
   networkChanged,
@@ -925,7 +926,9 @@ describe('resumable whole-book runs (ADR 0064)', () => {
       status: 'preparing',
       queued: 'confirm',
     })
-    expect(bookRunText(pane.bookRun)).toContain('Will start when ready.')
+    expect(bookRunText(pane.bookRun)).toContain(
+      'Will start when the book is ready.',
+    )
     now += 5 * 60_000
     release()
     await opening
@@ -1121,5 +1124,29 @@ describe('resumable whole-book runs (ADR 0064)', () => {
     expect(
       await (await settings()).get(`conceptPass:${bookId}`),
     ).toBeUndefined()
+  })
+})
+
+describe('book progress section navigation', () => {
+  it('scrolls the active book to a known section CFI and ignores unknown or inactive targets', async () => {
+    await goToSection('missing')
+    expect(bridge.scrollTo).not.toHaveBeenCalled()
+    await activate({
+      book: { id: 'test' },
+      epub: {} as Book,
+      rendition: {} as BridgeRendition,
+    })
+    const sections = await (
+      await getRepos()
+    ).sections.listByBook(await makeBookId(new Uint8Array()))
+    const section = sections[0]!
+    await goToSection(section.sectionId)
+    expect(bridge.scrollTo).toHaveBeenLastCalledWith(section.cfiStart)
+    bridge.scrollTo.mockClear()
+    await goToSection('missing')
+    expect(bridge.scrollTo).not.toHaveBeenCalled()
+    deactivate()
+    await goToSection(section.sectionId)
+    expect(bridge.scrollTo).not.toHaveBeenCalled()
   })
 })

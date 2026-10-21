@@ -1158,6 +1158,12 @@ export async function reportError() {
   ])
   pane.announcement = 'Report saved on this device.'
 }
+/** Explicit section-list navigation uses the same bridge path as evidence and Previous. */
+export async function goToSection(sectionId: string) {
+  const runtime = active
+  const section = runtime?.sections.find((s) => s.sectionId === sectionId)
+  if (section) await runtime?.bridge.scrollTo(section.cfiStart)
+}
 export async function goPrevious() {
   const section = active?.sections.find(
     (s) => s.sectionId === pane.previousSectionId,
