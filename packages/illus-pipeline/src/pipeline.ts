@@ -228,6 +228,21 @@ export interface SectionCacheStatus {
   visuals: VisualRecord[]
 }
 
+/**
+ * ADR 0065: saved visuals under older keys, shown until the section is regenerated. `missing` (no
+ * current plan): the newest of the section's older plans and, per item, its newest visual. `partial`:
+ * the current plan and, for each enabled item with no current visual, its newest older-key visual.
+ * Only items whose kind is on count. A visual belongs to the newest of its section's plans made at or
+ * before it, and only the plan's own visuals are used, because plan item ids are reused across
+ * planner versions. The records are
+ * in-memory copies with `stale: true`; storage is never written. Empty fallbacks are left out.
+ */
+export interface StaleFallback {
+  plan: PlanRecord
+  /** In the plan's item order, at most one per item. */
+  records: VisualRecord[]
+}
+
 export interface Pipeline {
   requestSection(sectionId: string, opts?: RequestOptions): SectionJob
   /** ADR 0064: cache state per requested id, with batched reads (one `bulkGet` per store and merge level). */
@@ -237,10 +252,16 @@ export interface Pipeline {
   /**
    * ADR 0064: the section's current plan and every saved visual made from it, including "Regenerate
    * with instruction" and kind-override records. Visuals of an older plan or key are left out.
+   * ADR 0065: with `{ stale: true }`, also `stale`, the fallback for what is not current (see
+   * `StaleFallback`). `status` is unchanged by it, so a fallback never counts as cached.
    */
-  cachedSection(sectionId: string): Promise<{
+  cachedSection(
+    sectionId: string,
+    opts?: { stale?: boolean },
+  ): Promise<{
     status: SectionCacheStatus
     records: VisualRecord[]
+    stale?: StaleFallback
   }>
   /** "Illustrate selection" (§8): a synthetic section of the selected blocks, with the parent as path context. */
   requestSelection(
@@ -559,6 +580,34 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       })
     }
     return out
+  }
+
+  /**
+   * ADR 0065: for each of `items`, the newest of `candidates` made from `plan`: at or after it, and
+   * before any later plan of the section. Copies marked `stale`; undefined when there are none.
+   */
+  function staleFallback(
+    plan: PlanRecord,
+    items: readonly PlanItem[],
+    plans: readonly PlanRecord[],
+    candidates: readonly VisualRecord[],
+  ): StaleFallback | undefined {
+    const later = plans.filter(
+      (p) => p.cacheKey !== plan.cacheKey && p.createdAt > plan.createdAt,
+    )
+    const records = items.flatMap((item) => {
+      let best: VisualRecord | undefined
+      for (const r of candidates)
+        if (
+          r.planItemId === item.planItemId &&
+          r.createdAt >= plan.createdAt &&
+          !later.some((p) => p.createdAt <= r.createdAt) &&
+          (!best || r.createdAt > best.createdAt)
+        )
+          best = r
+      return best ? [{ ...best, stale: true }] : []
+    })
+    return records.length ? { plan, records } : undefined
   }
 
   type Listener = (p: never) => void
@@ -1653,10 +1702,34 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
   return {
     sectionCacheStatus,
 
-    async cachedSection(sectionId) {
+    async cachedSection(sectionId, opts = {}) {
       const status = (await sectionCacheStatus([sectionId])).get(sectionId)!
       const record = status.plan
-      if (!record) return { status, records: [] }
+      if (!record) {
+        if (!opts.stale || !status.sectionId) return { status, records: [] }
+        // ADR 0065: the newest older plan, with nothing else of the section mixed in. A failing
+        // fallback read only loses the fallback.
+        try {
+          const section = await repos.sections.get(status.sectionId)
+          if (!section) return { status, records: [] }
+          const [plans, all] = await Promise.all([
+            repos.plans.listBySection(section.bookId, section.sectionId),
+            repos.visuals.listBySection(section.bookId, section.sectionId),
+          ])
+          const newest = plans.reduce<PlanRecord | undefined>(
+            (a, p) => (!a || p.createdAt > a.createdAt ? p : a),
+            undefined,
+          )
+          const flags = flagsNow()
+          const items =
+            newest?.plan.items.filter((i) => kindEnabled(i.kind, flags)) ?? []
+          const fallback =
+            newest?.plan.needsVisual && staleFallback(newest, items, plans, all)
+          return { status, records: [], ...(fallback && { stale: fallback }) }
+        } catch {
+          return { status, records: [] }
+        }
+      }
       const all = await repos.visuals.listBySection(
         record.bookId,
         record.sectionId,
@@ -1694,7 +1767,26 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
           return keys.has(r.cacheKey)
         }),
       )
-      return { status, records: all.filter((_, i) => current[i]) }
+      const records = all.filter((_, i) => current[i])
+      if (!opts.stale || status.state !== 'partial') return { status, records }
+      // ADR 0065: per item, only for enabled items with no current visual. A failing fallback read
+      // never hides the current records.
+      try {
+        const flags = flagsNow()
+        const shown = new Set(records.map((r) => r.planItemId))
+        const items = record.plan.items.filter(
+          (i) => kindEnabled(i.kind, flags) && !shown.has(i.planItemId),
+        )
+        const others = all.filter((_, i) => !current[i])
+        const plans = await repos.plans.listBySection(
+          record.bookId,
+          record.sectionId,
+        )
+        const fallback = staleFallback(record, items, plans, others)
+        return { status, records, ...(fallback && { stale: fallback }) }
+      } catch {
+        return { status, records }
+      }
     },
 
     requestSection(sectionId, opts = {}) {

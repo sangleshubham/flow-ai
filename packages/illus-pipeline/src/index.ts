@@ -25,6 +25,7 @@ export type {
   SectionJob,
   SectionJobEvent,
   SectionJobEvents,
+  StaleFallback,
 } from './pipeline.ts'
 export { createLimiter, limitLlm } from './limiter.ts'
 export type { Limiter, LimiterOptions, Priority } from './limiter.ts'

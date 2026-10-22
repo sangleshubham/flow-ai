@@ -1,4 +1,4 @@
-import { makeBookId } from '@illus/core'
+import { IR, makeBookId } from '@illus/core'
 import { make } from '@illus/core/testing'
 import { httpTransport } from '@illus/llm'
 import { createPipeline } from '@illus/pipeline'
@@ -26,6 +26,7 @@ import {
   networkChanged,
   paneClosed,
   paneOpened,
+  parsedVisual,
   pauseBookRun,
   reindex,
   resumeBookRun,
@@ -33,6 +34,7 @@ import {
   retryActivate,
   retryVisual,
   savePreferences,
+  setPinned,
   startBookRun,
   STOP_WAIT_MS,
   stopBookRun,
@@ -46,7 +48,9 @@ interface FakeBookRun {
   pause: ReturnType<typeof vi.fn>
   settle(status: BookRunProgress['status'], o?: Partial<BookRunProgress>): void
 }
-const { bookRuns, cacheStates, cacheHold } = vi.hoisted(() => ({
+const { bookRuns, cacheStates, cacheHold, cachedResults } = vi.hoisted(() => ({
+  /** A `cachedSection` result per section id, when a test sets one (ADR 0065). */
+  cachedResults: {} as Record<string, unknown>,
   bookRuns: { created: [] as FakeBookRun[] },
   /** While `promise` is set, the cache check waits for it (the book stays `preparing`). */
   cacheHold: { promise: null as Promise<void> | null },
@@ -74,10 +78,13 @@ vi.mock('@illus/pipeline', async (importOriginal) => {
           await cacheHold.promise
           return new Map(ids.map((id) => [id, statusOf(id)]))
         }),
-        cachedSection: vi.fn(async (id: string) => ({
-          status: statusOf(id),
-          records: [],
-        })),
+        cachedSection: vi.fn(
+          async (id: string) =>
+            cachedResults[id] ?? {
+              status: statusOf(id),
+              records: [],
+            },
+        ),
       })
     }),
     createBookRun: vi.fn((deps: BookRunDeps) => {
@@ -1121,5 +1128,202 @@ describe('resumable whole-book runs (ADR 0064)', () => {
     expect(
       await (await settings()).get(`conceptPass:${bookId}`),
     ).toBeUndefined()
+  })
+})
+
+describe('stale fallback (ADR 0065)', () => {
+  const flush = async () => {
+    for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0))
+  }
+  let bookId: string
+  let sectionId: string
+  const publish = async (id: string | null) => {
+    const calls = bridge.onLocationChange.mock.calls as unknown as [
+      (l: unknown) => void,
+    ][]
+    calls.at(-1)![0]({ bookId, cfi: 'epubcfi(/6/2!/4/2)', sectionId: id })
+    await flush()
+  }
+  const stalePlan = () =>
+    make.planRecord({
+      sectionId,
+      plan: make.visualPlan({
+        items: [
+          make.planItem(),
+          make.planItem({ planItemId: 'p2', intent: 'Second', priority: 2 }),
+        ],
+      }),
+    })
+  const staleRecord = (planItemId: string, o = {}) =>
+    make.visualRecord({
+      sectionId,
+      planItemId,
+      cacheKey: `old-${planItemId}`,
+      stale: true,
+      ...o,
+    })
+  const missingWith = (records: ReturnType<typeof staleRecord>[]) => {
+    cachedResults[sectionId] = {
+      status: { state: 'missing', sectionId, visuals: [] },
+      records: [],
+      stale: { plan: stalePlan(), records },
+    }
+  }
+
+  beforeEach(async () => {
+    vi.stubGlobal('navigator', { storage: {}, onLine: true })
+    bookId = await makeBookId(new Uint8Array())
+    sectionId = (await (await getRepos()).sections.listByBook(bookId))[0]!
+      .sectionId
+    pane.open = true
+    pane.preferences.flags = { ...pane.preferences.flags, wholeBook: true }
+  })
+  afterEach(() => {
+    for (const id of Object.keys(cachedResults)) delete cachedResults[id]
+    for (const id of Object.keys(cacheStates)) delete cacheStates[id]
+  })
+  const open = async () => {
+    await activate({
+      book: { id: 'stale-book' },
+      epub: {} as Book,
+      rendition: {} as BridgeRendition,
+    })
+    await flush()
+    await publish(sectionId)
+  }
+
+  it('a section with no current plan shows the stale visuals, still waits for the dwell and is not counted as done', async () => {
+    missingWith([staleRecord('p1'), staleRecord('p2')])
+    await open()
+    expect(pane.records.map((r) => [r.cacheKey, r.stale])).toEqual([
+      ['old-p1', true],
+      ['old-p2', true],
+    ])
+    expect(pane.items.map((i) => i.planItemId)).toEqual(['p1', 'p2'])
+    expect(pane.selectedItem).toBe('p1')
+    // Not current: the dwell runs, so the section is regenerated when the reader stays.
+    expect(pane.status).toBe('waiting')
+    expect(pane.bookRun).toMatchObject({ cachedCount: 0, finished: 0 })
+    expect(pane.bookRun.sections[sectionId]).toBe('pending')
+  })
+
+  it('offline, the stale fallback is shown with the offline state', async () => {
+    vi.stubGlobal('navigator', { storage: {}, onLine: false })
+    missingWith([staleRecord('p1')])
+    await open()
+    expect(pane.status).toBe('offline')
+    expect(pane.records.map((r) => r.cacheKey)).toEqual(['old-p1'])
+  })
+
+  it('skips a stale record whose old IR no longer parses, and its item', async () => {
+    missingWith([
+      staleRecord('p1', { ir: { type: 'graph', nodes: 'not a list' } }),
+      staleRecord('p2'),
+    ])
+    await open()
+    expect(pane.records.map((r) => r.cacheKey)).toEqual(['old-p2'])
+    expect(pane.items.map((i) => i.planItemId)).toEqual(['p2'])
+    expect(pane.selectedItem).toBe('p2')
+  })
+
+  it('parsedVisual fails gracefully instead of throwing on malformed old IR', () => {
+    const ir = {
+      get type(): string {
+        throw new Error('broken record')
+      },
+    }
+    expect(() => IR.safeParse(ir)).toThrow('broken record')
+    const parsed = parsedVisual({ ...staleRecord('p1'), ir })
+    expect(parsed.success).toBe(false)
+    expect(parsedVisual(staleRecord('p1')).success).toBe(true)
+  })
+
+  it('partial: the current plan with its current visuals, and a stale visual only for the missing item', async () => {
+    const plan = stalePlan()
+    const current = make.visualRecord({ sectionId, planItemId: 'p1' })
+    cachedResults[sectionId] = {
+      status: { state: 'partial', sectionId, plan, visuals: [current] },
+      records: [current],
+      stale: { plan, records: [staleRecord('p2')] },
+    }
+    await open()
+    expect(pane.records.map((r) => [r.planItemId, r.stale])).toEqual([
+      ['p1', false],
+      ['p2', true],
+    ])
+    expect(pane.items).toEqual(plan.plan.items)
+    expect(pane.status).toBe('waiting')
+  })
+
+  it('pinning a stale visual saves the pin but never writes the stale mark', async () => {
+    missingWith([staleRecord('p1')])
+    await open()
+    await setPinned(true)
+    const stored = await (await getRepos()).visuals.get('old-p1')
+    expect(stored).toMatchObject({ pinned: true, stale: false })
+    expect(pane.records[0]).toMatchObject({ pinned: true, stale: true })
+    await setPinned(false)
+  })
+})
+
+describe('prepareLater (ADR 0065 follow-ups to ADR 0064)', () => {
+  const flush = async () => {
+    for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0))
+  }
+  const tab = () => ({
+    book: { id: 'prepare-book' },
+    epub: {} as Book,
+    rendition: {} as BridgeRendition,
+  })
+  const setWholeBook = (on: boolean) =>
+    savePreferences({
+      ...pane.preferences,
+      flags: { ...pane.preferences.flags, wholeBook: on },
+    })
+  const statusSpy = () =>
+    vi.mocked(createPipeline).mock.results.at(-1)!.value
+      .sectionCacheStatus as ReturnType<typeof vi.fn>
+  beforeEach(async () => {
+    vi.stubGlobal('navigator', { storage: {}, onLine: true })
+    pane.preferences.flags = { ...pane.preferences.flags, wholeBook: false }
+    await activate(tab())
+  })
+  afterEach(() => {
+    cacheHold.promise = null
+    pane.preferences.flags = { ...pane.preferences.flags, wholeBook: true }
+  })
+
+  it('toggling wholeBook while the cache check runs shares one preparation', async () => {
+    let release!: () => void
+    cacheHold.promise = new Promise<void>((r) => (release = r))
+    await setWholeBook(true)
+    await setWholeBook(false)
+    await setWholeBook(true)
+    expect(statusSpy()).toHaveBeenCalledOnce()
+    cacheHold.promise = null
+    release()
+    await flush()
+    expect(statusSpy()).toHaveBeenCalledOnce()
+    expect(pane.bookRun).toMatchObject({ status: 'idle', total: 1 })
+  })
+
+  it('a failed cache check puts only the bar in error, and Retry prepares it again', async () => {
+    const before = pane.status
+    statusSpy().mockRejectedValueOnce(new Error('disk is busy'))
+    await setWholeBook(true)
+    await flush()
+    expect(pane.bookRun).toMatchObject({
+      status: 'error',
+      message: 'disk is busy',
+      preparing: null,
+    })
+    expect(pane.status).toBe(before)
+    expect(pane.status).not.toBe('error')
+    const created = vi.mocked(createPipeline).mock.calls.length
+    await retryActivate()
+    await flush()
+    expect(pane.bookRun).toMatchObject({ status: 'idle', total: 1 })
+    // The book was not set up again.
+    expect(vi.mocked(createPipeline).mock.calls.length).toBe(created)
   })
 })

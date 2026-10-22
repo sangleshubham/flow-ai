@@ -443,6 +443,13 @@ export function bindJob(
     delete rest[planItemId]
     state.previews = rest
   }
+  /** ADR 0065: a stale fallback visual of this item goes, so it never stands in for the new item. */
+  const dropStale = (planItemId: string) => {
+    if (state.records.some((r) => r.stale && r.planItemId === planItemId))
+      state.records = state.records.filter(
+        (r) => !(r.stale && r.planItemId === planItemId),
+      )
+  }
   const caughtUp = (planItemId: string) => {
     const rest = { ...state.catchingUp }
     delete rest[planItemId]
@@ -463,6 +470,17 @@ export function bindJob(
     job.on(
       'plan',
       guarded(({ plan }) => {
+        // ADR 0065: plan item ids are reused across planner versions. A stale fallback visual stays
+        // only while the fresh plan has the same item (id, intent and kind) it was shown under.
+        const before = new Map(state.items.map((i) => [i.planItemId, i]))
+        state.records = state.records.filter((r) => {
+          if (!r.stale) return true
+          const was = before.get(r.planItemId)
+          const now = plan.items.find((i) => i.planItemId === r.planItemId)
+          return (
+            !!was && !!now && was.intent === now.intent && was.kind === now.kind
+          )
+        })
         state.items = plan.items
         state.overview = plan.overview ?? ''
         state.selectedItem = plan.items[0]?.planItemId ?? ''
@@ -522,6 +540,10 @@ export function bindJob(
       guarded((e) => {
         caughtUp(e.planItemId)
         dropPreview(e.planItemId)
+        // ADR 0065: a failed regeneration drops the item's stale visual. The plan limit and sign-in
+        // block every request rather than fail this item, so the matching stale visual stays then.
+        if (e.code !== 'plan-limit' && e.code !== 'signin-required')
+          dropStale(e.planItemId)
         // Plan limit and sign-in block every item: show that state (cached visuals stay visible in it).
         if (
           !state.records.length ||

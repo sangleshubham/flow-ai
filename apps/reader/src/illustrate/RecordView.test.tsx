@@ -510,3 +510,17 @@ describe('the large view', () => {
     ).toBe('false')
   })
 })
+
+describe('stale fallback badge (ADR 0065)', () => {
+  const text = /This saved illustration is from an earlier version/
+  it('says a stale fallback is from an earlier version, and nothing for a current record', () => {
+    flags({})
+    const { unmount } = render(
+      <RecordView record={make.visualRecord({ stale: true })} />,
+    )
+    expect(screen.getByText(text)).toBeDefined()
+    unmount()
+    render(<RecordView record={make.visualRecord()} />)
+    expect(screen.queryByText(text)).toBeNull()
+  })
+})
