@@ -471,7 +471,7 @@ export async function activate(tab: BookTabLike) {
       }),
     )
     bridge.refreshLocation()
-    await prepareBookRun(own)
+    await prepareOnce(own)
   } catch (e) {
     if (own === generation) activationFailed(e)
   }
@@ -549,16 +549,43 @@ async function prepareBookRun(own: number) {
     else if (request && !saved) void confirmBookRun()
   }
 }
-/** `wholeBook` was turned on over an open book: prepare its whole-book state now. */
+/** The book setup whose whole-book state is being prepared, and that preparation (ADR 0065). */
+let preparing: { own: number; promise: Promise<void> } | null = null
+/** The book setup whose `prepareLater` failed: Retry prepares it again (ADR 0065). */
+let prepareFailedAt: number | null = null
+/** One `prepareBookRun` per book setup at a time: a second caller shares the one in flight. */
+function prepareOnce(own: number): Promise<void> {
+  if (preparing?.own === own) return preparing.promise
+  const promise: Promise<void> = prepareBookRun(own).finally(() => {
+    if (preparing?.promise === promise) preparing = null
+  })
+  preparing = { own, promise }
+  return promise
+}
+/**
+ * `wholeBook` was turned on over an open book: prepare its whole-book state now. ADR 0065: a toggle
+ * while it runs shares it, and a failure is the bar's alone (its Retry), never the section pane's.
+ */
 function prepareLater() {
   const own = generation
   if (!active || bookRunReady) return
-  void prepareBookRun(own).catch((e: unknown) => {
-    if (own === generation) activationFailed(e)
+  prepareOnce(own).catch((e: unknown) => {
+    if (own !== generation) return
+    prepareFailedAt = own
+    pane.bookRun.status = 'error'
+    pane.bookRun.preparing = null
+    pane.bookRun.message = (e as Error).message
   })
 }
 /** ADR 0064: sets the book up again after `activate` failed (the bar's `error` status). */
 export function retryActivate() {
+  // ADR 0065: only the whole-book preparation failed; the book itself is set up.
+  if (prepareFailedAt === generation && active && !activateFailed) {
+    prepareFailedAt = null
+    pane.bookRun.message = ''
+    prepareLater()
+    return preparing?.promise.catch(() => {}) ?? Promise.resolve()
+  }
   if (!activateFailed || !lastTab) return Promise.resolve()
   return activate(lastTab)
 }
@@ -1043,6 +1070,8 @@ export async function setPinned(pinned: boolean) {
 /**
  * Shows the section's current-key plan and the visuals made from it (ADR 0064: records under older
  * keys are not shown as current). True when the section needs no model call, so the dwell is skipped.
+ * ADR 0065: what is not current falls back to the pipeline's stale visuals (marked `stale`, so the
+ * pane says they are from an earlier version), whose IR still parses. They never make it true.
  */
 export async function showCached(): Promise<boolean> {
   if (!active || !pane.section) return false
@@ -1050,7 +1079,9 @@ export async function showCached(): Promise<boolean> {
   const runtime = active
   let cached: Awaited<ReturnType<Pipeline['cachedSection']>>
   try {
-    cached = await runtime.pipeline.cachedSection(section.sectionId)
+    cached = await runtime.pipeline.cachedSection(section.sectionId, {
+      stale: true,
+    })
   } catch {
     return false
   }
@@ -1059,12 +1090,21 @@ export async function showCached(): Promise<boolean> {
   const latest = new Map<string, VisualRecord>()
   for (const r of [...cached.records].sort((a, b) => a.createdAt - b.createdAt))
     latest.set(r.planItemId, r)
+  for (const r of cached.stale?.records ?? [])
+    if (!latest.has(r.planItemId) && displayable(r)) latest.set(r.planItemId, r)
   pane.records = [...latest.values()]
-  pane.items = cached.status.plan?.plan.items ?? []
+  // With no current plan, only the stale plan's items that have a visual to show.
+  pane.items =
+    cached.status.plan?.plan.items ??
+    cached.stale?.plan.plan.items.filter((i) => latest.has(i.planItemId)) ??
+    []
   pane.selectedItem =
     pane.items[0]?.planItemId ?? pane.records[0]?.planItemId ?? ''
   return cached.status.state === 'cached' || cached.status.state === 'no-visual'
 }
+/** ADR 0065: a stale visual is shown only when its IR still parses (traces point at a stored trace). */
+const displayable = (r: VisualRecord) =>
+  r.kind === 'trace' || parsedVisual(r).success
 export function networkChanged() {
   if (!navigator.onLine) {
     currentJob?.cancel()
@@ -1137,7 +1177,8 @@ export async function highlightEvidence(
 export async function updateRecord(record: VisualRecord) {
   // Snapshot/proxy data is converted to plain data for Dexie's structured clone.
   const plain = JSON.parse(JSON.stringify(record)) as VisualRecord
-  await (await getRepos()).visuals.put(plain)
+  // ADR 0065: `stale` marks a fallback in memory only; the stored record never carries it.
+  await (await getRepos()).visuals.put({ ...plain, stale: false })
   pane.records = pane.records.map((r) =>
     r.cacheKey === record.cacheKey ? plain : r,
   )
@@ -1238,6 +1279,14 @@ export const enabledKinds = () =>
     .filter((kind) => kind !== 'template' || pane.preferences.flags.templates)
     .filter((kind) => kind !== 'trace' || pane.preferences.flags.tracer)
     .filter((kind) => kind !== 'html' || pane.preferences.flags.htmlFallback)
-export function parsedVisual(record: VisualRecord) {
-  return IR.safeParse(record.ir)
+/** ADR 0065: never throws, so an old record whose IR no longer fits the schema cannot break the pane. */
+export function parsedVisual(
+  record: VisualRecord,
+): ReturnType<typeof IR.safeParse> {
+  try {
+    return IR.safeParse(record.ir)
+  } catch {
+    // Malformed old data made the parser throw: report it as a failed parse.
+    return IR.safeParse(null)
+  }
 }

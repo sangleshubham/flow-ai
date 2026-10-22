@@ -2052,3 +2052,222 @@ describe('index wait (ADR 0064)', () => {
     expect(llm.calls[0]!.role).toBe('planner')
   })
 })
+
+describe('stale fallback (ADR 0065)', () => {
+  const versions = (over: Partial<Record<Call['role'], string>>) => ({
+    get: (role: Call['role']) => ({
+      version: over[role] ?? '1.0.0',
+      budgetTokens: 12_000,
+    }),
+  })
+  const none = () =>
+    fakeLlm(() => {
+      throw new Error('no model call expected')
+    })
+  const twoItems = () =>
+    plan({
+      items: [
+        make.planItem(),
+        make.planItem({ planItemId: 'p2', intent: 'Second', priority: 2 }),
+      ],
+    })
+  const drawing = (planned = () => plan()) =>
+    fakeLlm(
+      byRole({
+        planner: planned,
+        'extractor.graph': () => make.graphSource(),
+      }),
+    )
+  /** Draws L at t = 100 and returns its plan and visuals. */
+  async function drawn(planned?: () => VisualPlan) {
+    const repos = await seededRepos()
+    const r = await collect(
+      pipelineWith(repos, drawing(planned), { now: () => 100 }).requestSection(
+        L,
+      ),
+    )
+    return {
+      repos,
+      planRecord: r.of('plan')[0]!.record,
+      visuals: r.of('item-ready').map((e) => e.record),
+    }
+  }
+
+  test('a section with no current plan falls back to the newest older plan and its newest visuals, marked stale in memory only', async () => {
+    const { repos, planRecord, visuals } = await drawn()
+    const v1 = visuals[0]!
+    // An even older plan whose p1 meant something else, with its own visual.
+    await repos.plans.put({
+      ...planRecord,
+      cacheKey: 'older-plan',
+      createdAt: 50,
+      plan: plan({ items: [make.planItem({ intent: 'Old intent' })] }),
+    })
+    await repos.visuals.put({ ...v1, cacheKey: 'older-visual', createdAt: 60 })
+    // A regeneration of p1 after the plan: the newest visual for p1 wins.
+    await repos.visuals.put({
+      ...v1,
+      cacheKey: 'regenerated',
+      instruction: 'Fewer nodes',
+      createdAt: 150,
+    })
+    // An item the newest plan does not have.
+    await repos.visuals.put({
+      ...v1,
+      cacheKey: 'unknown-item',
+      planItemId: 'p9',
+      createdAt: 200,
+    })
+    const llm = none()
+    const planner2 = pipelineWith(repos, llm, {
+      prompts: versions({ planner: '2.0.0' }),
+    })
+    const r = await planner2.cachedSection(L, { stale: true })
+    expect(r.status.state).toBe('missing')
+    expect(r.records).toEqual([])
+    expect(r.stale!.plan.cacheKey).toBe(planRecord.cacheKey)
+    expect(r.stale!.records.map((x) => [x.cacheKey, x.stale])).toEqual([
+      ['regenerated', true],
+    ])
+    // Never written back.
+    expect((await repos.visuals.get('regenerated'))!.stale).toBe(false)
+    // Without the option, nothing changes from ADR 0064.
+    expect(await planner2.cachedSection(L)).not.toHaveProperty('stale')
+    expect(llm.calls).toHaveLength(0)
+  })
+
+  test('items whose kind is now off are left out of the fallback', async () => {
+    const { repos, planRecord, visuals } = await drawn()
+    await repos.plans.put({
+      ...planRecord,
+      cacheKey: 'with-trace',
+      createdAt: 150,
+      plan: plan({
+        items: [
+          make.planItem(),
+          make.planItem({
+            planItemId: 'p2',
+            kind: 'trace',
+            codeBlockId: TRACE_CODE_ID,
+          }),
+        ],
+      }),
+    })
+    await repos.visuals.put({ ...visuals[0]!, cacheKey: 'g', createdAt: 160 })
+    await repos.visuals.put({
+      ...visuals[0]!,
+      cacheKey: 't',
+      planItemId: 'p2',
+      kind: 'trace',
+      ir: null,
+      traceKey: 'trace-key',
+      createdAt: 160,
+    })
+    const r = await pipelineWith(repos, none(), {
+      prompts: versions({ planner: '2.0.0' }),
+    }).cachedSection(L, { stale: true })
+    expect(r.stale!.records.map((x) => x.cacheKey)).toEqual(['g'])
+  })
+
+  test('no fallback when the newest older plan has nothing to draw: an even older plan is never used', async () => {
+    const { repos, planRecord } = await drawn()
+    await repos.plans.put({
+      ...planRecord,
+      cacheKey: 'newest-plan',
+      createdAt: 300,
+      plan: plan({ needsVisual: false, reason: 'Intro.', items: [] }),
+    })
+    const r = await pipelineWith(repos, none(), {
+      prompts: versions({ planner: '2.0.0' }),
+    }).cachedSection(L, { stale: true })
+    expect(r.status.state).toBe('missing')
+    expect(r).not.toHaveProperty('stale')
+  })
+
+  test('a fully cached current plan never mixes in stale items', async () => {
+    const { repos, visuals } = await drawn()
+    const v1 = visuals[0]!
+    await repos.visuals.put({ ...v1, cacheKey: 'old-p1', createdAt: 150 })
+    await repos.visuals.put({
+      ...v1,
+      cacheKey: 'old-p2',
+      planItemId: 'p2',
+      createdAt: 150,
+    })
+    const r = await pipelineWith(repos, none(), {
+      now: () => 100,
+    }).cachedSection(L, { stale: true })
+    expect(r.status.state).toBe('cached')
+    expect(r.records.map((x) => x.cacheKey)).toEqual([v1.cacheKey])
+    expect(r).not.toHaveProperty('stale')
+  })
+
+  test('partial: only the items without a current visual fall back, to records made from the current plan', async () => {
+    const { repos, planRecord, visuals } = await drawn(twoItems)
+    const [v1, v2] = visuals.sort((a, b) =>
+      a.planItemId.localeCompare(b.planItemId),
+    )
+    // p2's visual is now under an older key (e.g. an older extractor version).
+    await repos.visuals.delete(v2!.cacheKey)
+    await repos.visuals.put({ ...v2!, cacheKey: 'old-p2', createdAt: 110 })
+    // Made before the current plan: another plan's p2.
+    await repos.visuals.put({ ...v2!, cacheKey: 'before-plan', createdAt: 90 })
+    // A later plan of the section (another flag set) owns everything made after it.
+    await repos.plans.put({
+      ...planRecord,
+      cacheKey: 'later-plan',
+      createdAt: 120,
+    })
+    await repos.visuals.put({ ...v2!, cacheKey: 'after-later', createdAt: 130 })
+    // An older-key record of p1 never shows next to p1's current visual.
+    await repos.visuals.put({ ...v1!, cacheKey: 'old-p1', createdAt: 115 })
+    const r = await pipelineWith(repos, none()).cachedSection(L, {
+      stale: true,
+    })
+    expect(r.status.state).toBe('partial')
+    expect(r.records.map((x) => x.cacheKey)).toEqual([v1!.cacheKey])
+    expect(r.stale!.plan.cacheKey).toBe(planRecord.cacheKey)
+    expect(r.stale!.records.map((x) => [x.cacheKey, x.stale])).toEqual([
+      ['old-p2', true],
+    ])
+    expect((await repos.visuals.get('old-p2'))!.stale).toBe(false)
+  })
+
+  test('a failing fallback read never hides the current records', async () => {
+    const { repos, visuals } = await drawn(twoItems)
+    const [v1, v2] = visuals.sort((a, b) =>
+      a.planItemId.localeCompare(b.planItemId),
+    )
+    await repos.visuals.delete(v2!.cacheKey)
+    await repos.visuals.put({ ...v2!, cacheKey: 'old-p2', createdAt: 110 })
+    vi.spyOn(repos.plans, 'listBySection').mockRejectedValue(
+      new Error('disk is busy'),
+    )
+    const partial = await pipelineWith(repos, none()).cachedSection(L, {
+      stale: true,
+    })
+    expect(partial.status.state).toBe('partial')
+    expect(partial.records.map((x) => x.cacheKey)).toEqual([v1!.cacheKey])
+    expect(partial).not.toHaveProperty('stale')
+    const missing = await pipelineWith(repos, none(), {
+      prompts: versions({ planner: '2.0.0' }),
+    }).cachedSection(L, { stale: true })
+    expect(missing).toEqual({
+      status: { state: 'missing', sectionId: L, visuals: [] },
+      records: [],
+    })
+  })
+
+  test('partial after an extractor version change: the whole plan falls back per item', async () => {
+    const { repos, planRecord, visuals } = await drawn()
+    const r = await pipelineWith(repos, none(), {
+      prompts: versions({ 'extractor.graph': '2.0.0' }),
+    }).cachedSection(L, { stale: true })
+    expect(r.status.state).toBe('partial')
+    expect(r.records).toEqual([])
+    expect(r.stale).toEqual({
+      plan: planRecord,
+      records: [{ ...visuals[0]!, stale: true }],
+    })
+  })
+})

@@ -123,6 +123,107 @@ describe('item failures with cached visuals', () => {
     expect(s.status).toBe('plan-limit')
   })
 })
+describe('stale fallback (ADR 0065)', () => {
+  const item = (planItemId: string, intent: string, kind = 'graph' as const) =>
+    make.planItem({ planItemId, intent, kind })
+  const stale = (planItemId: string) =>
+    make.visualRecord({
+      planItemId,
+      cacheKey: `old-${planItemId}`,
+      stale: true,
+    })
+  const planEvent = (items: ReturnType<typeof item>[]) => ({
+    plan: make.visualPlan({ items }),
+    record: make.planRecord(),
+    partialContext: false,
+    fromCache: false,
+  })
+  const shownWithStale = () => {
+    const s = createPaneState()
+    s.items = [item('p1', 'Same'), item('p2', 'Before'), item('p3', 'Gone')]
+    s.records = [stale('p1'), stale('p2'), stale('p3')]
+    return s
+  }
+
+  it('the fresh plan keeps only stale visuals of the same item (id, intent and kind)', () => {
+    const s = shownWithStale()
+    s.records = [...s.records, make.visualRecord({ planItemId: 'p4' })]
+    const fake = jobFake()
+    bindJob(s, fake.job, () => true, vi.fn())
+    fake.emit(
+      'plan',
+      planEvent([
+        item('p1', 'Same'),
+        item('p2', 'Reused id'),
+        item('p4', 'New'),
+      ]),
+    )
+    // p2's id now means something else; p3 is not in the plan; current records are left alone.
+    expect(s.records.map((r) => r.cacheKey)).toEqual([
+      'old-p1',
+      make.visualRecord().cacheKey,
+    ])
+    expect(s.items.map((i) => i.intent)).toEqual(['Same', 'Reused id', 'New'])
+  })
+
+  it('drops a stale visual whose item changed kind', () => {
+    const s = shownWithStale()
+    const fake = jobFake()
+    bindJob(s, fake.job, () => true, vi.fn())
+    fake.emit('plan', planEvent([item('p1', 'Same', 'sequence' as 'graph')]))
+    expect(s.records).toEqual([])
+  })
+
+  it('a fresh visual replaces the stale one; a failed regeneration drops it instead of showing it as the new item', () => {
+    const s = shownWithStale()
+    const fake = jobFake()
+    bindJob(s, fake.job, () => true, vi.fn())
+    fake.emit('plan', planEvent([item('p1', 'Same'), item('p2', 'Before')]))
+    expect(s.records.map((r) => r.cacheKey)).toEqual(['old-p1', 'old-p2'])
+    const fresh = make.visualRecord({ planItemId: 'p1', cacheKey: 'new-p1' })
+    fake.emit('item-ready', {
+      planItemId: 'p1',
+      record: fresh,
+      fromCache: false,
+    })
+    fake.emit('item-failed', {
+      planItemId: 'p2',
+      code: 'invalid-ir',
+      message: 'no luck',
+    })
+    expect(s.records).toEqual([fresh])
+    expect(s.records[0]!.stale).toBe(false)
+    expect(s.status).toBe('ready')
+  })
+
+  it('a failure with only stale visuals left shows the error, not a mislabelled visual', () => {
+    const s = shownWithStale()
+    const fake = jobFake()
+    bindJob(s, fake.job, () => true, vi.fn())
+    fake.emit('plan', planEvent([item('p1', 'Same')]))
+    fake.emit('item-failed', {
+      planItemId: 'p1',
+      code: 'upstream',
+      message: 'down',
+    })
+    expect(s.records).toEqual([])
+    expect(s.status).toBe('error')
+  })
+
+  it('keeps a matching stale visual when the plan limit or sign-in blocks regeneration', () => {
+    const s = shownWithStale()
+    const fake = jobFake()
+    bindJob(s, fake.job, () => true, vi.fn())
+    fake.emit('plan', planEvent([item('p1', 'Same')]))
+    fake.emit('item-failed', {
+      planItemId: 'p1',
+      code: 'plan-limit',
+      message: 'paused',
+    })
+    expect(s.records.map((r) => r.cacheKey)).toEqual(['old-p1'])
+    expect(s.status).toBe('plan-limit')
+  })
+})
 describe('item previews (ADR 0054)', () => {
   it('shows a preview while the item finishes, then the stored record replaces it', () => {
     const s = createPaneState()
