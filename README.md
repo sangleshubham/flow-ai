@@ -33,8 +33,7 @@
   Then delete the placeholder line below.
 -->
 
-> 🎬 opening a book, the Illustrate pane, diagrams and animations, evidence highlights, and a whole-book run._
-> [screen-capture (1).webm](https://github.com/user-attachments/assets/86898538-f231-4503-9acd-d1fa8e9fe271)
+https://github.com/user-attachments/assets/01364338-2bdf-459e-ab28-4fe92f797f08
 
 
 ## Relationship to Flow
